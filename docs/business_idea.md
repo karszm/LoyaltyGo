@@ -3,6 +3,7 @@
 Data: 2026-08-11
 Status: zatwierdzony brief biznesowy, podstawa pod plan wdrożenia
 Źródło: `docs/idea.md` + ustalenia z sesji analitycznej
+Szczegółowe przypadki użycia: `docs/specs/` (scenariusze Gherkin per aktor)
 
 ---
 
@@ -39,6 +40,8 @@ Efekt dla merchanta: baza zidentyfikowanych klientów, historia ich transakcji i
 4. System zakłada członkostwo i wystawia kartę lojalnościową do Apple Wallet lub Google Wallet (w zależności od systemu telefonu).
 5. Na karcie klient widzi: nazwę i branding merchanta, saldo punktów, dostępne oferty.
 
+Strona zaproszenia zawiera też przycisk **„Odzyskaj kartę"** — klient po zmianie telefonu lub po skasowaniu karty podaje sam adres e-mail i dostaje wiadomością link do swojej karty w programie tego merchanta, bez ponownego podawania danych osobowych. Odzyskiwanie dotyczy zawsze jednego programu — tego, którego zaproszenie zeskanowano.
+
 ### 3.2 Rejestracja transakcji i naliczanie punktów
 
 1. Klient okazuje kartę z Wallet (QR karty).
@@ -52,9 +55,9 @@ Efekt dla merchanta: baza zidentyfikowanych klientów, historia ich transakcji i
 1. Po zeskanowaniu karty SDK zwraca listę dostępnych ofert klienta (kupony jednorazowe, np. „rabat 25% na strzyżenie").
 2. Merchant pyta klienta, czy chce zrealizować kupon.
 3. Po potwierdzeniu merchant **ręcznie** nalicza rabat w SoftPOS, tak aby kwota transakcji się zgadzała.
-4. Kupon zostaje oznaczony jako wykorzystany i znika z listy dostępnych.
+4. Kupon jest konsumowany dopiero przy rejestracji transakcji — SoftPOS przekazuje jego identyfikator razem z kwotą, a naliczenie punktów i zużycie kuponu dzieją się w jednej operacji.
 
-Realizacja kuponu jest zawsze świadomą akcją merchanta — sam skan karty nie konsumuje oferty.
+Realizacja kuponu jest zawsze świadomą akcją merchanta — sam skan karty nie konsumuje oferty. Wskazanie kuponu przed płatnością również niczego nie zużywa, więc nieudana lub porzucona płatność nie pali kuponu.
 
 ## 4. Zasady modelu danych i programu
 
@@ -74,7 +77,7 @@ Baza i logika: merchanci, programy, członkowie, transakcje, oferty i ich realiz
 ### 5.2 Panel merchanta
 Osobna aplikacja frontendowa (React lub inny framework SPA), integrująca się z backendem Supabase przez API/SDK. Supabase pełni rolę wyłącznie backendu — nie hostuje frontu. Zakres v1:
 
-- rejestracja i logowanie merchanta (self-service z landinga),
+- rejestracja i logowanie merchanta (self-service z landinga) — **bez haseł**: link lub kod jednorazowy na adres e-mail albo konto Apple / Google; rejestracja i logowanie to ta sama ścieżka, konto powstaje przy pierwszym udanym uwierzytelnieniu,
 - kreator karty lojalnościowej: nazwa firmy, logo, kolory, opis — mapowane na template passkit.com,
 - konfiguracja przelicznika punktów (punkty za 1 zł),
 - lista klientów lojalnościowych: kto dołączył, saldo punktów, data ostatniej transakcji,
@@ -87,10 +90,13 @@ Strona produktowa opisująca LoyaltyGo i kierująca merchanta do rejestracji w p
 ### 5.4 SDK iOS
 Biblioteka do wbudowania w aplikację SoftPOS:
 
+- inicjalizacja kluczem programu merchanta, pobranym z panelu (projekt nie integruje się z terminalami ani kasami fiskalnymi — SDK żyje wyłącznie w aplikacji SoftPOS),
 - wygenerowanie i wyświetlenie QR zapraszającego do programu,
 - skanowanie QR karty lojalnościowej klienta,
-- `registerTransaction(amount, transaction_id, metadata)`,
-- pobranie listy dostępnych ofert klienta i oznaczenie oferty jako zrealizowanej.
+- `registerTransaction(amount, transaction_id, coupon_ids, metadata)` — `transaction_id` pochodzi z SoftPOS i jest kluczem idempotencji w zakresie merchanta; w odpowiedzi wraca wewnętrzny identyfikator transakcji (UUID), naliczone punkty, saldo i wynik konsumpcji kuponów,
+- pobranie listy dostępnych ofert klienta,
+- anulowanie naliczenia punktów przy zwrocie transakcji,
+- kolejkowanie transakcji przy braku sieci i synchronizacja po jej odzyskaniu.
 
 ## 6. Poza zakresem v1 (decyzje świadome)
 
@@ -129,7 +135,9 @@ Pełny przepływ demo end-to-end na realnych urządzeniach:
 | Kto jest administratorem danych klienta — merchant czy operator | RODO, wzorce umów, treść zgód przy onboardingu | Przed pilotem z realnymi klientami |
 | Koszt passkit.com per wystawiona karta | Bezpośrednio determinuje model cenowy i marżę | Przed decyzją o monetyzacji |
 | Wygasanie ofert: data ważności, limit na klienta | Zakres kreatora ofert | Podczas planowania panelu |
-| Wielu użytkowników / wiele kas u jednego merchanta | Model uprawnień w panelu i uwierzytelnianie SDK | Podczas projektu backendu |
-| Brak sieci na SoftPOS w momencie transakcji | Ryzyko utraty transakcji; ewentualna kolejka offline w SDK | Podczas projektu SDK |
+| Jeden klucz programu na merchanta, bez rozróżnienia urządzeń | Wyciek klucza wymaga wymiany dla wszystkich instalacji SoftPOS danego merchanta | Przed pilotem |
+| Unikalność `transaction_id` zależy od SoftPOS | Powtórzony numer u tego samego merchanta zostanie uznany za duplikat i klient straci punkty | Do potwierdzenia z vendorem SoftPOS |
+| Rabat udzielony, a kupon nieskonsumowany | Wyścig lub dezaktywacja oferty między skanem a rejestracją: merchant traci marżę, klient zachowuje kupon | Świadomy kompromis modelu jednofazowego |
+| Brak sieci na SoftPOS w momencie transakcji | Kolejka offline w SDK; oferty niedostępne offline | Zaprojektowane, do weryfikacji w testach |
 | Zależność od zewnętrznego vendora SoftPOS | Realne wdrożenie wymaga partnera; demo v1 może działać na własnej aplikacji testowej | Po PoC |
 | Statyczny QR zaproszenia | Brak powiązania zaproszenia z konkretną transakcją — klient nie dostaje punktów za wizytę, na której dołączył | Świadomy kompromis v1 |
