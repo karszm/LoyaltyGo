@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-12T00:00:00Z",
+  "title": "Design System: LoyaltyGo Landing",
+  "extensions": {
+    "colorMeta": {
+      "amber": { "role": "primary", "displayName": "Amber CTA", "canonical": "#d97a32", "tonalRamp": ["oklch(15% 0.04 55)", "oklch(26% 0.07 55)", "oklch(38% 0.1 55)", "oklch(50% 0.13 55)", "oklch(61% 0.14 55)", "oklch(73% 0.12 55)", "oklch(84% 0.08 55)", "oklch(95% 0.04 55)"] },
+      "amber-hover": { "role": "primary", "displayName": "Amber CTA Hover", "canonical": "#e28842", "tonalRamp": ["oklch(15% 0.04 55)", "oklch(26% 0.07 55)", "oklch(38% 0.1 55)", "oklch(50% 0.13 55)", "oklch(61% 0.14 55)", "oklch(73% 0.12 55)", "oklch(84% 0.08 55)", "oklch(95% 0.04 55)"] },
+      "amber-ink": { "role": "primary", "displayName": "CTA Ink (text on amber)", "canonical": "#1a120a", "tonalRamp": ["oklch(15% 0.02 60)", "oklch(26% 0.03 60)", "oklch(38% 0.04 60)", "oklch(50% 0.05 60)", "oklch(61% 0.05 60)", "oklch(73% 0.04 60)", "oklch(84% 0.03 60)", "oklch(95% 0.02 60)"] },
+      "amber-strong": { "role": "primary", "displayName": "Deep Amber (nav CTA, white 13px text holds 4.5:1)", "canonical": "#b0530f", "tonalRamp": ["oklch(15% 0.04 55)", "oklch(26% 0.07 55)", "oklch(38% 0.1 55)", "oklch(50% 0.13 55)", "oklch(61% 0.14 55)", "oklch(73% 0.12 55)", "oklch(84% 0.08 55)", "oklch(95% 0.04 55)"] },
+      "amber-strong-hover": { "role": "primary", "displayName": "Deep Amber Hover", "canonical": "#c25e14", "tonalRamp": ["oklch(15% 0.04 55)", "oklch(26% 0.07 55)", "oklch(38% 0.1 55)", "oklch(50% 0.13 55)", "oklch(61% 0.14 55)", "oklch(73% 0.12 55)", "oklch(84% 0.08 55)", "oklch(95% 0.04 55)"] },
+      "accent": { "role": "accent", "displayName": "Violet Residue (brand traces only — not a CTA color)", "canonical": "#5e6ad2", "tonalRamp": ["oklch(15% 0.09 277)", "oklch(26% 0.11 277)", "oklch(38% 0.13 277)", "oklch(50% 0.14 277)", "oklch(61% 0.14 277)", "oklch(73% 0.11 277)", "oklch(84% 0.07 277)", "oklch(95% 0.03 277)"] },
+      "accent-hover": { "role": "accent", "displayName": "Violet Hover (dormant — only the unused .btn--primary consumes it)", "canonical": "#6e79dd", "tonalRamp": ["oklch(15% 0.09 277)", "oklch(26% 0.11 277)", "oklch(38% 0.13 277)", "oklch(50% 0.14 277)", "oklch(61% 0.14 277)", "oklch(73% 0.11 277)", "oklch(84% 0.07 277)", "oklch(95% 0.03 277)"] },
+      "bg": { "role": "background", "displayName": "Ground", "canonical": "#08090a", "tonalRamp": ["oklch(15% 0.005 255)", "oklch(26% 0.005 255)", "oklch(38% 0.005 255)", "oklch(50% 0.005 255)", "oklch(61% 0.005 255)", "oklch(73% 0.005 255)", "oklch(84% 0.005 255)", "oklch(95% 0.005 255)"] },
+      "bg-raised": { "role": "background", "displayName": "Raised Panel", "canonical": "#101113", "tonalRamp": ["oklch(15% 0.005 255)", "oklch(26% 0.005 255)", "oklch(38% 0.005 255)", "oklch(50% 0.005 255)", "oklch(61% 0.005 255)", "oklch(73% 0.005 255)", "oklch(84% 0.005 255)", "oklch(95% 0.005 255)"] },
+      "text-1": { "role": "text", "displayName": "Text 1 — Off-White", "canonical": "#f7f8f8", "tonalRamp": ["oklch(15% 0.003 250)", "oklch(26% 0.003 250)", "oklch(38% 0.003 250)", "oklch(50% 0.003 250)", "oklch(61% 0.003 250)", "oklch(73% 0.003 250)", "oklch(84% 0.003 250)", "oklch(95% 0.003 250)"] },
+      "text-2": { "role": "text", "displayName": "Text 2 — Cool Silver", "canonical": "#d0d6e0", "tonalRamp": ["oklch(15% 0.01 255)", "oklch(26% 0.01 255)", "oklch(38% 0.01 255)", "oklch(50% 0.01 255)", "oklch(61% 0.01 255)", "oklch(73% 0.01 255)", "oklch(84% 0.01 255)", "oklch(95% 0.01 255)"] },
+      "text-3": { "role": "text", "displayName": "Text 3 — Muted Gray", "canonical": "#8a8f98", "tonalRamp": ["oklch(15% 0.008 255)", "oklch(26% 0.008 255)", "oklch(38% 0.008 255)", "oklch(50% 0.008 255)", "oklch(61% 0.008 255)", "oklch(73% 0.008 255)", "oklch(84% 0.008 255)", "oklch(95% 0.008 255)"] },
+      "text-4": { "role": "text", "displayName": "Text 4 — Legibility Floor", "canonical": "#767b84", "tonalRamp": ["oklch(15% 0.008 255)", "oklch(26% 0.008 255)", "oklch(38% 0.008 255)", "oklch(50% 0.008 255)", "oklch(61% 0.008 255)", "oklch(73% 0.008 255)", "oklch(84% 0.008 255)", "oklch(95% 0.008 255)"] },
+      "border": { "role": "border", "displayName": "Hairline Border", "canonical": "#23252a", "tonalRamp": ["oklch(15% 0.006 260)", "oklch(26% 0.006 260)", "oklch(38% 0.006 260)", "oklch(50% 0.006 260)", "oklch(61% 0.006 260)", "oklch(73% 0.006 260)", "oklch(84% 0.006 260)", "oklch(95% 0.006 260)"] },
+      "border-strong": { "role": "border", "displayName": "Strong Border", "canonical": "#34363c", "tonalRamp": ["oklch(15% 0.006 260)", "oklch(26% 0.006 260)", "oklch(38% 0.006 260)", "oklch(50% 0.006 260)", "oklch(61% 0.006 260)", "oklch(73% 0.006 260)", "oklch(84% 0.006 260)", "oklch(95% 0.006 260)"] },
+      "green": { "role": "accent", "displayName": "Status Green", "canonical": "#27a644", "tonalRamp": ["oklch(15% 0.1 148)", "oklch(26% 0.12 148)", "oklch(38% 0.15 148)", "oklch(50% 0.17 148)", "oklch(61% 0.17 148)", "oklch(73% 0.14 148)", "oklch(84% 0.1 148)", "oklch(95% 0.05 148)"] },
+      "red": { "role": "accent", "displayName": "Status Red", "canonical": "#eb5757", "tonalRamp": ["oklch(15% 0.1 25)", "oklch(26% 0.12 25)", "oklch(38% 0.15 25)", "oklch(50% 0.18 25)", "oklch(61% 0.19 25)", "oklch(73% 0.15 25)", "oklch(84% 0.1 25)", "oklch(95% 0.04 25)"] },
+      "salon": { "role": "accent", "displayName": "Salon Raspberry (merchant brand, page-foreign)", "canonical": "#8c3a52", "tonalRamp": ["oklch(15% 0.07 5)", "oklch(26% 0.09 5)", "oklch(38% 0.11 5)", "oklch(48% 0.11 5)", "oklch(61% 0.1 5)", "oklch(73% 0.08 5)", "oklch(84% 0.06 5)", "oklch(95% 0.03 5)"] },
+      "salon-deep": { "role": "accent", "displayName": "Salon Deep", "canonical": "#6f2c40", "tonalRamp": ["oklch(15% 0.07 5)", "oklch(26% 0.09 5)", "oklch(38% 0.11 5)", "oklch(48% 0.11 5)", "oklch(61% 0.1 5)", "oklch(73% 0.08 5)", "oklch(84% 0.06 5)", "oklch(95% 0.03 5)"] },
+      "salon-tint": { "role": "accent", "displayName": "Salon Tint (≥4.5:1 on raspberry)", "canonical": "#f2cdd8", "tonalRamp": ["oklch(15% 0.04 5)", "oklch(26% 0.05 5)", "oklch(38% 0.06 5)", "oklch(50% 0.06 5)", "oklch(61% 0.06 5)", "oklch(73% 0.05 5)", "oklch(84% 0.05 5)", "oklch(95% 0.03 5)"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero H1 only; Inter Variable 700 with -0.02em tracking." },
+      "headline": { "displayName": "Headline", "purpose": "Section H2s at weight 590, measure capped at 22-24ch; final CTA scales to clamp(30px, 4vw, 46px)." },
+      "title": { "displayName": "Title", "purpose": "Pillar/step H3s; scales 16-22px by context." },
+      "lead": { "displayName": "Story Lead", "purpose": "Section-opening editorial paragraphs, 19px/30px, max 62ch. Hero subtitle runs its own 17px/27px step." },
+      "body": { "displayName": "Body", "purpose": "Default prose (set on body element)." },
+      "body-small": { "displayName": "Body Small", "purpose": "Working size for lists and descriptions, 15px with -0.165px tracking." },
+      "body-xs": { "displayName": "Body XS", "purpose": "Dense cells and micro-copy: versus cells, lever descriptions, section micros, panel features; 14px/21-22px." },
+      "label": { "displayName": "Label", "purpose": "Nav links, table cells, fineprint, footer; 13px with -0.13px tracking." },
+      "caption": { "displayName": "Caption", "purpose": "Figcaptions, table headers, timestamps; 12px." },
+      "micro": { "displayName": "Micro Label", "purpose": "Uppercase pill chips and Wallet field labels; 10px/590/0.08em, always uppercase. Finale chip and mobile versus labels run the 11px/0.06em variant." },
+      "mono-data": { "displayName": "Mono Data", "purpose": "Numeric data only (points, amounts, calculator outputs) with tabular-nums; size contextual, 13px cells to 34-48px display values at weight 640. Berkeley Mono from the pinned world was substituted by the ui-monospace system stack; the stack is normative." }
+    },
+    "shadows": [
+      { "name": "object-shadow", "value": "0 24px 48px -16px rgba(0, 0, 0, 0.55)", "purpose": "The Wallet card only — a depicted physical object. Page chrome never casts shadows (The One Shadow Rule)." },
+      { "name": "print-artifact-shadow", "value": "0 12px 28px -12px rgba(0, 0, 0, 0.5)", "purpose": "The printed invite QR tile and the coupon slip inside step-visual panels — depicted print artifacts, not chrome." }
+    ],
+    "motion": [
+      { "name": "micro-transition", "value": "140ms ease", "purpose": "Default for color, border-color, and transform micro-states (button hover, nav links, FAQ row wash). The page has no scroll-driven motion; the former journey crossfade was removed." },
+      { "name": "chevron-rotate", "value": "transform 200ms ease", "purpose": "FAQ accordion chevron 180deg rotation on open." },
+      { "name": "active-press", "value": "translateY(1px)", "purpose": "CTA button active state." }
+    ],
+    "breakpoints": [
+      { "name": "table-collapse", "value": "640px" },
+      { "name": "nav-collapse", "value": "720px" },
+      { "name": "main-collapse", "value": "860px" }
+    ],
+    "materials": [
+      { "name": "nav-glass", "value": "background: rgba(8, 9, 10, 0.8); backdrop-filter: blur(20px)", "purpose": "Sticky nav." },
+      { "name": "ios-glass", "value": "background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px)", "purpose": "Lock-screen toast imitating iOS material." },
+      { "name": "head-wash", "value": "rgba(255, 255, 255, 0.02)", "purpose": "Versus-table header row tint." },
+      { "name": "hover-wash", "value": "rgba(255, 255, 255, 0.04)", "purpose": "FAQ summary hover row." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Amber CTA Button",
+      "kind": "button",
+      "refersTo": "button-amber",
+      "description": "The action voice: warm amber fill with dark warm ink; hero and final CTA. Focus ring stays violet.",
+      "html": "<button class=\"ds-btn-amber\">Załóż darmowy program</button>",
+      "css": ".ds-btn-amber { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 20px; border: none; border-radius: 8px; background: #d97a32; color: #1a120a; font-family: 'Inter Variable', -apple-system, sans-serif; font-size: 15px; font-weight: 590; letter-spacing: -0.165px; cursor: pointer; transition: background-color 140ms ease, transform 140ms ease; } .ds-btn-amber:hover { background: #e28842; } .ds-btn-amber:active { transform: translateY(1px); } .ds-btn-amber:focus-visible { outline: 2px solid var(--accent, #5e6ad2); outline-offset: 2px; }"
+    },
+    {
+      "name": "Nav CTA Button",
+      "kind": "button",
+      "refersTo": "button-amber-strong",
+      "description": "Compact nav variant: deeper amber so white 13px text holds 4.5:1.",
+      "html": "<button class=\"ds-btn-amber-strong\">Załóż program</button>",
+      "css": ".ds-btn-amber-strong { display: inline-flex; align-items: center; justify-content: center; height: 34px; padding: 0 16px; border: none; border-radius: 8px; background: #b0530f; color: #ffffff; font-family: 'Inter Variable', -apple-system, sans-serif; font-size: 13px; font-weight: 590; letter-spacing: -0.13px; cursor: pointer; transition: background-color 140ms ease, transform 140ms ease; } .ds-btn-amber-strong:hover { background: #c25e14; } .ds-btn-amber-strong:active { transform: translateY(1px); } .ds-btn-amber-strong:focus-visible { outline: 2px solid var(--accent, #5e6ad2); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action beside a primary; outline only.",
+      "html": "<button class=\"ds-btn-ghost\">Zobacz, jak to działa</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 20px; border-radius: 8px; background: transparent; border: 1px solid var(--border-strong, #34363c); color: var(--text-2, #d0d6e0); font-family: 'Inter Variable', -apple-system, sans-serif; font-size: 15px; font-weight: 590; letter-spacing: -0.165px; cursor: pointer; transition: border-color 140ms ease, color 140ms ease; } .ds-btn-ghost:hover { border-color: var(--text-4, #767b84); color: var(--text-1, #f7f8f8); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--accent, #5e6ad2); outline-offset: 2px; }"
+    },
+    {
+      "name": "Demo Chip",
+      "kind": "chip",
+      "refersTo": "demo-chip",
+      "description": "Uppercase provenance pill on illustrative artifacts (journey copy column, clienteling stage; the hero is deliberately unlabeled).",
+      "html": "<span class=\"ds-demo-chip\">Widok ilustracyjny</span>",
+      "css": ".ds-demo-chip { display: inline-block; font-family: 'Inter Variable', -apple-system, sans-serif; font-size: 10px; font-weight: 590; line-height: 15px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-4, #767b84); border: 1px solid var(--border, #23252a); border-radius: 9999px; padding: 2px 12px; background: var(--bg, #08090a); }"
+    },
+    {
+      "name": "Wallet Card",
+      "kind": "custom",
+      "refersTo": "wallet-card",
+      "description": "Signature: the merchant-branded Apple Wallet pass; the only foreign color on the page and the largest shadow. Fans into a static three-state deck in the journey section.",
+      "html": "<div class=\"ds-wallet-card\"><div class=\"ds-wc-head\"><div class=\"ds-wc-logo\">K</div><div class=\"ds-wc-brand\"><span class=\"ds-wc-name\">Studio Kasia</span><span class=\"ds-wc-kind\">Karta stałej klientki</span></div></div><div class=\"ds-wc-fields\"><div class=\"ds-wc-field\"><span class=\"ds-wc-label\">Punkty</span><span class=\"ds-wc-value\">240<span class=\"ds-wc-unit\"> pkt</span></span></div><div class=\"ds-wc-field\"><span class=\"ds-wc-label\">Ostatnia wizyta</span><span class=\"ds-wc-small\">5 dni temu</span></div></div><div class=\"ds-wc-foot\"><span class=\"ds-wc-label\">Członkini</span><span class=\"ds-wc-small\">Marta Wiśniewska</span></div></div>",
+      "css": ".ds-wallet-card { width: min(340px, 100%); background: linear-gradient(160deg, var(--salon, #8c3a52) 0%, var(--salon-deep, #6f2c40) 100%); border-radius: 16px; padding: 20px; color: #fff; box-shadow: 0 24px 48px -16px rgba(0, 0, 0, 0.55); display: flex; flex-direction: column; gap: 20px; font-family: 'Inter Variable', -apple-system, sans-serif; } .ds-wc-head { display: flex; align-items: center; gap: 12px; } .ds-wc-logo { width: 34px; height: 34px; border-radius: 9999px; background: rgba(255, 255, 255, 0.14); display: grid; place-items: center; font-weight: 640; font-size: 15px; } .ds-wc-brand { display: flex; flex-direction: column; gap: 2px; } .ds-wc-name { font-size: 15px; font-weight: 640; letter-spacing: -0.165px; } .ds-wc-kind { font-size: 12px; line-height: 16.8px; color: var(--salon-tint, #f2cdd8); } .ds-wc-fields { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; } .ds-wc-field { display: flex; flex-direction: column; gap: 4px; } .ds-wc-label { font-size: 10px; font-weight: 590; line-height: 15px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--salon-tint, #f2cdd8); } .ds-wc-value { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-variant-numeric: tabular-nums; font-size: 34px; line-height: 1.05; font-weight: 640; } .ds-wc-unit { font-size: 15px; font-weight: 460; color: var(--salon-tint, #f2cdd8); } .ds-wc-small { font-size: 13px; line-height: 19.5px; } .ds-wc-foot { display: flex; flex-direction: column; gap: 4px; }"
+    },
+    {
+      "name": "Lock Toast",
+      "kind": "custom",
+      "refersTo": "lock-toast",
+      "description": "Signature: iOS lock-screen Wallet notification — the push channel the product claims.",
+      "html": "<div class=\"ds-lock-toast\"><div class=\"ds-lt-icon\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 18 18\" fill=\"none\"><rect x=\"2\" y=\"3\" width=\"14\" height=\"12\" rx=\"2.5\" fill=\"#fff\" fill-opacity=\"0.9\"/><path d=\"M2 6.5h14\" stroke=\"#8c3a52\" stroke-width=\"1.6\"/><path d=\"M2 9.5h14\" stroke=\"#5e6ad2\" stroke-width=\"1.6\"/></svg></div><div class=\"ds-lt-body\"><div class=\"ds-lt-row\"><span class=\"ds-lt-app\">Wallet · Studio Kasia</span><span class=\"ds-lt-time\">teraz</span></div><p class=\"ds-lt-text\">Masz nowy kupon od Studio Kasia — otwórz kartę, żeby zobaczyć szczegóły.</p></div></div>",
+      "css": ".ds-lock-toast { display: flex; gap: 12px; align-items: flex-start; width: min(340px, 100%); padding: 12px 16px; border-radius: 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); font-family: 'Inter Variable', -apple-system, sans-serif; } .ds-lt-icon { width: 34px; height: 34px; border-radius: 8px; background: #1a1b1e; display: grid; place-items: center; flex-shrink: 0; } .ds-lt-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; } .ds-lt-row { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; } .ds-lt-app { font-size: 12px; line-height: 16.8px; font-weight: 590; color: var(--text-1, #f7f8f8); } .ds-lt-time { font-size: 12px; line-height: 16.8px; color: var(--text-3, #8a8f98); } .ds-lt-text { margin: 0; font-size: 13px; line-height: 19.5px; letter-spacing: -0.13px; color: var(--text-2, #d0d6e0); }"
+    },
+    {
+      "name": "Panel Table",
+      "kind": "custom",
+      "refersTo": "panel-table",
+      "description": "Signature: Linear issue-list grammar for the merchant panel client list; status dots, mono numerals. Anonymous variant header: Wizyta / Zapłacono / Wróci? / Kontakt.",
+      "html": "<div class=\"ds-panel-table\"><div class=\"ds-pt-head\"><span>Klientka</span><span class=\"ds-pt-num\">Punkty</span><span>Ostatnia wizyta</span><span>Status</span></div><div class=\"ds-pt-row\"><span class=\"ds-pt-name\">Ewa Nowak</span><span class=\"ds-pt-num ds-pt-mono\">640</span><span class=\"ds-pt-visit\">wczoraj</span><span class=\"ds-pt-status ds-pt-status--ok\"><span class=\"ds-pt-dot\"></span>aktywna</span></div><div class=\"ds-pt-row\"><span class=\"ds-pt-name\">Marta Wiśniewska</span><span class=\"ds-pt-num ds-pt-mono\">240</span><span class=\"ds-pt-visit\">8 tyg. temu</span><span class=\"ds-pt-status ds-pt-status--warn\"><span class=\"ds-pt-dot\"></span>znika</span></div></div>",
+      "css": ".ds-panel-table { width: 100%; border: 1px solid var(--border, #23252a); border-radius: 12px; background: var(--bg-raised, #101113); overflow: hidden; font-family: 'Inter Variable', -apple-system, sans-serif; font-size: 13px; line-height: 19.5px; letter-spacing: -0.13px; color: var(--text-2, #d0d6e0); } .ds-pt-head, .ds-pt-row { display: grid; grid-template-columns: 1.5fr 0.7fr 1fr 0.9fr; gap: 16px; align-items: center; padding: 12px 16px; } .ds-pt-head { font-size: 12px; line-height: 16.8px; color: var(--text-4, #767b84); border-bottom: 1px solid var(--border, #23252a); } .ds-pt-row + .ds-pt-row { border-top: 1px solid var(--border, #23252a); } .ds-pt-name { color: var(--text-1, #f7f8f8); font-weight: 590; } .ds-pt-visit { color: var(--text-3, #8a8f98); } .ds-pt-num { text-align: right; } .ds-pt-mono { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-variant-numeric: tabular-nums; } .ds-pt-status { display: inline-flex; align-items: center; gap: 6px; color: var(--text-3, #8a8f98); } .ds-pt-dot { width: 7px; height: 7px; border-radius: 9999px; flex-shrink: 0; } .ds-pt-status--ok .ds-pt-dot { background: var(--green, #27a644); } .ds-pt-status--warn { color: var(--red, #eb5757); } .ds-pt-status--warn .ds-pt-dot { background: var(--red, #eb5757); }"
+    },
+    {
+      "name": "FAQ Item",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Native details accordion row with hairline dividers and rotating chevron.",
+      "html": "<details class=\"ds-faq-item\"><summary>Czy moi klienci muszą instalować aplikację?<svg class=\"ds-faq-chevron\" width=\"14\" height=\"14\" viewBox=\"0 0 14 14\" fill=\"none\"><path d=\"M3.5 5.5 7 9l3.5-3.5\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></summary><p>Nie. Karta lojalnościowa działa w Apple Wallet i Google Wallet — aplikacjach, które Twoi klienci już mają na telefonie.</p></details>",
+      "css": ".ds-faq-item { border-top: 1px solid var(--border, #23252a); border-bottom: 1px solid var(--border, #23252a); font-family: 'Inter Variable', -apple-system, sans-serif; background: var(--bg, #08090a); } .ds-faq-item summary { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 20px 12px; font-size: 15px; font-weight: 590; letter-spacing: -0.165px; color: var(--text-1, #f7f8f8); cursor: pointer; list-style: none; border-radius: 6px; transition: background-color 140ms ease; } .ds-faq-item summary::-webkit-details-marker { display: none; } .ds-faq-item summary:hover { background: rgba(255, 255, 255, 0.04); } .ds-faq-chevron { flex-shrink: 0; color: var(--text-4, #767b84); transition: transform 200ms ease; } .ds-faq-item[open] .ds-faq-chevron { transform: rotate(180deg); } .ds-faq-item p { margin: 0; padding: 0 12px 20px; font-size: 15px; line-height: 24px; letter-spacing: -0.165px; color: var(--text-3, #8a8f98); max-width: 60ch; }"
+    },
+    {
+      "name": "Range Field",
+      "kind": "input",
+      "refersTo": null,
+      "description": "Calculator slider: hairline track, off-white thumb, live mono output.",
+      "html": "<div class=\"ds-calc-field\"><label for=\"ds-range\">Średnia wartość wizyty</label><div class=\"ds-calc-row\"><input type=\"range\" id=\"ds-range\" min=\"20\" max=\"1000\" step=\"10\" value=\"150\" /><output for=\"ds-range\">150 zł</output></div></div>",
+      "css": ".ds-calc-field { font-family: 'Inter Variable', -apple-system, sans-serif; background: var(--bg-raised, #101113); padding: 16px; border: 1px solid var(--border, #23252a); border-radius: 12px; } .ds-calc-field label { display: block; font-size: 13px; line-height: 19.5px; letter-spacing: -0.13px; color: var(--text-3, #8a8f98); margin-bottom: 8px; } .ds-calc-row { display: flex; align-items: center; gap: 16px; } .ds-calc-row input[type='range'] { flex: 1; appearance: none; -webkit-appearance: none; height: 4px; border-radius: 9999px; background: var(--border-strong, #34363c); outline-offset: 6px; } .ds-calc-row input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 9999px; background: var(--text-1, #f7f8f8); border: none; cursor: grab; } .ds-calc-row input[type='range']::-moz-range-thumb { width: 16px; height: 16px; border-radius: 9999px; background: var(--text-1, #f7f8f8); border: none; cursor: grab; } .ds-calc-row input[type='range']:focus-visible { outline: 2px solid var(--accent, #5e6ad2); } .ds-calc-row output { min-width: 72px; text-align: right; font-size: 15px; color: var(--text-1, #f7f8f8); font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-variant-numeric: tabular-nums; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Case Study Console",
+    "overview": "One merchant's story told on product-console material. The page borrows Linear's dark-first system — a near-black ground (#08090a), cool off-white type (#f7f8f8), hairline borders, small utilitarian radii — and uses it not for a feature grid but for an editorial case story: Pani Kasia's salon, from anonymous till to named regulars. The chrome is quiet and data-literate (mono numerals, issue-list tables, status dots) so that the warm objects on the page — the raspberry merchant-branded Wallet card and the amber CTA — read as heat against a cold console.\n\nRestraint is the personality, but the accent story changed in live iteration. The first build spent a single blue-violet (#5e6ad2) on the CTA; user-accepted sessions replaced it with a warm amber action voice (#d97a32 with near-black ink; #b0530f with white text at nav size). Violet was not removed — it survives as residual brand traces (wordmark \"Go\", focus ring, text selection, one mobile table label, the favicon). Everything else earns hierarchy through a four-step gray text scale, weight shifts on Inter Variable's axis, and hairline seams instead of boxes or shadows. Sections breathe on a 128px rhythm and are separated by 1px borders, never background changes.\n\nTwo deliberate deviations from the pinned Linear reference are normative here: the quaternary text tone was lightened from Linear's #62666d to #767b84 so it holds 4.5:1 on #08090a, and Berkeley Mono (commercial) was substituted with the ui-monospace system stack as a font concession. The build wins; do not \"correct\" these back.",
+    "keyCharacteristics": [
+      "Near-black single-surface page; depth from bg-raised (#101113) panels + hairline borders, not shadows",
+      "One warm amber action voice, spent only on CTA buttons; violet survives only as brand traces",
+      "One foreign color family: the raspberry salon card (#8c3a52) — the illustrative merchant's brand, never page chrome",
+      "Inter Variable everywhere; mono strictly for data; uppercase 10–11px pill chips for provenance labels",
+      "Editorial case-story layout: asymmetric two-column grids, story leads, a static fanned card deck; motion is micro-only"
+    ],
+    "rules": [
+      { "name": "The Amber Action Rule", "body": "Amber exists only as button fill, in two grades picked by label size: #d97a32 with #1a120a ink at 15–16px (hero and final CTA), #b0530f with white at the 13px nav size. It never colors text, borders, icons, or chrome — the CTA is the only heat the console emits.", "section": "colors" },
+      { "name": "The Violet Residue Rule", "body": "Violet #5e6ad2 is no longer an action color. It persists only as brand traces — the wordmark \"Go\", the focus-visible outline, text selection, the mobile versus-table \"LoyaltyGo\" label, the favicon. Do not grow its territory and do not put it back on buttons; the .btn--primary class in global.css is dormant, not an invitation.", "section": "colors" },
+      { "name": "The Her-Brand-Not-Ours Rule", "body": "The salon palette exists only inside merchant-branded artifacts (Wallet card, coupon slip, lock-toast app icon). It never colors page chrome, headings, buttons, or backgrounds. Any future illustrative merchant gets its own foreign palette with a companion tint that passes 4.5:1 on its own ground.", "section": "colors" },
+      { "name": "The Legibility Floor Rule", "body": "Every text color must hold 4.5:1 on its own ground. This is why --text-4 is #767b84 and not Linear's #62666d, and why the nav CTA deepens its amber to #b0530f under white 13px text; inherit the values, not their sources.", "section": "colors" },
+      { "name": "The Mono-Is-Data Rule", "body": "The monospace face is reserved for numeric data — points, złoty amounts, calculator outputs — always with tabular figures. Never mono for prose, headings, or labels.", "section": "typography" },
+      { "name": "The Variable Weight Rule", "body": "Weights are Inter Variable axis values, not the standard grid: 400 body, 460 soft emphasis, 590 default heading/semibold, 640 strong, 700 hero display only. Use these exact stops.", "section": "typography" },
+      { "name": "The One Shadow Rule", "body": "Page chrome (panels, tables, buttons, nav) never casts shadows; raised tone + hairline border is the elevation grammar. Only depicted physical artifacts (the Wallet card, the printed QR tile, the coupon slip) may cast one, from the two-value shadow vocabulary.", "section": "elevation" },
+      { "name": "The Labeled Artifact Rule", "body": "Illustrative artifacts that could pass for real data carry a provenance mark — a pill chip or a figcaption ending \"Widok ilustracyjny.\" Current census: journey deck (chip on its copy column), clienteling stage (chip), both panel tables (figcaptions), finale (scenario chip). The hero stage is the one sanctioned exception (user decision 2026-08-12); step visuals speak only through aria-labels.", "section": "components" }
+    ],
+    "dos": [
+      "Do spend amber only on CTA buttons, grade by label size: #d97a32 + #1a120a ink at 15–16px, #b0530f + white at the 13px nav size.",
+      "Do build hierarchy with the four-step text ramp (#f7f8f8 → #d0d6e0 → #8a8f98 → #767b84) and Inter Variable weight stops (400/460/590/640/700) before reaching for color or size.",
+      "Do separate and outline with 1px #23252a hairlines and raise surfaces with #101113 — the whole depth grammar.",
+      "Do set every number in the ui-monospace stack with tabular-nums.",
+      "Do mark illustrative artifacts with an uppercase 10–11px pill chip or a \"Widok ilustracyjny.\" figcaption — the hero stage is the one sanctioned unlabeled exception (user decision 2026-08-12).",
+      "Do keep micro-transitions at 140ms ease (200ms for the FAQ chevron) and respect prefers-reduced-motion globally (already enforced in global.css)."
+    ],
+    "donts": [
+      "Don't put violet back on buttons or grow its territory — #5e6ad2 is residue (wordmark \"Go\", focus ring, selection, mobile versus label, favicon), and the dormant .btn--primary class is not an invitation.",
+      "Don't use the salon raspberry family (#8c3a52 / #6f2c40 / #f2cdd8) outside merchant-branded artifacts — it is deliberately foreign to the page.",
+      "Don't add box-shadows to page chrome; only depicted physical artifacts (Wallet card, printed QR tile, coupon slip) cast one.",
+      "Don't darken quaternary text back to Linear's #62666d — #767b84 is the recorded legibility floor on #08090a.",
+      "Don't use pure #ffffff for page text; white lives inside merchant artifacts and on the deep-amber nav CTA only.",
+      "Don't use mono for prose or labels, or introduce a second display face.",
+      "Don't use filled/emoji iconography — icons are 1.5px-stroke line glyphs in currentColor, usually inside bordered rounded tiles.",
+      "Don't center-set body copy; centered text is reserved for the final CTA section.",
+      "Don't reintroduce scroll-driven motion; the journey deck is deliberately static, and the page's only script is the LTV calculator."
+    ]
+  }
+}
