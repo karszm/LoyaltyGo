@@ -7,6 +7,10 @@ import PanelTable from '../components/PanelTable.astro';
 // The merchant panel does not exist yet; its footer entry is a "(wkrótce)" placeholder.
 // Waitlist submissions go to Supabase — configure landing_page/.env (see .env.example).
 
+// TODO(launch): flip to true (and restore src/pages/_platnosci-stacjonarne.astro to
+// platnosci-stacjonarne.astro) once the Tpay partnership may be public.
+const SHOW_TPAYGO = false;
+
 const faq = [
   {
     q: 'Czy moi klienci muszą instalować aplikację?',
@@ -53,7 +57,7 @@ const faq = [
         <a href="#jak-to-dziala">Trzy kroki</a>
         <a href="#kalkulator">Policz zysk</a>
         <a href="#panel">Twoje klientki</a>
-        <a href="#platnosci">Płatności</a>
+        {SHOW_TPAYGO && <a href="#platnosci">Płatności</a>}
         <a href="#faq">FAQ</a>
       </nav>
     </div>
@@ -390,7 +394,8 @@ const faq = [
       </div>
     </section>
 
-    <!-- 7b · Stationary payments with TpayGO -->
+    {/* 7b · Stationary payments (hidden behind SHOW_TPAYGO until launch) */}
+    {SHOW_TPAYGO && (
     <section class="payments" id="platnosci">
       <div class="container">
         <h2 class="section-h2">Lojalność wbudowana w TpayGO</h2>
@@ -425,6 +430,7 @@ const faq = [
         <a class="btn btn--ghost" href="/platnosci-stacjonarne">Zobacz, jak działa integracja</a>
       </div>
     </section>
+    )}
 
     <!-- 8 · Clienteling -->
     <section class="cliente">
@@ -601,10 +607,16 @@ const faq = [
             </div>
             <button type="submit" class="btn btn--amber btn--lg signup-submit">Zapisz się</button>
           </div>
+          <label class="signup-consent">
+            <input type="checkbox" id="signup-consent" name="consent" required />
+            <span>
+              Wyrażam zgodę na przetwarzanie mojego adresu e-mail przez LoyaltyGo w celu
+              kontaktu w sprawie zapisu na listę oczekujących, zgodnie z
+              <a class="signup-policy-link" href="/polityka-prywatnosci">polityką prywatności</a>.
+            </span>
+          </label>
           <p class="signup-error" id="signup-error" role="alert" hidden></p>
-          <p class="cta-micro" id="signup-hint">
-            Żadnego spamu, tylko wiadomość o starcie.
-          </p>
+          <p class="cta-micro" id="signup-hint">Żadnego spamu, tylko wiadomość o starcie.</p>
         </form>
         <div class="signup-success" id="signup-success" role="status" hidden>
           <span class="signup-success-badge" aria-hidden="true">
@@ -626,7 +638,7 @@ const faq = [
       </div>
       <div class="footer-links">
         <span class="footer-pending">Panel merchanta (wkrótce)</span>
-        <span class="footer-pending">Polityka prywatności (wkrótce)</span>
+        <a href="/polityka-prywatnosci">Polityka prywatności</a>
         <span class="footer-pending">Regulamin (wkrótce)</span>
         <a href="mailto:kontakt@loyaltygo.pl">Kontakt: kontakt@loyaltygo.pl</a>
       </div>
@@ -1828,11 +1840,6 @@ const faq = [
     margin-bottom: var(--space-9);
   }
 
-  .btn--lg {
-    height: 52px;
-    padding-inline: var(--space-9);
-    font-size: 16px;
-  }
 
   .cta-micro {
     margin-top: var(--space-6);
@@ -1918,6 +1925,30 @@ const faq = [
     border-color: var(--red);
   }
 
+  .signup-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-4);
+    text-align: left;
+    font-size: 13px;
+    line-height: 19.5px;
+    color: var(--text-3);
+    cursor: pointer;
+  }
+
+  .signup-consent input {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    accent-color: var(--accent);
+  }
+
+  .signup.is-invalid .signup-consent input:invalid {
+    outline: 2px solid var(--red);
+    outline-offset: 2px;
+  }
+
   .signup-error {
     font-size: 13px;
     line-height: 19.5px;
@@ -1927,6 +1958,17 @@ const faq = [
 
   .signup-submit {
     flex-shrink: 0;
+  }
+
+  .signup-policy-link {
+    color: var(--text-3);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color 140ms ease;
+  }
+
+  .signup-policy-link:hover {
+    color: var(--text-1);
   }
 
   .signup-submit[disabled] {
@@ -2079,6 +2121,7 @@ const faq = [
 
   const signupForm = document.getElementById('signup-form') as HTMLFormElement | null;
   const signupEmail = document.getElementById('signup-email') as HTMLInputElement | null;
+  const signupConsent = document.getElementById('signup-consent') as HTMLInputElement | null;
   const signupError = document.getElementById('signup-error') as HTMLElement | null;
   const signupSuccess = document.getElementById('signup-success') as HTMLElement | null;
 
@@ -2099,6 +2142,7 @@ const faq = [
   }
 
   signupEmail?.addEventListener('input', clearSignupError);
+  signupConsent?.addEventListener('change', clearSignupError);
 
   signupForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -2108,6 +2152,12 @@ const faq = [
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
       showSignupError('Podaj poprawny adres e-mail, na przykład salon@twojafirma.pl.');
       signupEmail.focus();
+      return;
+    }
+
+    if (!signupConsent?.checked) {
+      showSignupError('Zaznacz zgodę na przetwarzanie adresu e-mail, aby dołączyć do listy.');
+      signupConsent?.focus();
       return;
     }
 

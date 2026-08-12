@@ -4,13 +4,10 @@
   "title": "Design System: LoyaltyGo Landing",
   "extensions": {
     "colorMeta": {
-      "amber": { "role": "primary", "displayName": "Amber CTA", "canonical": "#d97a32", "tonalRamp": ["oklch(15% 0.04 55)", "oklch(26% 0.07 55)", "oklch(38% 0.1 55)", "oklch(50% 0.13 55)", "oklch(61% 0.14 55)", "oklch(73% 0.12 55)", "oklch(84% 0.08 55)", "oklch(95% 0.04 55)"] },
+      "amber": { "role": "primary", "displayName": "Amber CTA (the single grade)", "canonical": "#d97a32", "tonalRamp": ["oklch(15% 0.04 55)", "oklch(26% 0.07 55)", "oklch(38% 0.1 55)", "oklch(50% 0.13 55)", "oklch(61% 0.14 55)", "oklch(73% 0.12 55)", "oklch(84% 0.08 55)", "oklch(95% 0.04 55)"] },
       "amber-hover": { "role": "primary", "displayName": "Amber CTA Hover", "canonical": "#e28842", "tonalRamp": ["oklch(15% 0.04 55)", "oklch(26% 0.07 55)", "oklch(38% 0.1 55)", "oklch(50% 0.13 55)", "oklch(61% 0.14 55)", "oklch(73% 0.12 55)", "oklch(84% 0.08 55)", "oklch(95% 0.04 55)"] },
       "amber-ink": { "role": "primary", "displayName": "CTA Ink (text on amber)", "canonical": "#1a120a", "tonalRamp": ["oklch(15% 0.02 60)", "oklch(26% 0.03 60)", "oklch(38% 0.04 60)", "oklch(50% 0.05 60)", "oklch(61% 0.05 60)", "oklch(73% 0.04 60)", "oklch(84% 0.03 60)", "oklch(95% 0.02 60)"] },
-      "amber-strong": { "role": "primary", "displayName": "Deep Amber (nav CTA, white 13px text holds 4.5:1)", "canonical": "#b0530f", "tonalRamp": ["oklch(15% 0.04 55)", "oklch(26% 0.07 55)", "oklch(38% 0.1 55)", "oklch(50% 0.13 55)", "oklch(61% 0.14 55)", "oklch(73% 0.12 55)", "oklch(84% 0.08 55)", "oklch(95% 0.04 55)"] },
-      "amber-strong-hover": { "role": "primary", "displayName": "Deep Amber Hover", "canonical": "#c25e14", "tonalRamp": ["oklch(15% 0.04 55)", "oklch(26% 0.07 55)", "oklch(38% 0.1 55)", "oklch(50% 0.13 55)", "oklch(61% 0.14 55)", "oklch(73% 0.12 55)", "oklch(84% 0.08 55)", "oklch(95% 0.04 55)"] },
-      "accent": { "role": "accent", "displayName": "Violet Residue (brand traces only — not a CTA color)", "canonical": "#5e6ad2", "tonalRamp": ["oklch(15% 0.09 277)", "oklch(26% 0.11 277)", "oklch(38% 0.13 277)", "oklch(50% 0.14 277)", "oklch(61% 0.14 277)", "oklch(73% 0.11 277)", "oklch(84% 0.07 277)", "oklch(95% 0.03 277)"] },
-      "accent-hover": { "role": "accent", "displayName": "Violet Hover (dormant — only the unused .btn--primary consumes it)", "canonical": "#6e79dd", "tonalRamp": ["oklch(15% 0.09 277)", "oklch(26% 0.11 277)", "oklch(38% 0.13 277)", "oklch(50% 0.14 277)", "oklch(61% 0.14 277)", "oklch(73% 0.11 277)", "oklch(84% 0.07 277)", "oklch(95% 0.03 277)"] },
+      "accent": { "role": "accent", "displayName": "Violet Residue (brand traces + artifact-internal depictions — not a page action color)", "canonical": "#5e6ad2", "tonalRamp": ["oklch(15% 0.09 277)", "oklch(26% 0.11 277)", "oklch(38% 0.13 277)", "oklch(50% 0.14 277)", "oklch(61% 0.14 277)", "oklch(73% 0.11 277)", "oklch(84% 0.07 277)", "oklch(95% 0.03 277)"] },
       "bg": { "role": "background", "displayName": "Ground", "canonical": "#08090a", "tonalRamp": ["oklch(15% 0.005 255)", "oklch(26% 0.005 255)", "oklch(38% 0.005 255)", "oklch(50% 0.005 255)", "oklch(61% 0.005 255)", "oklch(73% 0.005 255)", "oklch(84% 0.005 255)", "oklch(95% 0.005 255)"] },
       "bg-raised": { "role": "background", "displayName": "Raised Panel", "canonical": "#101113", "tonalRamp": ["oklch(15% 0.005 255)", "oklch(26% 0.005 255)", "oklch(38% 0.005 255)", "oklch(50% 0.005 255)", "oklch(61% 0.005 255)", "oklch(73% 0.005 255)", "oklch(84% 0.005 255)", "oklch(95% 0.005 255)"] },
       "text-1": { "role": "text", "displayName": "Text 1 — Off-White", "canonical": "#f7f8f8", "tonalRamp": ["oklch(15% 0.003 250)", "oklch(26% 0.003 250)", "oklch(38% 0.003 250)", "oklch(50% 0.003 250)", "oklch(61% 0.003 250)", "oklch(73% 0.003 250)", "oklch(84% 0.003 250)", "oklch(95% 0.003 250)"] },
@@ -20,40 +17,41 @@
       "border": { "role": "border", "displayName": "Hairline Border", "canonical": "#23252a", "tonalRamp": ["oklch(15% 0.006 260)", "oklch(26% 0.006 260)", "oklch(38% 0.006 260)", "oklch(50% 0.006 260)", "oklch(61% 0.006 260)", "oklch(73% 0.006 260)", "oklch(84% 0.006 260)", "oklch(95% 0.006 260)"] },
       "border-strong": { "role": "border", "displayName": "Strong Border", "canonical": "#34363c", "tonalRamp": ["oklch(15% 0.006 260)", "oklch(26% 0.006 260)", "oklch(38% 0.006 260)", "oklch(50% 0.006 260)", "oklch(61% 0.006 260)", "oklch(73% 0.006 260)", "oklch(84% 0.006 260)", "oklch(95% 0.006 260)"] },
       "green": { "role": "accent", "displayName": "Status Green", "canonical": "#27a644", "tonalRamp": ["oklch(15% 0.1 148)", "oklch(26% 0.12 148)", "oklch(38% 0.15 148)", "oklch(50% 0.17 148)", "oklch(61% 0.17 148)", "oklch(73% 0.14 148)", "oklch(84% 0.1 148)", "oklch(95% 0.05 148)"] },
-      "red": { "role": "accent", "displayName": "Status Red", "canonical": "#eb5757", "tonalRamp": ["oklch(15% 0.1 25)", "oklch(26% 0.12 25)", "oklch(38% 0.15 25)", "oklch(50% 0.18 25)", "oklch(61% 0.19 25)", "oklch(73% 0.15 25)", "oklch(84% 0.1 25)", "oklch(95% 0.04 25)"] },
+      "red": { "role": "accent", "displayName": "Status Red (also form-error text/border)", "canonical": "#eb5757", "tonalRamp": ["oklch(15% 0.1 25)", "oklch(26% 0.12 25)", "oklch(38% 0.15 25)", "oklch(50% 0.18 25)", "oklch(61% 0.19 25)", "oklch(73% 0.15 25)", "oklch(84% 0.1 25)", "oklch(95% 0.04 25)"] },
       "salon": { "role": "accent", "displayName": "Salon Raspberry (merchant brand, page-foreign)", "canonical": "#8c3a52", "tonalRamp": ["oklch(15% 0.07 5)", "oklch(26% 0.09 5)", "oklch(38% 0.11 5)", "oklch(48% 0.11 5)", "oklch(61% 0.1 5)", "oklch(73% 0.08 5)", "oklch(84% 0.06 5)", "oklch(95% 0.03 5)"] },
       "salon-deep": { "role": "accent", "displayName": "Salon Deep", "canonical": "#6f2c40", "tonalRamp": ["oklch(15% 0.07 5)", "oklch(26% 0.09 5)", "oklch(38% 0.11 5)", "oklch(48% 0.11 5)", "oklch(61% 0.1 5)", "oklch(73% 0.08 5)", "oklch(84% 0.06 5)", "oklch(95% 0.03 5)"] },
       "salon-tint": { "role": "accent", "displayName": "Salon Tint (≥4.5:1 on raspberry)", "canonical": "#f2cdd8", "tonalRamp": ["oklch(15% 0.04 5)", "oklch(26% 0.05 5)", "oklch(38% 0.06 5)", "oklch(50% 0.06 5)", "oklch(61% 0.06 5)", "oklch(73% 0.05 5)", "oklch(84% 0.05 5)", "oklch(95% 0.03 5)"] }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "Hero H1 only; Inter Variable 700 with -0.02em tracking." },
-      "headline": { "displayName": "Headline", "purpose": "Section H2s at weight 590, measure capped at 22-24ch; final CTA scales to clamp(30px, 4vw, 46px)." },
-      "title": { "displayName": "Title", "purpose": "Pillar/step H3s; scales 16-22px by context." },
-      "lead": { "displayName": "Story Lead", "purpose": "Section-opening editorial paragraphs, 19px/30px, max 62ch. Hero subtitle runs its own 17px/27px step." },
+      "display": { "displayName": "Display", "purpose": "Hero H1 only; Inter Variable 700 with -0.02em tracking. The subpage H1 runs a smaller grade: clamp(34px, 4.6vw, 52px), 1.1, max 20ch." },
+      "headline": { "displayName": "Headline", "purpose": "Section H2s at weight 590, measure capped at 22-24ch; final CTA scales to clamp(30px, 4vw, 46px); subpage H2s run clamp(26px, 3vw, 36px)." },
+      "title": { "displayName": "Title", "purpose": "Pillar/step H3s; scales 15-22px by context (flow nodes 15px, calc 18px, versus 22px)." },
+      "lead": { "displayName": "Story Lead", "purpose": "Section-opening editorial paragraphs, 19px/30px, max 62ch (both pages). Hero subtitle runs 17px/27px; secondary leads 16px/26px." },
       "body": { "displayName": "Body", "purpose": "Default prose (set on body element)." },
       "body-small": { "displayName": "Body Small", "purpose": "Working size for lists and descriptions, 15px with -0.165px tracking." },
-      "body-xs": { "displayName": "Body XS", "purpose": "Dense cells and micro-copy: versus cells, lever descriptions, section micros, panel features; 14px/21-22px." },
-      "label": { "displayName": "Label", "purpose": "Nav links, table cells, fineprint, footer; 13px with -0.13px tracking." },
+      "body-xs": { "displayName": "Body XS", "purpose": "Dense cells and micro-copy: versus cells, lever descriptions, section micros, panel features, flow footnotes; 14px/21-22px." },
+      "label": { "displayName": "Label", "purpose": "Nav links, table cells, flow-node body copy, fineprint, footer; 13px with -0.13px tracking." },
       "caption": { "displayName": "Caption", "purpose": "Figcaptions, table headers, timestamps; 12px." },
-      "micro": { "displayName": "Micro Label", "purpose": "Uppercase pill chips and Wallet field labels; 10px/590/0.08em, always uppercase. Finale chip and mobile versus labels run the 11px/0.06em variant." },
-      "mono-data": { "displayName": "Mono Data", "purpose": "Numeric data only (points, amounts, calculator outputs) with tabular-nums; size contextual, 13px cells to 34-48px display values at weight 640. Berkeley Mono from the pinned world was substituted by the ui-monospace system stack; the stack is normative." }
+      "micro": { "displayName": "Micro Label", "purpose": "Uppercase pill chips (provenance, journey state) and Wallet field labels; 10px/590/0.08em, always uppercase. Finale chip, SoftPOS method chips, and mobile versus labels run the 11px variant." },
+      "mono-data": { "displayName": "Mono Data", "purpose": "Numeric and machine data only (points, amounts, calculator outputs, payload chips, flow numerals) with tabular-nums; 11px chips to 34-48px display values at weight 640. Berkeley Mono from the pinned world was substituted by the ui-monospace system stack; the stack is normative." }
     },
     "shadows": [
       { "name": "object-shadow", "value": "0 24px 48px -16px rgba(0, 0, 0, 0.55)", "purpose": "The Wallet card only — a depicted physical object. Page chrome never casts shadows (The One Shadow Rule)." },
-      { "name": "print-artifact-shadow", "value": "0 12px 28px -12px rgba(0, 0, 0, 0.5)", "purpose": "The printed invite QR tile and the coupon slip inside step-visual panels — depicted print artifacts, not chrome." }
+      { "name": "print-artifact-shadow", "value": "0 12px 28px -12px rgba(0, 0, 0, 0.5)", "purpose": "The raspberry coupon slip inside its step-visual panel — a depicted print artifact, not chrome." }
     ],
     "motion": [
-      { "name": "micro-transition", "value": "140ms ease", "purpose": "Default for color, border-color, and transform micro-states (button hover, nav links, FAQ row wash). The page has no scroll-driven motion; the former journey crossfade was removed." },
+      { "name": "micro-transition", "value": "140ms ease", "purpose": "Default for color, border-color, and transform micro-states (button hover, nav links, FAQ row wash, input borders). Neither page has scroll-driven motion." },
       { "name": "chevron-rotate", "value": "transform 200ms ease", "purpose": "FAQ accordion chevron 180deg rotation on open." },
       { "name": "active-press", "value": "translateY(1px)", "purpose": "CTA button active state." }
     ],
     "breakpoints": [
       { "name": "table-collapse", "value": "640px" },
       { "name": "nav-collapse", "value": "720px" },
-      { "name": "main-collapse", "value": "860px" }
+      { "name": "main-collapse", "value": "860px" },
+      { "name": "subpage-flow-collapse", "value": "900px" }
     ],
     "materials": [
-      { "name": "nav-glass", "value": "background: rgba(8, 9, 10, 0.8); backdrop-filter: blur(20px)", "purpose": "Sticky nav." },
+      { "name": "nav-glass", "value": "background: rgba(8, 9, 10, 0.8); backdrop-filter: blur(20px)", "purpose": "Sticky nav on both pages." },
       { "name": "ios-glass", "value": "background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px)", "purpose": "Lock-screen toast imitating iOS material." },
       { "name": "head-wash", "value": "rgba(255, 255, 255, 0.02)", "purpose": "Versus-table header row tint." },
       { "name": "hover-wash", "value": "rgba(255, 255, 255, 0.04)", "purpose": "FAQ summary hover row." }
@@ -64,23 +62,15 @@
       "name": "Amber CTA Button",
       "kind": "button",
       "refersTo": "button-amber",
-      "description": "The action voice: warm amber fill with dark warm ink; hero and final CTA. Focus ring stays violet.",
-      "html": "<button class=\"ds-btn-amber\">Załóż darmowy program</button>",
+      "description": "The single action voice: amber fill with dark warm ink; hero, final signup submit (52px --lg), and the subpage CTA. Focus ring stays violet. No other primary button grade exists.",
+      "html": "<button class=\"ds-btn-amber\">Dołącz do listy startowej</button>",
       "css": ".ds-btn-amber { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 20px; border: none; border-radius: 8px; background: #d97a32; color: #1a120a; font-family: 'Inter Variable', -apple-system, sans-serif; font-size: 15px; font-weight: 590; letter-spacing: -0.165px; cursor: pointer; transition: background-color 140ms ease, transform 140ms ease; } .ds-btn-amber:hover { background: #e28842; } .ds-btn-amber:active { transform: translateY(1px); } .ds-btn-amber:focus-visible { outline: 2px solid var(--accent, #5e6ad2); outline-offset: 2px; }"
-    },
-    {
-      "name": "Nav CTA Button",
-      "kind": "button",
-      "refersTo": "button-amber-strong",
-      "description": "Compact nav variant: deeper amber so white 13px text holds 4.5:1.",
-      "html": "<button class=\"ds-btn-amber-strong\">Załóż program</button>",
-      "css": ".ds-btn-amber-strong { display: inline-flex; align-items: center; justify-content: center; height: 34px; padding: 0 16px; border: none; border-radius: 8px; background: #b0530f; color: #ffffff; font-family: 'Inter Variable', -apple-system, sans-serif; font-size: 13px; font-weight: 590; letter-spacing: -0.13px; cursor: pointer; transition: background-color 140ms ease, transform 140ms ease; } .ds-btn-amber-strong:hover { background: #c25e14; } .ds-btn-amber-strong:active { transform: translateY(1px); } .ds-btn-amber-strong:focus-visible { outline: 2px solid var(--accent, #5e6ad2); outline-offset: 2px; }"
     },
     {
       "name": "Ghost Button",
       "kind": "button",
       "refersTo": "button-ghost",
-      "description": "Secondary action beside a primary; outline only.",
+      "description": "Secondary action beside a primary, and the sole button of the payments teaser; outline only.",
       "html": "<button class=\"ds-btn-ghost\">Zobacz, jak to działa</button>",
       "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 20px; border-radius: 8px; background: transparent; border: 1px solid var(--border-strong, #34363c); color: var(--text-2, #d0d6e0); font-family: 'Inter Variable', -apple-system, sans-serif; font-size: 15px; font-weight: 590; letter-spacing: -0.165px; cursor: pointer; transition: border-color 140ms ease, color 140ms ease; } .ds-btn-ghost:hover { border-color: var(--text-4, #767b84); color: var(--text-1, #f7f8f8); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--accent, #5e6ad2); outline-offset: 2px; }"
     },
@@ -88,17 +78,33 @@
       "name": "Demo Chip",
       "kind": "chip",
       "refersTo": "demo-chip",
-      "description": "Uppercase provenance pill on illustrative artifacts (journey copy column, clienteling stage; the hero is deliberately unlabeled).",
+      "description": "Uppercase provenance pill on illustrative artifacts (journey copy column, clienteling stage, subpage Wallet stage; the hero is deliberately unlabeled).",
       "html": "<span class=\"ds-demo-chip\">Widok ilustracyjny</span>",
       "css": ".ds-demo-chip { display: inline-block; font-family: 'Inter Variable', -apple-system, sans-serif; font-size: 10px; font-weight: 590; line-height: 15px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-4, #767b84); border: 1px solid var(--border, #23252a); border-radius: 9999px; padding: 2px 12px; background: var(--bg, #08090a); }"
+    },
+    {
+      "name": "Flow Node",
+      "kind": "custom",
+      "refersTo": "flow-node",
+      "description": "The shared TpayGO flow-diagram grammar: raised node with title, label-size copy, and a bottom-pinned mono payload chip naming the data that moves. 3-node teaser on the main page, 4-node numbered version on the subpage.",
+      "html": "<div class=\"ds-flow-node\"><span class=\"ds-flow-num\">1</span><h3>Płatność w TpayGO</h3><p>Klientka płaci, kasjer skanuje jej kartę z Walleta.</p><span class=\"ds-flow-payload\">kwota + ID karty</span></div>",
+      "css": ".ds-flow-node { display: flex; flex-direction: column; gap: 8px; width: 240px; min-height: 170px; background: var(--bg-raised, #101113); border: 1px solid var(--border, #23252a); border-radius: 12px; padding: 20px; font-family: 'Inter Variable', -apple-system, sans-serif; } .ds-flow-num { width: 26px; height: 26px; border-radius: 9999px; border: 1px solid var(--border-strong, #34363c); display: grid; place-items: center; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; font-weight: 590; color: var(--text-2, #d0d6e0); } .ds-flow-node h3 { margin: 0; font-size: 15px; font-weight: 590; letter-spacing: -0.165px; color: var(--text-1, #f7f8f8); } .ds-flow-node p { margin: 0; font-size: 13px; line-height: 19.5px; letter-spacing: -0.13px; color: var(--text-3, #8a8f98); } .ds-flow-payload { margin-top: auto; align-self: flex-start; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-variant-numeric: tabular-nums; font-size: 11px; line-height: 16px; color: var(--text-2, #d0d6e0); background: var(--bg, #08090a); border: 1px solid var(--border, #23252a); border-radius: 4px; padding: 2px 8px; }"
     },
     {
       "name": "Wallet Card",
       "kind": "custom",
       "refersTo": "wallet-card",
-      "description": "Signature: the merchant-branded Apple Wallet pass; the only foreign color on the page and the largest shadow. Fans into a static three-state deck in the journey section.",
+      "description": "Signature: the merchant-branded Apple Wallet pass; the only foreign color on the page and the largest shadow. Descends as a stepped three-state cascade in the journey section; stages the subpage benefits column.",
       "html": "<div class=\"ds-wallet-card\"><div class=\"ds-wc-head\"><div class=\"ds-wc-logo\">K</div><div class=\"ds-wc-brand\"><span class=\"ds-wc-name\">Studio Kasia</span><span class=\"ds-wc-kind\">Karta stałej klientki</span></div></div><div class=\"ds-wc-fields\"><div class=\"ds-wc-field\"><span class=\"ds-wc-label\">Punkty</span><span class=\"ds-wc-value\">240<span class=\"ds-wc-unit\"> pkt</span></span></div><div class=\"ds-wc-field\"><span class=\"ds-wc-label\">Ostatnia wizyta</span><span class=\"ds-wc-small\">5 dni temu</span></div></div><div class=\"ds-wc-foot\"><span class=\"ds-wc-label\">Członkini</span><span class=\"ds-wc-small\">Marta Wiśniewska</span></div></div>",
       "css": ".ds-wallet-card { width: min(340px, 100%); background: linear-gradient(160deg, var(--salon, #8c3a52) 0%, var(--salon-deep, #6f2c40) 100%); border-radius: 16px; padding: 20px; color: #fff; box-shadow: 0 24px 48px -16px rgba(0, 0, 0, 0.55); display: flex; flex-direction: column; gap: 20px; font-family: 'Inter Variable', -apple-system, sans-serif; } .ds-wc-head { display: flex; align-items: center; gap: 12px; } .ds-wc-logo { width: 34px; height: 34px; border-radius: 9999px; background: rgba(255, 255, 255, 0.14); display: grid; place-items: center; font-weight: 640; font-size: 15px; } .ds-wc-brand { display: flex; flex-direction: column; gap: 2px; } .ds-wc-name { font-size: 15px; font-weight: 640; letter-spacing: -0.165px; } .ds-wc-kind { font-size: 12px; line-height: 16.8px; color: var(--salon-tint, #f2cdd8); } .ds-wc-fields { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; } .ds-wc-field { display: flex; flex-direction: column; gap: 4px; } .ds-wc-label { font-size: 10px; font-weight: 590; line-height: 15px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--salon-tint, #f2cdd8); } .ds-wc-value { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-variant-numeric: tabular-nums; font-size: 34px; line-height: 1.05; font-weight: 640; } .ds-wc-unit { font-size: 15px; font-weight: 460; color: var(--salon-tint, #f2cdd8); } .ds-wc-small { font-size: 13px; line-height: 19.5px; } .ds-wc-foot { display: flex; flex-direction: column; gap: 4px; }"
+    },
+    {
+      "name": "Journey State Chip",
+      "kind": "chip",
+      "refersTo": "state-chip",
+      "description": "Uppercase state label heading each card in the journey cascade; opaque ground fill so it stays legible over the card beneath it.",
+      "html": "<span class=\"ds-state-chip\">Po trzech wizytach</span>",
+      "css": ".ds-state-chip { display: inline-block; font-family: 'Inter Variable', -apple-system, sans-serif; font-size: 10px; font-weight: 590; line-height: 15px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3, #8a8f98); background: var(--bg, #08090a); border: 1px solid var(--border, #23252a); border-radius: 9999px; padding: 2px 12px; }"
     },
     {
       "name": "Lock Toast",
@@ -128,49 +134,61 @@
       "name": "Range Field",
       "kind": "input",
       "refersTo": null,
-      "description": "Calculator slider: hairline track, off-white thumb, live mono output.",
-      "html": "<div class=\"ds-calc-field\"><label for=\"ds-range\">Średnia wartość wizyty</label><div class=\"ds-calc-row\"><input type=\"range\" id=\"ds-range\" min=\"20\" max=\"1000\" step=\"10\" value=\"150\" /><output for=\"ds-range\">150 zł</output></div></div>",
+      "description": "Calculator slider: hairline track, off-white thumb, live mono output. Ranges capped in the build: visit value 20-500 zl, clients 10-600, return 5-80%.",
+      "html": "<div class=\"ds-calc-field\"><label for=\"ds-range\">Średnia wartość wizyty</label><div class=\"ds-calc-row\"><input type=\"range\" id=\"ds-range\" min=\"20\" max=\"500\" step=\"10\" value=\"150\" /><output for=\"ds-range\">150 zł</output></div></div>",
       "css": ".ds-calc-field { font-family: 'Inter Variable', -apple-system, sans-serif; background: var(--bg-raised, #101113); padding: 16px; border: 1px solid var(--border, #23252a); border-radius: 12px; } .ds-calc-field label { display: block; font-size: 13px; line-height: 19.5px; letter-spacing: -0.13px; color: var(--text-3, #8a8f98); margin-bottom: 8px; } .ds-calc-row { display: flex; align-items: center; gap: 16px; } .ds-calc-row input[type='range'] { flex: 1; appearance: none; -webkit-appearance: none; height: 4px; border-radius: 9999px; background: var(--border-strong, #34363c); outline-offset: 6px; } .ds-calc-row input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 9999px; background: var(--text-1, #f7f8f8); border: none; cursor: grab; } .ds-calc-row input[type='range']::-moz-range-thumb { width: 16px; height: 16px; border-radius: 9999px; background: var(--text-1, #f7f8f8); border: none; cursor: grab; } .ds-calc-row input[type='range']:focus-visible { outline: 2px solid var(--accent, #5e6ad2); } .ds-calc-row output { min-width: 72px; text-align: right; font-size: 15px; color: var(--text-1, #f7f8f8); font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Signup Success Panel",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Celebratory waitlist confirmation shown in place of the form: green-outlined check badge, focusable heading (script moves focus to it on success). Both form and panel enforce [hidden]{display:none}.",
+      "html": "<div class=\"ds-signup-success\" role=\"status\"><span class=\"ds-success-badge\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 20 20\" fill=\"none\"><path d=\"M4.5 10.5l3.5 3.5 7.5-8\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></span><h3 tabindex=\"-1\">Jesteś na liście</h3><p>Odezwiemy się na Twój adres przed startem pierwszych programów.</p></div>",
+      "css": ".ds-signup-success { max-width: 560px; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 32px; border: 1px solid var(--border, #23252a); border-radius: 16px; background: var(--bg-raised, #101113); font-family: 'Inter Variable', -apple-system, sans-serif; text-align: center; } .ds-signup-success[hidden] { display: none; } .ds-success-badge { width: 44px; height: 44px; border-radius: 9999px; border: 1px solid var(--green, #27a644); color: var(--green, #27a644); display: grid; place-items: center; } .ds-signup-success h3 { margin: 0; font-size: 18px; font-weight: 590; letter-spacing: -0.02em; color: var(--text-1, #f7f8f8); } .ds-signup-success h3:focus-visible { outline: 2px solid var(--accent, #5e6ad2); outline-offset: 2px; border-radius: 4px; } .ds-signup-success p { margin: 0; font-size: 14px; line-height: 22px; color: var(--text-3, #8a8f98); }"
     }
   ],
   "narrative": {
     "northStar": "The Case Study Console",
-    "overview": "One merchant's story told on product-console material. The page borrows Linear's dark-first system — a near-black ground (#08090a), cool off-white type (#f7f8f8), hairline borders, small utilitarian radii — and uses it not for a feature grid but for an editorial case story: Pani Kasia's salon, from anonymous till to named regulars. The chrome is quiet and data-literate (mono numerals, issue-list tables, status dots) so that the warm objects on the page — the raspberry merchant-branded Wallet card and the amber CTA — read as heat against a cold console.\n\nRestraint is the personality, but the accent story changed in live iteration. The first build spent a single blue-violet (#5e6ad2) on the CTA; user-accepted sessions replaced it with a warm amber action voice (#d97a32 with near-black ink; #b0530f with white text at nav size). Violet was not removed — it survives as residual brand traces (wordmark \"Go\", focus ring, text selection, one mobile table label, the favicon). Everything else earns hierarchy through a four-step gray text scale, weight shifts on Inter Variable's axis, and hairline seams instead of boxes or shadows. Sections breathe on a 128px rhythm and are separated by 1px borders, never background changes.\n\nTwo deliberate deviations from the pinned Linear reference are normative here: the quaternary text tone was lightened from Linear's #62666d to #767b84 so it holds 4.5:1 on #08090a, and Berkeley Mono (commercial) was substituted with the ui-monospace system stack as a font concession. The build wins; do not \"correct\" these back.",
+    "overview": "One merchant's story told on product-console material. The site borrows Linear's dark-first system — a near-black ground (#08090a), cool off-white type (#f7f8f8), hairline borders, small utilitarian radii — and uses it not for a feature grid but for an editorial case story: Pani Kasia's salon, from anonymous till to named regulars. The chrome is quiet and data-literate (mono numerals, issue-list tables, status dots, payload chips) so that the warm objects on the page — the raspberry merchant-branded Wallet card and the amber CTA — read as heat against a cold console. The world now spans two surfaces: the main case-story page and the TpayGO integration subpage (/platnosci-stacjonarne), a sibling built from the same tokens and grammar.\n\nRestraint is the personality, and the accent story has settled: one warm amber action voice (#d97a32 fill, #1a120a near-black warm ink, hover #e28842) is the only CTA treatment on either page. The earlier deep-amber nav grade was removed together with the nav CTA itself; the nav now carries only the wordmark and links. Violet (#5e6ad2) was not removed — it survives as residual brand traces (wordmark \"Go\", focus ring, text selection, one mobile table label, the favicon) and inside two depicted artifacts. Everything else earns hierarchy through a four-step gray text scale, weight shifts on Inter Variable's axis, and hairline seams instead of boxes or shadows. Sections breathe on a 128px rhythm and are separated by 1px borders, never background bands.\n\nTwo deliberate deviations from the pinned Linear reference are normative here: the quaternary text tone was lightened from Linear's #62666d to #767b84 so it holds 4.5:1 on #08090a, and Berkeley Mono (commercial) was substituted with the ui-monospace system stack as a font concession. The build wins; do not \"correct\" these back.",
     "keyCharacteristics": [
-      "Near-black single-surface page; depth from bg-raised (#101113) panels + hairline borders, not shadows",
-      "One warm amber action voice, spent only on CTA buttons; violet survives only as brand traces",
+      "Near-black single-surface pages; depth from bg-raised (#101113) panels + hairline borders, not shadows",
+      "One amber action voice (one grade, two sizes), spent only on CTA buttons; violet survives only as brand traces",
       "One foreign color family: the raspberry salon card (#8c3a52) — the illustrative merchant's brand, never page chrome",
-      "Inter Variable everywhere; mono strictly for data; uppercase 10–11px pill chips for provenance labels",
-      "Editorial case-story layout: asymmetric two-column grids, story leads, a static fanned card deck; motion is micro-only"
+      "Inter Variable everywhere; mono strictly for data; uppercase 10–11px pill chips for provenance and state labels",
+      "Editorial case-story layout: asymmetric two-column grids, story leads, a stepped card cascade, a shared flow-diagram grammar; motion is micro-only"
     ],
     "rules": [
-      { "name": "The Amber Action Rule", "body": "Amber exists only as button fill, in two grades picked by label size: #d97a32 with #1a120a ink at 15–16px (hero and final CTA), #b0530f with white at the 13px nav size. It never colors text, borders, icons, or chrome — the CTA is the only heat the console emits.", "section": "colors" },
-      { "name": "The Violet Residue Rule", "body": "Violet #5e6ad2 is no longer an action color. It persists only as brand traces — the wordmark \"Go\", the focus-visible outline, text selection, the mobile versus-table \"LoyaltyGo\" label, the favicon. Do not grow its territory and do not put it back on buttons; the .btn--primary class in global.css is dormant, not an invitation.", "section": "colors" },
+      { "name": "The One Amber Rule", "body": "Amber exists in exactly one grade — #d97a32 fill with #1a120a ink, hover #e28842 — and only as CTA button fill, at two sizes (44px/15px default, 52px/16px --lg). It never colors text, borders, icons, or chrome; the CTA is the only heat the console emits. The former deep-amber nav grade (#b0530f) is gone with the nav CTA — do not reintroduce a second grade.", "section": "colors" },
+      { "name": "The Violet Residue Rule", "body": "Violet #5e6ad2 is not an action color on the page. It persists as brand traces — the wordmark \"Go\", the focus-visible outline, text selection, the mobile versus-table \"LoyaltyGo\" label, the favicon — and inside depicted artifacts (the lock-toast icon stripe, the SoftPOS mock's illustrative in-app button). Artifact-internal violet depicts another product's UI; it is not license to put violet on page chrome or live buttons.", "section": "colors" },
       { "name": "The Her-Brand-Not-Ours Rule", "body": "The salon palette exists only inside merchant-branded artifacts (Wallet card, coupon slip, lock-toast app icon). It never colors page chrome, headings, buttons, or backgrounds. Any future illustrative merchant gets its own foreign palette with a companion tint that passes 4.5:1 on its own ground.", "section": "colors" },
-      { "name": "The Legibility Floor Rule", "body": "Every text color must hold 4.5:1 on its own ground. This is why --text-4 is #767b84 and not Linear's #62666d, and why the nav CTA deepens its amber to #b0530f under white 13px text; inherit the values, not their sources.", "section": "colors" },
-      { "name": "The Mono-Is-Data Rule", "body": "The monospace face is reserved for numeric data — points, złoty amounts, calculator outputs — always with tabular figures. Never mono for prose, headings, or labels.", "section": "typography" },
-      { "name": "The Variable Weight Rule", "body": "Weights are Inter Variable axis values, not the standard grid: 400 body, 460 soft emphasis, 590 default heading/semibold, 640 strong, 700 hero display only. Use these exact stops.", "section": "typography" },
-      { "name": "The One Shadow Rule", "body": "Page chrome (panels, tables, buttons, nav) never casts shadows; raised tone + hairline border is the elevation grammar. Only depicted physical artifacts (the Wallet card, the printed QR tile, the coupon slip) may cast one, from the two-value shadow vocabulary.", "section": "elevation" },
-      { "name": "The Labeled Artifact Rule", "body": "Illustrative artifacts that could pass for real data carry a provenance mark — a pill chip or a figcaption ending \"Widok ilustracyjny.\" Current census: journey deck (chip on its copy column), clienteling stage (chip), both panel tables (figcaptions), finale (scenario chip). The hero stage is the one sanctioned exception (user decision 2026-08-12); step visuals speak only through aria-labels.", "section": "components" }
+      { "name": "The Legibility Floor Rule", "body": "Every text color must hold 4.5:1 on its own ground. This is why --text-4 is #767b84 and not Linear's #62666d; inherit the values, not their sources.", "section": "colors" },
+      { "name": "The Mono-Is-Data Rule", "body": "The monospace face is reserved for numeric and machine data — points, złoty amounts, calculator outputs, flow payload chips (\"kwota + ID karty\"), step numerals. Never mono for prose, headings, or labels.", "section": "typography" },
+      { "name": "The Variable Weight Rule", "body": "Weights are Inter Variable axis values, not the standard grid: 400 body, 460 soft emphasis, 590 default heading/semibold, 640 strong, 700 display H1s only. Use these exact stops.", "section": "typography" },
+      { "name": "The Flow Grammar", "body": "Process diagrams are horizontal ol rows of raised nodes (bg-raised, 12px radius, hairline border, 20px padding) joined by 1.5px-stroke line arrows in --text-4, each node ending in a bottom-pinned mono payload chip (11px, --text-2 on opaque --bg, 4px radius) naming the data that moves. Below the collapse breakpoint the row becomes a column and arrows rotate 90°, left-indented.", "section": "layout" },
+      { "name": "The One Shadow Rule", "body": "Page chrome (panels, tables, buttons, nav, flow nodes) never casts shadows; raised tone + hairline border is the elevation grammar. Only depicted physical artifacts (the Wallet card, the coupon slip) may cast one, from the two-value shadow vocabulary.", "section": "elevation" },
+      { "name": "The Labeled Artifact Rule", "body": "Illustrative artifacts that could pass for real data carry a provenance mark — a pill chip or a figcaption ending \"Widok ilustracyjny.\" Current census: journey cascade (chip on its copy column), clienteling stage (chip), both panel tables (figcaptions), finale (scenario chip), subpage SoftPOS mock (figcaption), subpage Wallet-card stage (chip). The hero stage is the one sanctioned exception (user decision 2026-08-12); step visuals speak only through aria-labels.", "section": "components" }
     ],
     "dos": [
-      "Do spend amber only on CTA buttons, grade by label size: #d97a32 + #1a120a ink at 15–16px, #b0530f + white at the 13px nav size.",
+      "Do spend amber only on CTA buttons, in its one grade: #d97a32 fill + #1a120a ink, hover #e28842, at 44px/15px or 52px/16px.",
       "Do build hierarchy with the four-step text ramp (#f7f8f8 → #d0d6e0 → #8a8f98 → #767b84) and Inter Variable weight stops (400/460/590/640/700) before reaching for color or size.",
       "Do separate and outline with 1px #23252a hairlines and raise surfaces with #101113 — the whole depth grammar.",
-      "Do set every number in the ui-monospace stack with tabular-nums.",
+      "Do set every number and machine payload in the ui-monospace stack with tabular-nums.",
       "Do mark illustrative artifacts with an uppercase 10–11px pill chip or a \"Widok ilustracyjny.\" figcaption — the hero stage is the one sanctioned unlabeled exception (user decision 2026-08-12).",
+      "Do reuse the flow grammar (raised nodes, --text-4 line arrows, bottom-pinned mono payload chips) for any future process diagram, and give chips that overlap other elements an opaque --bg fill.",
+      "Do spell the payments brand TpayGO — one word, capital T, capital GO.",
       "Do keep micro-transitions at 140ms ease (200ms for the FAQ chevron) and respect prefers-reduced-motion globally (already enforced in global.css)."
     ],
     "donts": [
-      "Don't put violet back on buttons or grow its territory — #5e6ad2 is residue (wordmark \"Go\", focus ring, selection, mobile versus label, favicon), and the dormant .btn--primary class is not an invitation.",
+      "Don't put violet on page buttons or grow its territory — #5e6ad2 is residue (wordmark \"Go\", focus ring, selection, mobile versus label, favicon) plus artifact-internal depictions (lock-toast stripe, SoftPOS mock button); depicted-app UI is not page chrome.",
+      "Don't reintroduce a second amber grade or a nav CTA — the bar carries the wordmark and links only.",
       "Don't use the salon raspberry family (#8c3a52 / #6f2c40 / #f2cdd8) outside merchant-branded artifacts — it is deliberately foreign to the page.",
-      "Don't add box-shadows to page chrome; only depicted physical artifacts (Wallet card, printed QR tile, coupon slip) cast one.",
+      "Don't add box-shadows to page chrome; only depicted physical artifacts (Wallet card, coupon slip) cast one.",
       "Don't darken quaternary text back to Linear's #62666d — #767b84 is the recorded legibility floor on #08090a.",
-      "Don't use pure #ffffff for page text; white lives inside merchant artifacts and on the deep-amber nav CTA only.",
+      "Don't use pure #ffffff for page text; white lives inside depicted artifacts (Wallet card, SoftPOS scan button) only.",
       "Don't use mono for prose or labels, or introduce a second display face.",
       "Don't use filled/emoji iconography — icons are 1.5px-stroke line glyphs in currentColor, usually inside bordered rounded tiles.",
-      "Don't center-set body copy; centered text is reserved for the final CTA section.",
-      "Don't reintroduce scroll-driven motion; the journey deck is deliberately static, and the page's only script is the LTV calculator."
+      "Don't center-set body copy; centered text is reserved for the CTA sections.",
+      "Don't add scroll-driven motion; the journey cascade is deliberately static, and the only scripts are the LTV calculator and the signup handler."
     ]
   }
 }
