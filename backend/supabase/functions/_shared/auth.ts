@@ -4,10 +4,42 @@ export function serviceClient() {
   return createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 }
 
-export async function hashProgramKey(plaintext: string): Promise<string> {
-  const data = new TextEncoder().encode(plaintext + Deno.env.get("PROGRAM_KEY_PEPPER")!);
-  const digest = await crypto.subtle.digest("SHA-256", data);
+async function sha256Hex(s: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export async function hashProgramKey(plaintext: string): Promise<string> {
+  return sha256Hex(plaintext + Deno.env.get("PROGRAM_KEY_PEPPER")!);
+}
+
+// Rate-limit key for public-api's send throttle (join's existing-member branch,
+// card-recovery). Keyed on a hash of (program, e-mail) rather than member_id: a
+// member-keyed limiter only exists to be checked for members, so its mere presence/absence
+// would itself answer "does this address belong to this program?" — exactly the enumeration
+// signal the byte-identical 202 body exists to prevent. Hashing (rather than storing the
+// address in the clear) means the throttle table never holds a plaintext e-mail either.
+export async function throttleKey(programId: string, email: string): Promise<string> {
+  return sha256Hex(Deno.env.get("PROGRAM_KEY_PEPPER")! + programId + email.trim().toLowerCase());
+}
+
+// Atomically checks-and-marks "may I send now" for `key` (see migration 0008 — one upsert
+// statement with a conditional WHERE, so two concurrent calls for the same key cannot both
+// win the race). Fails closed: an RPC error suppresses the send rather than risking a flood.
+export async function allowSend(
+  sb: ReturnType<typeof serviceClient>,
+  key: string,
+  windowSeconds = 60,
+): Promise<boolean> {
+  const { data, error } = await sb.rpc("public_send_throttle_try", {
+    p_key_hash: key,
+    p_window_seconds: windowSeconds,
+  });
+  if (error) {
+    console.error("[public-api] public_send_throttle_try failed", error);
+    return false;
+  }
+  return data === true;
 }
 
 // Resolves the calling SoftPOS terminal's program from the `X-Program-Key` header.

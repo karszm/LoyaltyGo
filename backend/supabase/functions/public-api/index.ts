@@ -4,28 +4,25 @@
 // The one rule that matters most here: joinProgram must never return a card/balance/membership id
 // for an e-mail that already has a membership — the form doesn't verify address ownership, so
 // returning the card would let anyone type a stranger's e-mail and steal their card and points.
+//
+// The SECOND rule that matters just as much: nothing on this surface may ever answer, through
+// status code, header, or timing, "does this e-mail belong to this program?" — not just the
+// response body. A rate limiter keyed on membership (e.g. "only throttle if a member exists")
+// IS an enumeration oracle even when the 202 body text is byte-identical: the mere presence or
+// absence of a 429 on the second call already leaks the answer. See allowSend/throttleKey in
+// _shared/auth.ts — the limiter is keyed on a hash of (program, e-mail), checked and applied
+// identically whether or not the address is a member, so its outcome never varies by that fact.
 
-import { serviceClient } from "../_shared/auth.ts";
+import { allowSend, serviceClient, throttleKey } from "../_shared/auth.ts";
 import { jsonError, validationError } from "../_shared/errors.ts";
+import { json, parseBody, safeDecode } from "../_shared/http.ts";
 import { enrolMember } from "../_shared/adapters/passkit.ts";
 import { sendCardLink } from "../_shared/adapters/email.ts";
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-}
-
-async function parseBody(req: Request): Promise<Record<string, unknown>> {
-  try {
-    const body = await req.json();
-    return body && typeof body === "object" ? body as Record<string, unknown> : {};
-  } catch {
-    return {};
-  }
-}
-
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const NAME_MAX_LENGTH = 80;   // JoinRequest.first_name/last_name maxLength (docs/api/openapi.yaml)
+const EMAIL_MAX_LENGTH = 254; // RFC 5321 total-address limit
 const APP_BASE_URL = "https://app.loyaltygo.pl";
-const RECOVERY_RATE_LIMIT_MS = 60 * 1000;
 // Contract's exact "maybe" message (docs/api/openapi.yaml MaybeEmailResponse) — shared by
 // joinProgram's existing-member branch and recoverCard's always-202 response so the two
 // surfaces can never drift apart and leak an enumeration signal through wording.
@@ -74,6 +71,10 @@ async function handleGetInvite(sb: ReturnType<typeof serviceClient>, code: strin
   // PublicProgram.status enum is [active, unpublished, suspended, closed]; DB's `draft` is
   // this contract's `unpublished` and `published` is `active` — everything else passes through.
   const status = data.status === "draft" ? "unpublished" : data.status === "published" ? "active" : data.status;
+  // Branding is only for a program the landing page will actually collect signups for — a
+  // draft/suspended/closed program's display_name/logo/description stay private even to
+  // someone holding a leaked invite code; the contract only requires `status` in that case.
+  if (status !== "active") return json({ status });
   return json({
     status,
     display_name: data.display_name,
@@ -96,13 +97,17 @@ async function handleJoin(req: Request, sb: ReturnType<typeof serviceClient>, co
   const email = typeof body.email === "string" ? body.email.trim() : "";
   const consent = body.consent;
 
-  if (!firstName) {
-    return validationError("Imię jest wymagane.", [{ field: "first_name", message: "imię jest wymagane" }]);
+  if (!firstName || firstName.length > NAME_MAX_LENGTH) {
+    return validationError(`Imię jest wymagane i nie może przekraczać ${NAME_MAX_LENGTH} znaków.`, [
+      { field: "first_name", message: `imię jest wymagane i nie może przekraczać ${NAME_MAX_LENGTH} znaków` },
+    ]);
   }
-  if (!lastName) {
-    return validationError("Nazwisko jest wymagane.", [{ field: "last_name", message: "nazwisko jest wymagane" }]);
+  if (!lastName || lastName.length > NAME_MAX_LENGTH) {
+    return validationError(`Nazwisko jest wymagane i nie może przekraczać ${NAME_MAX_LENGTH} znaków.`, [
+      { field: "last_name", message: `nazwisko jest wymagane i nie może przekraczać ${NAME_MAX_LENGTH} znaków` },
+    ]);
   }
-  if (!EMAIL_RE.test(email)) {
+  if (!EMAIL_RE.test(email) || email.length > EMAIL_MAX_LENGTH) {
     return validationError("Adres e-mail jest nieprawidłowy.", [
       { field: "email", message: "adres e-mail jest nieprawidłowy" },
     ]);
@@ -124,14 +129,19 @@ async function handleJoin(req: Request, sb: ReturnType<typeof serviceClient>, co
 // Existing member (or a genuinely new one that lost the double-submit race): never surface
 // the card/balance/id — send the link by e-mail and respond with the "maybe" message only.
 // Personal data (first_name/last_name) is deliberately NOT updated: the form never verified
-// this address belongs to the caller.
+// this address belongs to the caller. Throttled the same way card-recovery is (allowSend) —
+// this is the endpoint a stranger could otherwise abuse to spam a victim's inbox on repeat
+// submits; the 202 + MAYBE_MESSAGE response is identical whether or not the send actually fired.
 async function respondExistingMember(
   sb: ReturnType<typeof serviceClient>,
   program: ProgramRow,
   memberId: string,
   email: string,
 ): Promise<Response> {
-  await issueCardLinkEmail(sb, memberId, email, program.display_name ?? "");
+  const key = await throttleKey(program.id, email);
+  if (await allowSend(sb, key)) {
+    await issueCardLinkEmail(sb, memberId, email, program.display_name ?? "");
+  }
   return json({ message: MAYBE_MESSAGE }, 202);
 }
 
@@ -188,6 +198,8 @@ async function joinNewOrExisting(
   } catch (err) {
     // Membership still exists — that's the whole point. pass_status stays 'pending' (DB
     // default); the emailed link's lazy retry (GET /card-links/:token) picks up the issuance.
+    // Not throttled: this membership was JUST created by the insert above, so it is bounded
+    // by the unique constraint (one row per (program_id, email)), not by repeat submission.
     console.error("[public-api] enrolMember failed", err);
     await issueCardLinkEmail(sb, memberId, input.email, program.display_name ?? "");
     return json({ membership_id: memberId, pass: { status: "preparing" } }, 201);
@@ -201,41 +213,29 @@ async function handleCardRecovery(req: Request, sb: ReturnType<typeof serviceCli
     .eq("invite_code", code).maybeSingle();
   if (!program) return jsonError("not_found", "Nie znaleziono zasobu.", 404);
 
-  if (program.status !== "published") {
-    return programUnavailableResponse(program.status as string);
-  }
-
   const body = await parseBody(req);
   const email = typeof body.email === "string" ? body.email.trim() : "";
-  if (!EMAIL_RE.test(email)) {
+  if (!EMAIL_RE.test(email) || email.length > EMAIL_MAX_LENGTH) {
     return validationError("Adres e-mail jest nieprawidłowy.", [
       { field: "email", message: "adres e-mail jest nieprawidłowy" },
     ]);
   }
 
+  if (program.status !== "published") {
+    return programUnavailableResponse(program.status as string);
+  }
+
   const { data: member } = await sb.from("members")
     .select("id").eq("program_id", program.id).eq("email", email).maybeSingle();
 
+  // Always responds 202 with the same message below, member or not, throttled or not — this
+  // endpoint must never emit a membership-dependent status code, header, or body. The throttle
+  // gate only ever changes whether the e-mail is actually sent, never what the caller sees.
   if (member) {
-    const { data: recentToken } = await sb.from("card_link_tokens")
-      .select("created_at").eq("member_id", member.id)
-      .order("created_at", { ascending: false }).limit(1).maybeSingle();
-    if (recentToken) {
-      const ageMs = Date.now() - new Date(recentToken.created_at as string).getTime();
-      if (ageMs < RECOVERY_RATE_LIMIT_MS) {
-        const retryAfter = Math.max(1, Math.ceil((RECOVERY_RATE_LIMIT_MS - ageMs) / 1000));
-        const res = jsonError("rate_limited", "Odczekaj chwilę przed kolejną próbą.", 429);
-        res.headers.set("retry-after", String(retryAfter));
-        return res;
-      }
+    const key = await throttleKey(program.id as string, email);
+    if (await allowSend(sb, key)) {
+      await issueCardLinkEmail(sb, member.id as string, email, program.display_name ?? "");
     }
-    await issueCardLinkEmail(sb, member.id as string, email, program.display_name ?? "");
-  } else {
-    // Enumeration defence: this branch must do roughly the same DB work as the member-found
-    // branch above (one lookup + one read), just not the write/e-mail — faking a token row
-    // for an address with no member would pollute card_link_tokens, and actually e-mailing a
-    // non-member is simply wrong, so the residual timing gap is accepted for this PoC.
-    await sb.from("card_link_tokens").select("token").limit(0);
   }
 
   return json({ message: MAYBE_MESSAGE }, 202);
@@ -261,10 +261,18 @@ async function handleGetCardLink(sb: ReturnType<typeof serviceClient>, token: st
 
   // Lazy retry: replaces the retry worker the plan deliberately cut. Try issuance now;
   // on failure leave pass_status alone so the next click through the same link retries again.
-  const { data: program } = await sb.from("programs").select("passkit_program_id").eq("id", member.program_id).maybeSingle();
+  const { data: program } = await sb.from("programs")
+    .select("status, passkit_program_id").eq("id", member.program_id).maybeSingle();
+  if (program?.status !== "published") {
+    // Program suspended/closed/draft: don't issue a brand-new pass against it. The link
+    // still resolves — just with whatever state the member already has (never a 404/409;
+    // the customer's existing card link must keep working regardless of merchant status).
+    return json({ status: "preparing" });
+  }
+
   try {
     const enrolled = await enrolMember({
-      programId: program?.passkit_program_id ?? "",
+      programId: program.passkit_program_id ?? "",
       externalId: member.id as string,
       firstName: member.first_name as string,
       lastName: member.last_name as string,
@@ -305,12 +313,18 @@ Deno.serve(async (req) => {
       return jsonError("method_not_allowed", "Metoda niedozwolona.", 405);
     }
 
+    // A malformed %-escape in the path segment (e.g. a lone surrogate half) -> treat as not
+    // found rather than letting decodeURIComponent's URIError fall through to a 500.
+    const rawSegment = (inviteMatch ?? joinMatch ?? recoveryMatch ?? cardLinkMatch)![1];
+    const decoded = safeDecode(rawSegment);
+    if (decoded === null) return jsonError("not_found", "Nie znaleziono zasobu.", 404);
+
     const sb = serviceClient();
 
-    if (inviteMatch) return await handleGetInvite(sb, decodeURIComponent(inviteMatch[1]));
-    if (joinMatch) return await handleJoin(req, sb, decodeURIComponent(joinMatch[1]));
-    if (recoveryMatch) return await handleCardRecovery(req, sb, decodeURIComponent(recoveryMatch[1]));
-    return await handleGetCardLink(sb, decodeURIComponent(cardLinkMatch![1]));
+    if (inviteMatch) return await handleGetInvite(sb, decoded);
+    if (joinMatch) return await handleJoin(req, sb, decoded);
+    if (recoveryMatch) return await handleCardRecovery(req, sb, decoded);
+    return await handleGetCardLink(sb, decoded);
   } catch (err) {
     console.error("[public-api] unhandled error", err);
     return jsonError("internal_error", "Wystąpił błąd serwera.", 500);

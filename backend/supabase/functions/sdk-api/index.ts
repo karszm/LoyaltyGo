@@ -3,11 +3,8 @@
 
 import { resolveProgramFromKey, serviceClient, signScanToken, verifyScanToken } from "../_shared/auth.ts";
 import { jsonError, mapPgError, validationError } from "../_shared/errors.ts";
+import { json, parseBody, safeDecode } from "../_shared/http.ts";
 import { syncPassBalance } from "../_shared/adapters/passkit.ts";
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-}
 
 // Fire-and-forget: a PassKit failure must never change the HTTP response to the SDK —
 // the DB balance is the source of truth, PassKit catches up on the next successful call.
@@ -15,15 +12,6 @@ function fireAndForget(p: Promise<unknown>): void {
   const withCatch = p.catch((err) => console.error("[sdk-api] passkit call failed", err));
   const rt = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
   if (rt?.waitUntil) rt.waitUntil(withCatch);
-}
-
-async function parseBody(req: Request): Promise<Record<string, unknown>> {
-  try {
-    const body = await req.json();
-    return body && typeof body === "object" ? body as Record<string, unknown> : {};
-  } catch {
-    return {};
-  }
 }
 
 // Runs an RPC, retrying exactly once on the "retry" sentinel (SQLSTATE 40001) per
@@ -356,9 +344,12 @@ Deno.serve(async (req) => {
     if (path === "/program") return await handleProgram(sb, auth.programId);
     if (path === "/scans") return await handleScans(req, sb, auth);
     if (path === "/transactions") return await handleRegisterTransaction(req, sb, auth);
-    // decodeURIComponent throws URIError on a malformed %-escape — caught below, not left
-    // to escape as a non-contract response.
-    return await handleCancellation(sb, auth, decodeURIComponent(cancellationMatch![1]));
+    // A malformed %-escape in the transaction id -> that id can't possibly match a stored
+    // transaction anyway, so answer with this endpoint's own "unknown" contract code rather
+    // than letting decodeURIComponent's URIError fall through to a generic 500.
+    const txId = safeDecode(cancellationMatch![1]);
+    if (txId === null) return jsonError("transaction_unknown", "Transakcja nieznana.", 404);
+    return await handleCancellation(sb, auth, txId);
   } catch (err) {
     console.error("[sdk-api] unhandled error", err);
     return jsonError("internal_error", "Wystąpił błąd serwera.", 500);

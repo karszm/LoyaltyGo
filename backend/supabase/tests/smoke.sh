@@ -255,6 +255,16 @@ public_tests() {
   code=$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_BASE/invites/BOGUS9")
   check "GET /invites/BOGUS9 (bogus code) status" "$code" "404"
 
+  # -- GET /invites/:code: unpublished program -> status only, branding stays private --
+
+  psql_exec "update public.programs set status='draft' where id='$PROGRAM_B';"
+  r=$(preq GET /invites/SEEDB1)
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "GET /invites draft program status" "$status" "200"
+  check "GET /invites draft program .status" "$(echo "$body" | jq -r .status)" "unpublished"
+  check "GET /invites draft program has no display_name" "$(echo "$body" | jq 'has("display_name")')" "false"
+  psql_exec "update public.programs set status='published' where id='$PROGRAM_B';"
+
   # -- join: new e-mail -> 201 ready --
 
   local new_email="new-member-$$@test.pl"
@@ -271,18 +281,44 @@ public_tests() {
   check "join new email DB row consent_at set" \
     "$(psql_count "select count(*) from public.members where email='$new_email' and consent_at is not null;")" "1"
 
-  # -- join: same e-mail again -> 202 maybe-response, no id/balance, name NOT updated --
+  # -- join: same e-mail again, 5x rapidly -> all 202, no id/balance/pass, name NOT updated, --
+  # -- and at most ONE new token row across all 5 (send-throttled after the first) --
 
-  r=$(preq POST /invites/SEEDA1/join \
-    "{\"first_name\":\"Inny\",\"last_name\":\"Ktos\",\"email\":\"$new_email\",\"consent\":true}")
-  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
-  check "join repeat email status" "$status" "202"
-  check "join repeat email .message" "$(echo "$body" | jq -r .message)" "$MAYBE_MSG"
-  check "join repeat email has no membership_id" "$(echo "$body" | jq 'has("membership_id")')" "false"
-  check "join repeat email has no pass" "$(echo "$body" | jq 'has("pass")')" "false"
-  check "join repeat email has no points_balance" "$(echo "$body" | jq 'has("points_balance")')" "false"
+  local join_tokens_before join_tokens_after all_202="yes" first_repeat_body=""
+  join_tokens_before=$(psql_count "select count(*) from public.card_link_tokens;")
+  for i in 1 2 3 4 5; do
+    r=$(preq POST /invites/SEEDA1/join \
+      "{\"first_name\":\"Inny$i\",\"last_name\":\"Ktos$i\",\"email\":\"$new_email\",\"consent\":true}")
+    body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+    [ "$status" = "202" ] || all_202="no (call $i -> $status)"
+    [ "$i" = "1" ] && first_repeat_body="$body"
+  done
+  check "join repeat email x5 all 202" "$all_202" "yes"
+  check "join repeat email .message" "$(echo "$first_repeat_body" | jq -r .message)" "$MAYBE_MSG"
+  check "join repeat email has no membership_id" "$(echo "$first_repeat_body" | jq 'has("membership_id")')" "false"
+  check "join repeat email has no pass" "$(echo "$first_repeat_body" | jq 'has("pass")')" "false"
+  check "join repeat email has no points_balance" "$(echo "$first_repeat_body" | jq 'has("points_balance")')" "false"
   check "join repeat email DB first_name unchanged" \
     "$(psql_count "select first_name from public.members where email='$new_email';")" "Nowy"
+  join_tokens_after=$(psql_count "select count(*) from public.card_link_tokens;")
+  check "join repeat email x5 at most one new token row" \
+    "$([ $((join_tokens_after - join_tokens_before)) -le 1 ] && echo yes)" "yes"
+
+  # -- join: first_name length cap (JoinRequest.first_name maxLength: 80) --
+
+  local long81 long80
+  long81=$(printf 'a%.0s' $(seq 1 81))
+  long80=$(printf 'a%.0s' $(seq 1 80))
+
+  r=$(preq POST /invites/SEEDA1/join \
+    "{\"first_name\":\"$long81\",\"last_name\":\"B\",\"email\":\"toolong-$$@test.pl\",\"consent\":true}")
+  status=$(echo "$r" | tail -1)
+  check "join first_name 81 chars status" "$status" "422"
+
+  r=$(preq POST /invites/SEEDA1/join \
+    "{\"first_name\":\"$long80\",\"last_name\":\"B\",\"email\":\"exactly80-$$@test.pl\",\"consent\":true}")
+  status=$(echo "$r" | tail -1)
+  check "join first_name 80 chars status" "$status" "201"
 
   # -- join: consent:false -> 422, no member row --
 
@@ -305,47 +341,56 @@ public_tests() {
   check "join suspended program error code" "$(echo "$body" | jq -r .error.code)" "program_unavailable"
   psql_exec "update public.programs set status='published' where id='$PROGRAM_B';"
 
-  # -- card-recovery: member -> 202, exactly one new token row --
+  # -- card-recovery: member and non-member, twice each -> ALWAYS 202, never 429, and the --
+  # -- member/non-member bodies (and statuses) are indistinguishable from one another --
+  # -- (this is the regression test for the send-throttle-as-enumeration-oracle bug: a --
+  # -- limiter keyed on membership would show up here as a 429 on the member's second call --
+  # -- but never on the non-member's, even with an identical response body). --
 
-  local tokens_before tokens_after_g tokens_after_h tokens_after_i
+  local tokens_before tokens_after_1 tokens_after_2 tokens_after_3 tokens_after_4
   tokens_before=$(psql_count "select count(*) from public.card_link_tokens;")
 
   r=$(preq POST /invites/SEEDA1/card-recovery '{"email":"seed-member-a@test.pl"}')
   body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
-  local recovery_body_member="$body"
-  check "card-recovery member status" "$status" "202"
-  check "card-recovery member .message" "$(echo "$body" | jq -r .message)" "$MAYBE_MSG"
-  tokens_after_g=$(psql_count "select count(*) from public.card_link_tokens;")
-  check "card-recovery member created exactly one token row" "$((tokens_after_g - tokens_before))" "1"
+  local body_1="$body"
+  check "card-recovery member call 1 status" "$status" "202"
+  check "card-recovery member call 1 .message" "$(echo "$body" | jq -r .message)" "$MAYBE_MSG"
+  tokens_after_1=$(psql_count "select count(*) from public.card_link_tokens;")
+  check "card-recovery member call 1 created exactly one token row" "$((tokens_after_1 - tokens_before))" "1"
 
   local first_token
   first_token=$(psql_count "select token from public.card_link_tokens where member_id='$MEMBER_A' order by created_at desc limit 1;")
 
-  # -- card-recovery twice in a row -> second is 429 with Retry-After --
-
-  local raw
-  raw=$(curl -s -i -X POST -H 'Content-Type: application/json' \
-    -d '{"email":"seed-member-a@test.pl"}' "$PUBLIC_BASE/invites/SEEDA1/card-recovery")
-  status=$(echo "$raw" | head -1 | awk '{print $2}' | tr -d '\r')
-  check "card-recovery rate-limited status" "$status" "429"
-  check "card-recovery rate-limited has Retry-After header" \
-    "$(echo "$raw" | grep -ic '^retry-after:')" "1"
-  tokens_after_h=$(psql_count "select count(*) from public.card_link_tokens;")
-  check "card-recovery rate-limited created no token row" "$tokens_after_h" "$tokens_after_g"
-
-  # -- card-recovery: non-member -> 202, byte-identical body, no new token row --
+  r=$(preq POST /invites/SEEDA1/card-recovery '{"email":"seed-member-a@test.pl"}')
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "card-recovery member call 2 (throttled) status" "$status" "202"
+  check "card-recovery member call 2 body identical to call 1 (throttle is invisible to caller)" "$body" "$body_1"
+  tokens_after_2=$(psql_count "select count(*) from public.card_link_tokens;")
+  check "card-recovery member call 2 (throttled) created no token row (send actually suppressed)" \
+    "$tokens_after_2" "$tokens_after_1"
 
   r=$(preq POST /invites/SEEDA1/card-recovery '{"email":"nobody-here@test.pl"}')
   body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
-  check "card-recovery non-member status" "$status" "202"
-  check "card-recovery non-member body byte-identical to member's" "$body" "$recovery_body_member"
-  tokens_after_i=$(psql_count "select count(*) from public.card_link_tokens;")
-  check "card-recovery non-member created no token row" "$tokens_after_i" "$tokens_after_g"
+  check "card-recovery non-member call 1 status" "$status" "202"
+  check "card-recovery non-member call 1 body identical to member's" "$body" "$body_1"
+  tokens_after_3=$(psql_count "select count(*) from public.card_link_tokens;")
+  check "card-recovery non-member call 1 created no token row" "$tokens_after_3" "$tokens_after_1"
+
+  r=$(preq POST /invites/SEEDA1/card-recovery '{"email":"nobody-here@test.pl"}')
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "card-recovery non-member call 2 status" "$status" "202"
+  check "card-recovery non-member call 2 body identical to member's" "$body" "$body_1"
+  tokens_after_4=$(psql_count "select count(*) from public.card_link_tokens;")
+  check "card-recovery non-member call 2 created no token row" "$tokens_after_4" "$tokens_after_1"
 
   # -- GET /card-links/:token --
 
   code=$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_BASE/card-links/garbage-token-does-not-exist")
   check "GET /card-links garbage token status" "$code" "404"
+
+  # malformed percent-escape (lone surrogate half) -> 404, not a 500 from decodeURIComponent
+  code=$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_BASE/card-links/%ED%A0%80")
+  check "GET /card-links malformed percent-escape status" "$code" "404"
 
   # expired token: insert one directly, 1h in the past
   psql_exec "insert into public.card_link_tokens (member_id, expires_at) values ('$MEMBER_A', now() - interval '1 hour');"

@@ -17,6 +17,15 @@ delete from auth.users where id in (
   '61000000-0000-0000-0000-000000000001'
 );
 
+-- public_send_throttle (0008) is keyed on a hash of (program_id, email), not a member id —
+-- it has no FK to anything above and so does NOT cascade from the auth.users delete. Since
+-- this fixture's program ids and member e-mails are fixed constants, a throttle row from a
+-- previous smoke run would otherwise outlive its 60s window into the next run whenever runs
+-- are less than a minute apart, throttling the very first card-recovery/join-repeat call and
+-- breaking "idempotent re-run" for this table specifically. Clear it every time, same as the
+-- auth.users delete above.
+truncate public.public_send_throttle;
+
 -- Merchant A — main fixture, published program, one active member, one active offer.
 insert into auth.users (id, email, instance_id, aud, role)
 values ('51000000-0000-0000-0000-000000000001', 'seed-a@loyaltygo.test',
