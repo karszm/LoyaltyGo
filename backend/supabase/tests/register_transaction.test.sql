@@ -47,6 +47,12 @@ begin
     'panel nie może wołać register_transaction';
   assert not has_function_privilege('anon', 'public.cancel_transaction(uuid,text)', 'execute'),
     'anon nie może wołać cancel_transaction';
+  assert not has_function_privilege('service_role',
+    'public.transaction_replay_result(public.transactions)', 'execute'),
+    'transaction_replay_result nie potrzebuje grantu — działa przez definer w register_transaction';
+  assert not has_function_privilege('authenticated',
+    'public.transaction_replay_result(public.transactions)', 'execute'),
+    'panel nie może wołać transaction_replay_result (forgeable row => cudze saldo)';
 end $$;
 
 do $$
@@ -240,10 +246,18 @@ savepoint sp_role_test;
 set local role service_role;
 do $$
 declare ok jsonb;
+declare v_at timestamptz := now();  -- stały punkt w czasie dla obu wywołań, żeby insert i replay to ta sama transakcja
 begin
+  -- pierwsze wywołanie: gałąź insert
   ok := public.register_transaction('c2000000-0000-0000-0000-000000000001',
-        'c3000000-0000-0000-0000-000000000001', 'TX-ROLE', 50.00, now(), null, null, false);
-  assert ok is not null, 'service_role musi móc wykonać register_transaction end-to-end';
+        'c3000000-0000-0000-0000-000000000001', 'TX-ROLE', 50.00, v_at, null, null, false);
+  assert (ok->>'idempotent_replay')::boolean = false, ok::text;
+  -- drugie: gałąź replayu — dowodzi, że service_role przechodzi przez definer
+  -- do transaction_replay_result, mimo braku bezpośredniego grantu na ten helper
+  ok := public.register_transaction('c2000000-0000-0000-0000-000000000001',
+        'c3000000-0000-0000-0000-000000000001', 'TX-ROLE', 50.00, v_at, null, null, false);
+  assert (ok->>'idempotent_replay')::boolean = true,
+    'service_role musi przejść ścieżkę replayu przez definer: ' || ok::text;
 end $$;
 rollback to savepoint sp_role_test;
 
