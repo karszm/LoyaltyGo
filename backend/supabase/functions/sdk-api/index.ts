@@ -129,6 +129,19 @@ async function handleScans(
 const MONEY_RE = /^\d+\.\d{2}$/;
 const MAX_AMOUNT = 999999.99;
 
+// Kontrakt deklaruje performed_at jako date-time (RFC 3339). Date.parse jest
+// znacznie luźniejsze ("0" → rok 1999), a luźne parsowanie ma tu konsekwencję
+// bezpieczeństwa: patrz okno poniżej.
+const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+
+// Okno wiarygodności: kolejka offline SDK ma limit 7 dni (patrz PRODUCT/plan),
+// więc 30 dni w tył to z zapasem wszystko, co legalnie może dojść z opóźnieniem.
+// Bez dolnej granicy transakcja z odległej przeszłości przechodzi kontrolę
+// zawieszenia programu (performed_at < status_changed_at) i nalicza punkty na
+// zawieszonym programie. Górna granica to tolerancja na rozjechany zegar kasy.
+const MAX_BACKDATE_MS = 30 * 24 * 60 * 60 * 1000;
+const MAX_FUTURE_MS = 24 * 60 * 60 * 1000;
+
 // POST /transactions
 async function handleRegisterTransaction(
   req: Request,
@@ -169,10 +182,23 @@ async function handleRegisterTransaction(
       { field: "coupon_ids", message: "coupon_ids musi być tablicą identyfikatorów" },
     ]);
   }
-  if (typeof performedAt === "string" && !Number.isFinite(Date.parse(performedAt))) {
-    return validationError("Czas wykonania transakcji ma nieprawidłowy format.", [
-      { field: "performed_at", message: "czas wykonania transakcji ma nieprawidłowy format" },
-    ]);
+  if (typeof performedAt === "string") {
+    if (!RFC3339.test(performedAt) || !Number.isFinite(Date.parse(performedAt))) {
+      return validationError("Czas wykonania transakcji ma nieprawidłowy format.", [
+        { field: "performed_at", message: "czas wykonania transakcji ma nieprawidłowy format" },
+      ]);
+    }
+    const performedAtMs = Date.parse(performedAt);
+    const nowMs = Date.now();
+    if (performedAtMs < nowMs - MAX_BACKDATE_MS || performedAtMs > nowMs + MAX_FUTURE_MS) {
+      return validationError(
+        "Czas wykonania transakcji musi mieścić się w oknie od 30 dni wstecz do 24 godzin naprzód.",
+        [{
+          field: "performed_at",
+          message: "czas wykonania transakcji musi mieścić się w oknie od 30 dni wstecz do 24 godzin naprzód",
+        }],
+      );
+    }
   }
 
   const hasScan = typeof scanToken === "string" && scanToken.length > 0;
@@ -220,7 +246,8 @@ async function handleRegisterTransaction(
       const { error: rejErr } = await sb.from("sync_rejections").insert({
         program_id: auth.programId,
         softpos_transaction_id: transactionId,
-        performed_at: performedAt,
+        // Same canonical ISO instant as the RPC gets — never hand Postgres the raw string.
+        performed_at: typeof performedAt === "string" ? new Date(performedAt).toISOString() : null,
         reason: "card_foreign_program",
       });
       if (rejErr && rejErr.code !== "23505") {

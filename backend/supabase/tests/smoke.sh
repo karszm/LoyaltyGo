@@ -27,6 +27,16 @@ psql_count() {
   docker exec -i supabase_db_backend psql -U postgres -d postgres -tAc "$1" | tr -d '[:space:]'
 }
 
+# psql_exec SQL -- runs a statement against the local DB via docker (no output needed)
+psql_exec() {
+  docker exec -i supabase_db_backend psql -U postgres -d postgres -c "$1" > /dev/null
+}
+
+# days_ago N -- ISO-8601 UTC timestamp N days in the past (BSD date, GNU date fallback)
+days_ago() {
+  date -u -v-"$1"d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "-$1 days" +"%Y-%m-%dT%H:%M:%SZ"
+}
+
 PASS=0
 FAIL=0
 
@@ -175,16 +185,10 @@ sdk_tests() {
 
   # -- fix round 2 --
 
-  # performed_at: "0" -- Date.parse("0") is finite (V8 parses it as a real, if odd,
-  # instant) so it passes validation same as any other parseable date; the round-2 fix
-  # canonicalizes it to a real ISO instant before it reaches Postgres (which rejects the
-  # bare string "0" outright), so this no longer 500s. Given Date.parse accepts it, the
-  # correct outcome is 201, not a validation rejection -- asserting 201 here (not the 422
-  # floated during triage) because that is what canonicalizing to a valid instant actually
-  # produces, and it is what the fix's own rationale implies.
-  r=$(req POST /transactions '{"transaction_id":"TX-ZERO-DATE","amount":"10.00","card_token":"'"$CARD_A"'","performed_at":"0"}' "$KEY_A")
-  status=$(echo "$r" | tail -1)
-  check "performed_at '0' status (no 500)" "$status" "201"
+  # (Round 2's "performed_at: '0' -> 201" case lived here. Superseded by round 3's strict
+  # RFC 3339 check below, which rejects "0" outright -- Date.parse being lenient enough to
+  # accept it turned out to be a security hole, not just a status-code question: see the
+  # "0"/year-2000 cases under fix round 3.)
 
   # coupon_ids: null on the offline path must be accepted as "no coupons", not confused
   # with the coupons-forbidden-offline ban (which only fires for a non-empty array).
@@ -193,6 +197,33 @@ sdk_tests() {
     "$KEY_A")
   status=$(echo "$r" | tail -1)
   check "coupon_ids null offline status" "$status" "201"
+
+  # -- fix round 3: strict RFC 3339 + plausibility window --
+
+  # "0": Date.parse("0") is finite (parses as 1999-12-31) but fails the RFC 3339 format
+  # check now required first -> 422, not the 201 round 2 produced.
+  r=$(req POST /transactions '{"transaction_id":"TX-ZERO-DATE-2","amount":"10.00","card_token":"'"$CARD_A"'","performed_at":"0"}' "$KEY_A")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "performed_at '0' status (strict RFC 3339)" "$status" "422"
+  check "performed_at '0' error code" "$(echo "$body" | jq -r .error.code)" "validation_failed"
+
+  # well-formed but 60 days in the past -> outside the plausibility window -> 422.
+  r=$(req POST /transactions \
+    "{\"transaction_id\":\"TX-WINDOW-60D\",\"amount\":\"10.00\",\"card_token\":\"$CARD_A\",\"performed_at\":\"$(days_ago 60)\"}" "$KEY_A")
+  status=$(echo "$r" | tail -1)
+  check "performed_at 60 days ago status" "$status" "422"
+
+  # THE security case: a far-past performed_at must not bypass the suspension check.
+  # Suspend program A, then attempt an offline sync dated at the epoch of Y2K -- well
+  # outside the 30-day window -- and confirm it's rejected before it ever reaches the
+  # status_changed_at comparison.
+  psql_exec "update public.programs set status='suspended' where id='$PROGRAM_A';"
+  r=$(req POST /transactions \
+    '{"transaction_id":"TX-ATTACK-Y2K-SMOKE","amount":"10.00","card_token":"'"$CARD_A"'","performed_at":"2000-01-01T00:00:00Z"}' \
+    "$KEY_A")
+  status=$(echo "$r" | tail -1)
+  check "suspended program + year-2000 performed_at status" "$status" "422"
+  psql_exec "update public.programs set status='published' where id='$PROGRAM_A';"
 }
 
 public_tests() {
