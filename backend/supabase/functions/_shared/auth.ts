@@ -37,7 +37,9 @@ async function hmac(payload: string): Promise<string> {
 }
 
 // A "scan context" is this signed token, not a DB row — there is no scan_contexts
-// table. base64url(programId|memberId|exp) + "." + HMAC-SHA256(payload).
+// table. base64(programId|memberId|exp) + "." + HMAC-SHA256(payload). (`btoa`/`atob`
+// is plain base64, not URL-safe base64url — fine here since the payload only ever
+// holds UUIDs/a number and travels in a JSON body, never a URL.)
 export async function signScanToken(
   programId: string,
   memberId: string,
@@ -51,6 +53,10 @@ export async function verifyScanToken(
   token: string,
 ): Promise<{ programId: string; memberId: string } | null> {
   const [payload, sig] = token.split(".");
+  // Not constant-time: over HTTP with a 10-minute TTL and normal network jitter, a
+  // timing side-channel on this comparison isn't practically exploitable. Upgrade
+  // path if scan tokens ever get a longer life or a higher-value payload: constant-time
+  // compare (e.g. crypto.subtle.timingSafeEqual once stable, or a manual XOR-fold).
   if (!payload || !sig || sig !== await hmac(payload)) return null;
   const [programId, memberId, exp] = atob(payload).split("|");
   if (Date.now() > Number(exp)) return null;

@@ -38,7 +38,11 @@ export function mapPgError(err: unknown): Response | "retry" | null {
     case "LG004":
       return jsonError("membership_blocked", "Członkostwo jest nieaktywne.", 403);
     case "LG005":
-      return jsonError("program_not_active", "Program jest zawieszony.", 409);
+      // LG005 fires whenever current_rate() finds no active rate — that's true for
+      // draft, suspended, AND closed programs, so the message must stay generic
+      // (components/responses/ProgramNotActive in docs/api/openapi.yaml), not imply
+      // "suspended" specifically.
+      return jsonError("program_not_active", "Program nie jest aktywny.", 409);
     case "23505":
       return jsonError(
         "idempotency_conflict",
