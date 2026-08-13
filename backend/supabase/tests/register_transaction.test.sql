@@ -20,6 +20,10 @@ insert into public.offers (id, program_id, title)
   values ('c4000000-0000-0000-0000-000000000002', 'c2000000-0000-0000-0000-000000000001', 'Rabat dodatkowy');
 insert into public.offers (id, program_id, title, status, deactivated_at)
   values ('c4000000-0000-0000-0000-000000000003', 'c2000000-0000-0000-0000-000000000001', 'Wycofana', 'inactive', now());
+insert into public.offers (id, program_id, title)
+  values ('c4000000-0000-0000-0000-000000000004', 'c2000000-0000-0000-0000-000000000001', 'Kupon do testu zestawu');
+insert into public.offers (id, program_id, title)
+  values ('c4000000-0000-0000-0000-000000000005', 'c2000000-0000-0000-0000-000000000001', 'Kupon do testu snapshotu');
 
 -- Merchant B (obcy program — test kuponu spoza merchanta)
 insert into auth.users (id, email) values ('d0000000-0000-0000-0000-00000000000d', 'd@d.pl');
@@ -162,6 +166,46 @@ begin
        null, null, false);
   assert (r->>'points_awarded')::int = 5, r::text;
 
+  -- t1) CRITICAL (round-2 regression, EDIT 1): retry bez performed_at musi
+  -- być replayem, nie LG003. Dzięki clock_timestamp() (EDIT 2) każde
+  -- wywołanie ma inny "teraz" nawet w tej samej transakcji, więc porównanie
+  -- performed_at musi być pominięte, gdy wołający sam go nie podał.
+  r := public.register_transaction('c2000000-0000-0000-0000-000000000001',
+       'c3000000-0000-0000-0000-000000000001', 'TX-NULLRETRY', 100.00, null, null, null, null);
+  assert (r->>'idempotent_replay')::boolean = false, r::text;
+  r := public.register_transaction('c2000000-0000-0000-0000-000000000001',
+       'c3000000-0000-0000-0000-000000000001', 'TX-NULLRETRY', 100.00, null, null, null, null);
+  assert (r->>'idempotent_replay')::boolean = true,
+    'ponowienie bez performed_at musi być replayem, nie LG003: ' || r::text;
+
+  -- t2) I5, druga połowa: powtórzenie z INNYM zestawem kuponów niż oryginał
+  -- musi być konfliktem, nie cichą zmianą wyniku.
+  r := public.register_transaction('c2000000-0000-0000-0000-000000000001',
+       'c3000000-0000-0000-0000-000000000001', 'TX-COUPONSET', 100.00, now(), null, null, false);
+  begin
+    perform public.register_transaction('c2000000-0000-0000-0000-000000000001',
+      'c3000000-0000-0000-0000-000000000001', 'TX-COUPONSET', 100.00, now(),
+      array['c4000000-0000-0000-0000-000000000004']::uuid[], null, false);
+    raise exception 'brak LG003 przy zmienionym zestawie kuponów';
+  exception when sqlstate 'LG003' then null;
+  end;
+
+  -- t4) decyzja specyfikacyjna: replay po anulowaniu nadal raportuje
+  -- 'consumed' — `coupons` to zdjęcie wyniku TEJ rejestracji, nie bieżący
+  -- stan kuponu; zwrot widać w `coupons_restored` odpowiedzi cancel_transaction,
+  -- a nie tutaj ('reverted' nie istnieje w enumie CouponResult z kontraktu).
+  r := public.register_transaction('c2000000-0000-0000-0000-000000000001',
+       'c3000000-0000-0000-0000-000000000001', 'TX-SNAPSHOT', 100.00, now(),
+       array['c4000000-0000-0000-0000-000000000005']::uuid[], null, false);
+  assert r->'coupons'->0->>'status' = 'consumed', r::text;
+  perform public.cancel_transaction('c2000000-0000-0000-0000-000000000001', 'TX-SNAPSHOT');
+  r := public.register_transaction('c2000000-0000-0000-0000-000000000001',
+       'c3000000-0000-0000-0000-000000000001', 'TX-SNAPSHOT', 100.00, now(),
+       array['c4000000-0000-0000-0000-000000000005']::uuid[], null, false);
+  assert (r->>'idempotent_replay')::boolean = true, r::text;
+  assert r->'coupons'->0->>'status' = 'consumed',
+    'snapshot: replay po anulowaniu ma nadal pokazywać consumed: ' || r::text;
+
   -- 7. anulowanie: saldo nie schodzi poniżej zera, korekta
   update public.members set points_balance = 10
     where id = 'c3000000-0000-0000-0000-000000000001';
@@ -186,4 +230,21 @@ begin
   r := public.cancel_transaction('c2000000-0000-0000-0000-000000000001', 'TX-1003');
   assert jsonb_array_length(r->'coupons_restored') = 1, r::text;
 end $$;
+
+-- t3) grants wykonane, nie tylko odczytane: wywołaj RPC jako service_role
+-- naprawdę, żeby przećwiczyć cały łańcuch uprawnień, w tym przeskok definer
+-- do transaction_replay_result. Savepoint zamiast zagnieżdżonego begin/rollback,
+-- bo cały plik już jest w jednej transakcji — set local role jest cofane
+-- razem z rollback to savepoint, więc nic nie wycieka do reszty testu.
+savepoint sp_role_test;
+set local role service_role;
+do $$
+declare ok jsonb;
+begin
+  ok := public.register_transaction('c2000000-0000-0000-0000-000000000001',
+        'c3000000-0000-0000-0000-000000000001', 'TX-ROLE', 50.00, now(), null, null, false);
+  assert ok is not null, 'service_role musi móc wykonać register_transaction end-to-end';
+end $$;
+rollback to savepoint sp_role_test;
+
 rollback;

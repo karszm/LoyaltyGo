@@ -14,8 +14,16 @@ alter table public.transactions
 
 -- Wynik pierwotnej rejestracji — wspólny dla pre-checku idempotencji i dla
 -- wyścigu przechwyconego przez on conflict.
+-- Snapshot świadomy: `coupons` opisuje wynik TEJ rejestracji, więc kupon
+-- skonsumowany i później wycofany zwrotem nadal jest tu 'consumed'. Wycofanie
+-- raportuje odpowiedź anulowania (`coupons_restored`); 'reverted' nie istnieje
+-- w enumie CouponResult z kontraktu.
+-- Bez security definer: jedyny wołający (register_transaction) już działa
+-- jako właściciel, więc definer tu nic nie daje, a jedynie robi z tej funkcji
+-- potencjalny prymityw wycieku (dowolny sfałszowany wiersz transactions
+-- odczytałby cudze saldo).
 create or replace function public.transaction_replay_result(p_tx public.transactions)
-returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
+returns jsonb language sql stable set search_path = public, pg_temp as $$
   select jsonb_build_object(
     'id', p_tx.id,
     'transaction_id', p_tx.softpos_transaction_id,
@@ -32,7 +40,7 @@ $$;
 -- przy podwójnym tapnięciu w SoftPOS, sort ustala globalny porządek blokowania
 -- ofert (bez tego dwa równoległe żądania z odwróconymi listami się zakleszczają).
 create or replace function public.normalize_coupon_ids(p_ids uuid[])
-returns uuid[] language sql immutable as $$
+returns uuid[] language sql immutable set search_path = public, pg_temp as $$
   select coalesce((select array_agg(distinct c order by c) from unnest(p_ids) as c), '{}'::uuid[])
 $$;
 
@@ -52,7 +60,11 @@ declare
   v_warnings jsonb := '[]'::jsonb;
   v_reason jsonb := '{}'::jsonb;          -- coupon_id::text -> 'inactive' | 'already_used'
   v_any_bad boolean;
-  v_performed_at timestamptz := coalesce(p_performed_at, now());
+  -- clock_timestamp() (nie now(), stały w całej transakcji): "chwila żądania"
+  -- ma faktycznie się zmieniać między kolejnymi wywołaniami tego samego
+  -- połączenia — inaczej zwykły retry bez performed_at nigdy nie różniłby
+  -- swojego v_performed_at, maskując regresję w porównaniu niżej.
+  v_performed_at timestamptz := coalesce(p_performed_at, clock_timestamp());
   v_delayed boolean := coalesce(p_delayed_sync, false);
   v_ids uuid[] := public.normalize_coupon_ids(p_coupon_ids);
   v_status text;
@@ -65,7 +77,10 @@ begin
   if found then
     if v_tx.member_id <> p_member_id
        or v_tx.amount <> p_amount
-       or v_tx.performed_at <> v_performed_at
+       -- Porównuj tylko gdy wołający sam podał czas (ścieżka offline).
+       -- Przy null (ścieżka online) każde wywołanie ma inny "teraz",
+       -- więc porównanie zamieniłoby zwykłe ponowienie w konflikt.
+       or (p_performed_at is not null and v_tx.performed_at <> p_performed_at)
        or v_ids <> public.normalize_coupon_ids(
             (select array_agg((e->>'coupon_id')::uuid)
                from jsonb_array_elements(v_tx.coupon_results) e))
@@ -104,7 +119,7 @@ begin
   -- się wycofała) — zamiast surowego 23505.
   if not found then
     return public.register_transaction(p_program_id, p_member_id, p_softpos_tx_id,
-      p_amount, v_performed_at, v_ids, p_metadata, v_delayed);
+      p_amount, p_performed_at, v_ids, p_metadata, v_delayed);
   end if;
 
   -- Kupony. Pass 1: ustal dostępność WSZYSTKICH (blokada wiersza oferty w
@@ -137,10 +152,10 @@ begin
           'message', 'Kupon nieskonsumowany — rabat udzielony poza programem.');
       end if;
     end loop;
-  end if;
 
-  update transactions set coupon_results = v_coupons, warnings = v_warnings
-   where id = v_tx.id;
+    update transactions set coupon_results = v_coupons, warnings = v_warnings
+     where id = v_tx.id;
+  end if;
 
   update members set points_balance = points_balance + v_points,
                      last_transaction_at = v_performed_at
