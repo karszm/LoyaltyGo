@@ -172,6 +172,27 @@ sdk_tests() {
   check "repeated foreign-card sync_rejections row count" \
     "$(psql_count "select count(*) from public.sync_rejections where program_id='$PROGRAM_A' and softpos_transaction_id='$foreign_tx';")" \
     "1"
+
+  # -- fix round 2 --
+
+  # performed_at: "0" -- Date.parse("0") is finite (V8 parses it as a real, if odd,
+  # instant) so it passes validation same as any other parseable date; the round-2 fix
+  # canonicalizes it to a real ISO instant before it reaches Postgres (which rejects the
+  # bare string "0" outright), so this no longer 500s. Given Date.parse accepts it, the
+  # correct outcome is 201, not a validation rejection -- asserting 201 here (not the 422
+  # floated during triage) because that is what canonicalizing to a valid instant actually
+  # produces, and it is what the fix's own rationale implies.
+  r=$(req POST /transactions '{"transaction_id":"TX-ZERO-DATE","amount":"10.00","card_token":"'"$CARD_A"'","performed_at":"0"}' "$KEY_A")
+  status=$(echo "$r" | tail -1)
+  check "performed_at '0' status (no 500)" "$status" "201"
+
+  # coupon_ids: null on the offline path must be accepted as "no coupons", not confused
+  # with the coupons-forbidden-offline ban (which only fires for a non-empty array).
+  r=$(req POST /transactions \
+    '{"transaction_id":"TX-COUPON-NULL-OFFLINE","amount":"10.00","card_token":"'"$CARD_A"'","performed_at":"2026-08-13T09:20:00Z","coupon_ids":null}' \
+    "$KEY_A")
+  status=$(echo "$r" | tail -1)
+  check "coupon_ids null offline status" "$status" "201"
 }
 
 public_tests() {

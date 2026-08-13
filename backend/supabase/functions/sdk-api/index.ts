@@ -164,7 +164,7 @@ async function handleRegisterTransaction(
       { field: "amount", message: `kwota nie może przekraczać ${MAX_AMOUNT}` },
     ]);
   }
-  if (couponIds !== undefined && !Array.isArray(couponIds)) {
+  if (couponIds != null && !Array.isArray(couponIds)) {
     return validationError("coupon_ids musi być tablicą identyfikatorów.", [
       { field: "coupon_ids", message: "coupon_ids musi być tablicą identyfikatorów" },
     ]);
@@ -187,7 +187,7 @@ async function handleRegisterTransaction(
         { field: "performed_at", message: "czas wykonania transakcji jest wymagany dla karty offline" },
       ]);
     }
-    if (couponIds !== undefined) {
+    if (Array.isArray(couponIds) && couponIds.length > 0) {
       return jsonError("coupons_not_allowed_offline", "Kupony są niedozwolone w rejestracji offline.", 422);
     }
   }
@@ -251,7 +251,10 @@ async function handleRegisterTransaction(
     p_member_id: memberId,
     p_softpos_tx_id: transactionId,
     p_amount: amount,
-    p_performed_at: typeof performedAt === "string" ? performedAt : null,
+    // Canonicalize: Date.parse (validated above) accepts some strings timestamptz doesn't
+    // (e.g. "0" -> "date/time field value out of range"), so re-serialize to a real ISO
+    // instant rather than passing the raw string through.
+    p_performed_at: typeof performedAt === "string" ? new Date(performedAt).toISOString() : null,
     p_coupon_ids: couponIds ?? [],
     p_metadata: body.metadata ?? null,
     p_delayed_sync: delayedSync,

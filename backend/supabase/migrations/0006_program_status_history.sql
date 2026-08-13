@@ -21,12 +21,15 @@ create trigger programs_touch_status_changed_at
   before update on public.programs
   for each row execute function public.programs_touch_status_changed_at();
 
+-- Górna granica przelicznika. Bez niej panel może ustawić 9999.9999 pkt/zł,
+-- co przy dopuszczalnej kwocie przepełnia points_awarded (int4) i zamienia
+-- błąd wejścia w 500. 100 pkt za złotówkę to i tak skrajność biznesowa.
+alter table public.programs
+  add constraint programs_points_per_pln_max check (points_per_pln <= 100);
+
 -- 2) Odrzucenia synchronizacji offline muszą być idempotentne: ponowienie
 --    partii z kolejki to normalny przypadek, a nie wyjątek, więc bez tego
 --    lista odrzuceń w panelu zapełnia się duplikatami tej samej transakcji.
 create unique index if not exists sync_rejections_dedup
   on public.sync_rejections (program_id, softpos_transaction_id)
   where softpos_transaction_id is not null;
-
--- upsert wymaga SELECT po stronie service_role
-grant select on public.sync_rejections to service_role;
