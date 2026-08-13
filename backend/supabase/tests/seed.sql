@@ -14,7 +14,8 @@
 
 delete from auth.users where id in (
   '51000000-0000-0000-0000-000000000001',
-  '61000000-0000-0000-0000-000000000001'
+  '61000000-0000-0000-0000-000000000001',
+  '71000000-0000-0000-0000-000000000001'
 );
 
 -- public_send_throttle (0008) is keyed on a hash of (program_id, email), not a member id —
@@ -27,9 +28,18 @@ delete from auth.users where id in (
 truncate public.public_send_throttle;
 
 -- Merchant A — main fixture, published program, one active member, one active offer.
-insert into auth.users (id, email, instance_id, aud, role)
+--
+-- confirmation_token/recovery_token/email_change_token_new/email_change have no column
+-- default (NULL) but GoTrue's /user endpoint (used by resolveMerchant -> auth.getUser,
+-- Task 7) scans them into a Go string and 500s on NULL ("converting NULL to string is
+-- unsupported") — every auth.users fixture row needs these set to '' explicitly.
+-- created_at/updated_at also have no default and GoTrue scans them into *time.Time.
+insert into auth.users (id, email, instance_id, aud, role,
+  confirmation_token, recovery_token, email_change_token_new, email_change,
+  created_at, updated_at)
 values ('51000000-0000-0000-0000-000000000001', 'seed-a@loyaltygo.test',
-        '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated');
+        '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+        '', '', '', '', now(), now());
 insert into public.merchants (id, auth_user_id, email)
 values ('52000000-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001',
         'seed-a@loyaltygo.test');
@@ -51,9 +61,12 @@ values ('55000000-0000-0000-0000-000000000001', '53000000-0000-0000-0000-0000000
 -- Merchant B — foreign program/member/offer, for cross-tenant rejection cases
 -- (card_foreign_program, foreign coupon, etc.). Key plaintext: "test-b" (not exercised
 -- by the sdk smoke script, kept for Tasks 6-7).
-insert into auth.users (id, email, instance_id, aud, role)
+insert into auth.users (id, email, instance_id, aud, role,
+  confirmation_token, recovery_token, email_change_token_new, email_change,
+  created_at, updated_at)
 values ('61000000-0000-0000-0000-000000000001', 'seed-b@loyaltygo.test',
-        '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated');
+        '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+        '', '', '', '', now(), now());
 insert into public.merchants (id, auth_user_id, email)
 values ('62000000-0000-0000-0000-000000000001', '61000000-0000-0000-0000-000000000001',
         'seed-b@loyaltygo.test');
@@ -71,3 +84,27 @@ values
 insert into public.offers (id, program_id, title, description)
 values ('65000000-0000-0000-0000-000000000001', '63000000-0000-0000-0000-000000000001',
         'Oferta obca', null);
+
+-- Merchant C — third program, DRAFT with no branding, for panel-api's destructive
+-- publish/rotate/close smoke cases (Task 7). Kept separate from A/B so those two sections'
+-- fixtures (published, specific key/invite_code/status) stay untouched by publish/close.
+-- Two members so close's affected_members count has a non-zero, checkable value.
+insert into auth.users (id, email, instance_id, aud, role,
+  confirmation_token, recovery_token, email_change_token_new, email_change,
+  created_at, updated_at)
+values ('71000000-0000-0000-0000-000000000001', 'seed-c@loyaltygo.test',
+        '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+        '', '', '', '', now(), now());
+insert into public.merchants (id, auth_user_id, email)
+values ('72000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000001',
+        'seed-c@loyaltygo.test');
+insert into public.programs (id, merchant_id, status, points_per_pln)
+values
+  ('73000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000001', 'draft', 0.1);
+insert into public.members
+  (id, program_id, email, first_name, last_name, card_token, points_balance, consent_at)
+values
+  ('74000000-0000-0000-0000-000000000001', '73000000-0000-0000-0000-000000000001',
+   'seed-member-c1@test.pl', 'Cezary', 'Jeden', 'seed-card-c-001', 0, now()),
+  ('74000000-0000-0000-0000-000000000002', '73000000-0000-0000-0000-000000000001',
+   'seed-member-c2@test.pl', 'Cecylia', 'Dwa', 'seed-card-c-002', 0, now());

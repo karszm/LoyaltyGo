@@ -412,7 +412,212 @@ public_tests() {
 }
 
 panel_tests() {
-  echo "== panel-api == (Task 7 — not implemented yet)"
+  echo "== panel-api =="
+
+  local PANEL_BASE="$BASE_URL/panel-api"
+  local PROGRAM_A="53000000-0000-0000-0000-000000000001"
+  local PROGRAM_B="63000000-0000-0000-0000-000000000001"
+  local PROGRAM_C="73000000-0000-0000-0000-000000000001"
+  local SUB_A="51000000-0000-0000-0000-000000000001"
+  local SUB_B="61000000-0000-0000-0000-000000000001"
+  local SUB_C="71000000-0000-0000-0000-000000000001"
+
+  # mint_jwt SUB -- HS256 JWT signed with the local stack's JWT_SECRET, claims matching what
+  # GoTrue/resolveMerchant expect. No node/deno dependency: openssl is already required by
+  # this script's environment and is enough for HMAC-SHA256 + base64url by hand.
+  local JWT_SECRET="super-secret-jwt-token-with-at-least-32-characters-long"
+  b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+  mint_jwt() {
+    local sub="$1"
+    local header='{"alg":"HS256","typ":"JWT"}'
+    local payload h p signing_input sig
+    payload=$(printf '{"sub":"%s","role":"authenticated","aud":"authenticated","exp":4102444800}' "$sub")
+    h=$(printf '%s' "$header" | b64url)
+    p=$(printf '%s' "$payload" | b64url)
+    signing_input="${h}.${p}"
+    sig=$(printf '%s' "$signing_input" | openssl dgst -sha256 -hmac "$JWT_SECRET" -binary | b64url)
+    printf '%s.%s' "$signing_input" "$sig"
+  }
+
+  local JWT_A JWT_B JWT_C
+  JWT_A=$(mint_jwt "$SUB_A")
+  JWT_B=$(mint_jwt "$SUB_B")
+  JWT_C=$(mint_jwt "$SUB_C")
+
+  # preq METHOD PATH BODY JWT -- prints "<json-body>\n<http_code>"
+  preq() {
+    local method="$1" path="$2" body="${3:-}" jwt="${4:-}"
+    local args=(-s -X "$method" -w '\n%{http_code}' -H 'Content-Type: application/json')
+    [ -n "$jwt" ] && args+=(-H "Authorization: Bearer $jwt")
+    [ -n "$body" ] && args+=(-d "$body")
+    curl "${args[@]}" "$PANEL_BASE$path"
+  }
+
+  local r body status
+
+  # -- no JWT -> 401 --
+
+  r=$(preq GET /program/key)
+  status=$(echo "$r" | tail -1)
+  check "GET /program/key no JWT status" "$status" "401"
+
+  # -- draft program (merchant C, before publish): key not available yet --
+
+  r=$(preq GET /program/key "" "$JWT_C")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "GET /program/key draft program status" "$status" "409"
+  check "GET /program/key draft program error code" "$(echo "$body" | jq -r .error.code)" "program_not_published"
+
+  # -- publish: both display_name and logo_url missing -> 422 listing both --
+
+  r=$(preq POST /program/publish "" "$JWT_C")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "publish both fields missing status" "$status" "422"
+  check "publish both fields missing lists display_name" \
+    "$(echo "$body" | jq '[.error.fields[].field] | index("display_name") != null')" "true"
+  check "publish both fields missing lists logo_url" \
+    "$(echo "$body" | jq '[.error.fields[].field] | index("logo_url") != null')" "true"
+  check "publish both fields missing: program still draft" \
+    "$(psql_count "select status from public.programs where id='$PROGRAM_C';")" "draft"
+
+  # -- publish: display_name set, logo_url still missing -> 422 listing only logo_url --
+
+  psql_exec "update public.programs set display_name='Seed Draft Salon C' where id='$PROGRAM_C';"
+  r=$(preq POST /program/publish "" "$JWT_C")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "publish logo_url missing status" "$status" "422"
+  check "publish logo_url missing .error.fields length" "$(echo "$body" | jq '.error.fields | length')" "1"
+  check "publish logo_url missing .error.fields[0].field" "$(echo "$body" | jq -r '.error.fields[0].field')" "logo_url"
+  check "publish logo_url missing: program still draft" \
+    "$(psql_count "select status from public.programs where id='$PROGRAM_C';")" "draft"
+
+  # -- publish: both set -> 200, published, invite_code + program_key_plaintext --
+
+  psql_exec "update public.programs set logo_url='https://cdn.test/c-logo.png' where id='$PROGRAM_C';"
+  r=$(preq POST /program/publish "" "$JWT_C")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "publish success status" "$status" "200"
+  check "publish success .status" "$(echo "$body" | jq -r .status)" "published"
+  check "publish success DB status" "$(psql_count "select status from public.programs where id='$PROGRAM_C';")" "published"
+  check "publish success DB invite_code non-null" \
+    "$(psql_count "select (invite_code is not null) from public.programs where id='$PROGRAM_C';")" "t"
+
+  local key_plaintext_1
+  key_plaintext_1=$(echo "$body" | jq -r .program_key_plaintext)
+  check "publish success program_key_plaintext matches format" \
+    "$(echo "$key_plaintext_1" | grep -qE '^lgo_pk_[A-Za-z0-9_-]{43}$' && echo yes)" "yes"
+
+  local passkit_id_1
+  passkit_id_1=$(psql_count "select passkit_program_id from public.programs where id='$PROGRAM_C';")
+  check "publish success DB passkit_program_id set" "$([ -n "$passkit_id_1" ] && echo yes)" "yes"
+
+  # -- the new key actually works against sdk-api --
+
+  r=$(curl -s -w '\n%{http_code}' -H "x-program-key: $key_plaintext_1" "$BASE_URL/sdk-api/program")
+  status=$(echo "$r" | tail -1)
+  check "new program key works on sdk-api GET /program" "$status" "200"
+
+  # -- publish again -> idempotent: 200, no second PassKit provisioning, no new key --
+
+  r=$(preq POST /program/publish "" "$JWT_C")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "publish idempotent status" "$status" "200"
+  check "publish idempotent .status" "$(echo "$body" | jq -r .status)" "published"
+  check "publish idempotent no program_key_plaintext" "$(echo "$body" | jq 'has("program_key_plaintext")')" "false"
+  check "publish idempotent passkit_program_id unchanged" \
+    "$(psql_count "select passkit_program_id from public.programs where id='$PROGRAM_C';")" "$passkit_id_1"
+
+  # the first key must still work (no silent rotation on the idempotent path)
+  r=$(curl -s -w '\n%{http_code}' -H "x-program-key: $key_plaintext_1" "$BASE_URL/sdk-api/program")
+  status=$(echo "$r" | tail -1)
+  check "key still works after idempotent republish" "$status" "200"
+
+  # -- GET /program/key: masked value + timestamps --
+
+  r=$(preq GET /program/key "" "$JWT_C")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "GET /program/key published status" "$status" "200"
+  check "GET /program/key .program_key starts with lgo_pk_" \
+    "$(echo "$body" | jq -r .program_key | grep -q '^lgo_pk_' && echo yes)" "yes"
+  check "GET /program/key .program_key is NOT the real plaintext (masked)" \
+    "$([ "$(echo "$body" | jq -r .program_key)" != "$key_plaintext_1" ] && echo yes)" "yes"
+  check "GET /program/key .created_at present" \
+    "$([ "$(echo "$body" | jq -r .created_at)" != "null" ] && echo yes)" "yes"
+
+  # -- rotation: old key dies immediately, new key works --
+
+  r=$(preq POST /program/key "" "$JWT_C")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "rotate key status" "$status" "201"
+  local key_plaintext_2
+  key_plaintext_2=$(echo "$body" | jq -r .program_key)
+  check "rotate key returns new plaintext (different from first)" \
+    "$([ "$key_plaintext_2" != "$key_plaintext_1" ] && echo yes)" "yes"
+  check "rotate key format" \
+    "$(echo "$key_plaintext_2" | grep -qE '^lgo_pk_[A-Za-z0-9_-]{43}$' && echo yes)" "yes"
+
+  r=$(curl -s -w '\n%{http_code}' -H "x-program-key: $key_plaintext_1" "$BASE_URL/sdk-api/program")
+  status=$(echo "$r" | tail -1)
+  check "old key rejected after rotation" "$status" "401"
+
+  r=$(curl -s -w '\n%{http_code}' -H "x-program-key: $key_plaintext_2" "$BASE_URL/sdk-api/program")
+  status=$(echo "$r" | tail -1)
+  check "new key works after rotation" "$status" "200"
+
+  # -- close without confirm -> 409 confirmation_required + real affected_members --
+
+  local real_member_count
+  real_member_count=$(psql_count "select count(*) from public.members where program_id='$PROGRAM_C';")
+  r=$(preq POST /program/close "" "$JWT_C")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "close without confirm status" "$status" "409"
+  check "close without confirm error code" "$(echo "$body" | jq -r .error.code)" "confirmation_required"
+  check "close without confirm affected_members" "$(echo "$body" | jq -r .affected_members)" "$real_member_count"
+  check "close without confirm: program still published" \
+    "$(psql_count "select status from public.programs where id='$PROGRAM_C';")" "published"
+
+  # -- close with confirm:true -> 200, closed --
+
+  r=$(preq POST /program/close '{"confirm":true}' "$JWT_C")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "close with confirm status" "$status" "200"
+  check "close with confirm .status" "$(echo "$body" | jq -r .status)" "closed"
+  check "close with confirm DB status" "$(psql_count "select status from public.programs where id='$PROGRAM_C';")" "closed"
+
+  # -- illegal transitions --
+
+  # suspend on a closed program -> 409
+  r=$(preq POST /program/suspend "" "$JWT_C")
+  status=$(echo "$r" | tail -1)
+  check "suspend on closed program status" "$status" "409"
+
+  # resume on a published program (merchant A, untouched fixture) -> 409
+  r=$(preq POST /program/resume "" "$JWT_A")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "resume on published program status" "$status" "409"
+  check "resume on published program: A still published in DB" \
+    "$(psql_count "select status from public.programs where id='$PROGRAM_A';")" "published"
+
+  # -- cross-tenant: A suspends its own program, B's row must stay untouched --
+
+  local b_key_hash_before b_key_hash_after
+  b_key_hash_before=$(psql_count "select key_hash from public.programs where id='$PROGRAM_B';")
+
+  r=$(preq POST /program/suspend "" "$JWT_A")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "suspend own (A) program status" "$status" "200"
+  check "suspend own (A) program .status" "$(echo "$body" | jq -r .status)" "suspended"
+  check "A suspended in DB" "$(psql_count "select status from public.programs where id='$PROGRAM_A';")" "suspended"
+  check "B untouched by A's suspend (status)" \
+    "$(psql_count "select status from public.programs where id='$PROGRAM_B';")" "published"
+  b_key_hash_after=$(psql_count "select key_hash from public.programs where id='$PROGRAM_B';")
+  check "B untouched by A's suspend (key_hash)" "$b_key_hash_after" "$b_key_hash_before"
+
+  # restore A to published so the sdk/public sections stay green on a full run
+  r=$(preq POST /program/resume "" "$JWT_A")
+  status=$(echo "$r" | tail -1)
+  check "resume A back to published status" "$status" "200"
+  check "A restored to published in DB" "$(psql_count "select status from public.programs where id='$PROGRAM_A';")" "published"
 }
 
 SECTION="${1:-all}"
