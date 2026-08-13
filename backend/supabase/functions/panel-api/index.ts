@@ -120,6 +120,13 @@ async function handlePublish(sb: ReturnType<typeof serviceClient>, programId: st
   if (program.status === "published") {
     return json(toProgramResponse(program as unknown as ProgramRow), 200);
   }
+  // Publish only ever advances draft -> published. suspended/closed must NOT come back
+  // through here: that would silently un-suspend a suspended program (with a rotated key!)
+  // or revive a program the panel calls irreversible. Resuming is what /program/resume is
+  // for; there is no route back from closed, by design. Same 409 shape handleTransition uses.
+  if (program.status !== "draft") {
+    return invalidTransitionResponse(program.status);
+  }
 
   const missing: { field: string; message: string }[] = [];
   if (!program.display_name) missing.push({ field: "display_name", message: "nazwa wyświetlana jest wymagana" });

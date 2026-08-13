@@ -532,6 +532,23 @@ panel_tests() {
   status=$(echo "$r" | tail -1)
   check "key still works after idempotent republish" "$status" "200"
 
+  # -- fix round 1: publish must NOT revive a suspended program (and must NOT silently --
+  # -- rotate its key while doing so) --
+
+  local key_hash_before_suspended_publish key_hash_after_suspended_publish
+  key_hash_before_suspended_publish=$(psql_count "select key_hash from public.programs where id='$PROGRAM_C';")
+  psql_exec "update public.programs set status='suspended' where id='$PROGRAM_C';"
+  r=$(preq POST /program/publish "" "$JWT_C")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "publish on suspended program status" "$status" "409"
+  check "publish on suspended program error code" "$(echo "$body" | jq -r .error.code)" "invalid_state_transition"
+  check "publish on suspended program: DB status still suspended" \
+    "$(psql_count "select status from public.programs where id='$PROGRAM_C';")" "suspended"
+  key_hash_after_suspended_publish=$(psql_count "select key_hash from public.programs where id='$PROGRAM_C';")
+  check "publish on suspended program: key_hash NOT silently rotated" \
+    "$key_hash_after_suspended_publish" "$key_hash_before_suspended_publish"
+  psql_exec "update public.programs set status='published' where id='$PROGRAM_C';"
+
   # -- GET /program/key: masked value + timestamps --
 
   r=$(preq GET /program/key "" "$JWT_C")
@@ -583,6 +600,16 @@ panel_tests() {
   check "close with confirm status" "$status" "200"
   check "close with confirm .status" "$(echo "$body" | jq -r .status)" "closed"
   check "close with confirm DB status" "$(psql_count "select status from public.programs where id='$PROGRAM_C';")" "closed"
+
+  # -- fix round 1: publish must NOT revive a closed program (contract calls close --
+  # -- irreversible) --
+
+  r=$(preq POST /program/publish "" "$JWT_C")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "publish on closed program status" "$status" "409"
+  check "publish on closed program error code" "$(echo "$body" | jq -r .error.code)" "invalid_state_transition"
+  check "publish on closed program: DB status still closed" \
+    "$(psql_count "select status from public.programs where id='$PROGRAM_C';")" "closed"
 
   # -- illegal transitions --
 
