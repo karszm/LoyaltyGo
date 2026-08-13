@@ -227,7 +227,143 @@ sdk_tests() {
 }
 
 public_tests() {
-  echo "== public-api == (Task 6 — not implemented yet)"
+  echo "== public-api =="
+
+  local PUBLIC_BASE="$BASE_URL/public-api"
+  local PROGRAM_B="63000000-0000-0000-0000-000000000001"
+  local MEMBER_A="54000000-0000-0000-0000-000000000001"   # seed-member-a@test.pl, pass_status=pending by default
+  local MAYBE_MSG="Jeżeli ten adres należy do programu u tego merchanta, karta pojawi się w Twojej skrzynce e-mail."
+
+  # preq METHOD PATH BODY -- prints "<json-body>\n<http_code>", no auth (public surface)
+  preq() {
+    local method="$1" path="$2" body="${3:-}"
+    local args=(-s -X "$method" -w '\n%{http_code}' -H 'Content-Type: application/json')
+    [ -n "$body" ] && args+=(-d "$body")
+    curl "${args[@]}" "$PUBLIC_BASE$path"
+  }
+
+  local r body status
+
+  # -- GET /invites/:code --
+
+  r=$(preq GET /invites/SEEDA1)
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "GET /invites/SEEDA1 status" "$status" "200"
+  check "GET /invites/SEEDA1 .status" "$(echo "$body" | jq -r .status)" "active"
+  check "GET /invites/SEEDA1 .display_name" "$(echo "$body" | jq -r .display_name)" "Seed Salon A"
+
+  code=$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_BASE/invites/BOGUS9")
+  check "GET /invites/BOGUS9 (bogus code) status" "$code" "404"
+
+  # -- join: new e-mail -> 201 ready --
+
+  local new_email="new-member-$$@test.pl"
+  r=$(preq POST /invites/SEEDA1/join \
+    "{\"first_name\":\"Nowy\",\"last_name\":\"Klient\",\"email\":\"$new_email\",\"consent\":true}")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "join new email status" "$status" "201"
+  check "join new email .pass.status" "$(echo "$body" | jq -r .pass.status)" "ready"
+  check "join new email .pass.apple_wallet_url present" \
+    "$([ "$(echo "$body" | jq -r .pass.apple_wallet_url)" != "null" ] && echo yes)" "yes"
+  local membership_id
+  membership_id=$(echo "$body" | jq -r .membership_id)
+  check "join new email membership_id present" "$([ -n "$membership_id" ] && [ "$membership_id" != "null" ] && echo yes)" "yes"
+  check "join new email DB row consent_at set" \
+    "$(psql_count "select count(*) from public.members where email='$new_email' and consent_at is not null;")" "1"
+
+  # -- join: same e-mail again -> 202 maybe-response, no id/balance, name NOT updated --
+
+  r=$(preq POST /invites/SEEDA1/join \
+    "{\"first_name\":\"Inny\",\"last_name\":\"Ktos\",\"email\":\"$new_email\",\"consent\":true}")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "join repeat email status" "$status" "202"
+  check "join repeat email .message" "$(echo "$body" | jq -r .message)" "$MAYBE_MSG"
+  check "join repeat email has no membership_id" "$(echo "$body" | jq 'has("membership_id")')" "false"
+  check "join repeat email has no pass" "$(echo "$body" | jq 'has("pass")')" "false"
+  check "join repeat email has no points_balance" "$(echo "$body" | jq 'has("points_balance")')" "false"
+  check "join repeat email DB first_name unchanged" \
+    "$(psql_count "select first_name from public.members where email='$new_email';")" "Nowy"
+
+  # -- join: consent:false -> 422, no member row --
+
+  local no_consent_email="no-consent-$$@test.pl"
+  r=$(preq POST /invites/SEEDA1/join \
+    "{\"first_name\":\"A\",\"last_name\":\"B\",\"email\":\"$no_consent_email\",\"consent\":false}")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "join consent:false status" "$status" "422"
+  check "join consent:false error code" "$(echo "$body" | jq -r .error.code)" "validation_failed"
+  check "join consent:false no member row created" \
+    "$(psql_count "select count(*) from public.members where email='$no_consent_email';")" "0"
+
+  # -- join: suspended program -> 409 --
+
+  psql_exec "update public.programs set status='suspended' where id='$PROGRAM_B';"
+  r=$(preq POST /invites/SEEDB1/join \
+    "{\"first_name\":\"A\",\"last_name\":\"B\",\"email\":\"suspend-join-$$@test.pl\",\"consent\":true}")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "join suspended program status" "$status" "409"
+  check "join suspended program error code" "$(echo "$body" | jq -r .error.code)" "program_unavailable"
+  psql_exec "update public.programs set status='published' where id='$PROGRAM_B';"
+
+  # -- card-recovery: member -> 202, exactly one new token row --
+
+  local tokens_before tokens_after_g tokens_after_h tokens_after_i
+  tokens_before=$(psql_count "select count(*) from public.card_link_tokens;")
+
+  r=$(preq POST /invites/SEEDA1/card-recovery '{"email":"seed-member-a@test.pl"}')
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  local recovery_body_member="$body"
+  check "card-recovery member status" "$status" "202"
+  check "card-recovery member .message" "$(echo "$body" | jq -r .message)" "$MAYBE_MSG"
+  tokens_after_g=$(psql_count "select count(*) from public.card_link_tokens;")
+  check "card-recovery member created exactly one token row" "$((tokens_after_g - tokens_before))" "1"
+
+  local first_token
+  first_token=$(psql_count "select token from public.card_link_tokens where member_id='$MEMBER_A' order by created_at desc limit 1;")
+
+  # -- card-recovery twice in a row -> second is 429 with Retry-After --
+
+  local raw
+  raw=$(curl -s -i -X POST -H 'Content-Type: application/json' \
+    -d '{"email":"seed-member-a@test.pl"}' "$PUBLIC_BASE/invites/SEEDA1/card-recovery")
+  status=$(echo "$raw" | head -1 | awk '{print $2}' | tr -d '\r')
+  check "card-recovery rate-limited status" "$status" "429"
+  check "card-recovery rate-limited has Retry-After header" \
+    "$(echo "$raw" | grep -ic '^retry-after:')" "1"
+  tokens_after_h=$(psql_count "select count(*) from public.card_link_tokens;")
+  check "card-recovery rate-limited created no token row" "$tokens_after_h" "$tokens_after_g"
+
+  # -- card-recovery: non-member -> 202, byte-identical body, no new token row --
+
+  r=$(preq POST /invites/SEEDA1/card-recovery '{"email":"nobody-here@test.pl"}')
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "card-recovery non-member status" "$status" "202"
+  check "card-recovery non-member body byte-identical to member's" "$body" "$recovery_body_member"
+  tokens_after_i=$(psql_count "select count(*) from public.card_link_tokens;")
+  check "card-recovery non-member created no token row" "$tokens_after_i" "$tokens_after_g"
+
+  # -- GET /card-links/:token --
+
+  code=$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_BASE/card-links/garbage-token-does-not-exist")
+  check "GET /card-links garbage token status" "$code" "404"
+
+  # expired token: insert one directly, 1h in the past
+  psql_exec "insert into public.card_link_tokens (member_id, expires_at) values ('$MEMBER_A', now() - interval '1 hour');"
+  local expired_token
+  expired_token=$(psql_count "select token from public.card_link_tokens where member_id='$MEMBER_A' and expires_at < now() order by created_at desc limit 1;")
+  code=$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_BASE/card-links/$expired_token")
+  check "GET /card-links expired token status" "$code" "410"
+
+  # lazy retry: MEMBER_A's pass_status is 'pending' by default (seed never sets it) --
+  # hitting the still-valid $first_token must retry issuance now and flip the DB row.
+  check "MEMBER_A pass_status is pending before lazy retry" \
+    "$(psql_count "select pass_status from public.members where id='$MEMBER_A';")" "pending"
+  r=$(preq GET "/card-links/$first_token")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "GET /card-links lazy retry status" "$status" "200"
+  check "GET /card-links lazy retry .status" "$(echo "$body" | jq -r .status)" "ready"
+  check "MEMBER_A pass_status flipped to ready in DB" \
+    "$(psql_count "select pass_status from public.members where id='$MEMBER_A';")" "ready"
 }
 
 panel_tests() {
