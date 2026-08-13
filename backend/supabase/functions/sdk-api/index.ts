@@ -2,17 +2,11 @@
 // Deno.serve + an if-chain on pathname, no HTTP framework (four routes, zero deps).
 
 import { resolveProgramFromKey, serviceClient, signScanToken, verifyScanToken } from "../_shared/auth.ts";
-import { jsonError, mapPgError } from "../_shared/errors.ts";
-import { updateBalance } from "../_shared/adapters/passkit.ts";
+import { jsonError, mapPgError, validationError } from "../_shared/errors.ts";
+import { syncPassBalance } from "../_shared/adapters/passkit.ts";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-}
-
-// Same wire shape as jsonError's { error: { code, message } }, plus the `fields[]` the
-// contract's ValidationError adds for transaction_id/amount checks.
-function validationError(message: string, fields: { field: string; message: string }[]): Response {
-  return json({ error: { code: "validation_failed", message, fields } }, 422);
 }
 
 // Fire-and-forget: a PassKit failure must never change the HTTP response to the SDK —
@@ -32,31 +26,29 @@ async function parseBody(req: Request): Promise<Record<string, unknown>> {
   }
 }
 
-// Runs `register_transaction`/`cancel_transaction`, retrying exactly once on the "retry"
-// sentinel (SQLSTATE 40001), per mapPgError's contract.
+// Runs an RPC, retrying exactly once on the "retry" sentinel (SQLSTATE 40001) per
+// mapPgError's contract. `overrides` lets a caller replace mapPgError's generic response
+// for a specific SQLSTATE with the endpoint's own contract code (e.g. cancellation's
+// LG002 -> transaction_unknown instead of the generic not_found).
 async function callRpc(
   sb: ReturnType<typeof serviceClient>,
   fn: string,
   params: Record<string, unknown>,
+  overrides?: Record<string, Response>,
 ): Promise<{ data: Record<string, unknown> } | { errorResponse: Response }> {
   let { data, error } = await sb.rpc(fn, params);
+  if (error && mapPgError(error) === "retry") {
+    ({ data, error } = await sb.rpc(fn, params));
+  }
   if (error) {
-    let mapped = mapPgError(error);
-    if (mapped === "retry") {
-      ({ data, error } = await sb.rpc(fn, params));
-      mapped = error ? mapPgError(error) : null;
-      if (error && (mapped === "retry" || mapped === null)) {
-        console.error(`[sdk-api] ${fn} failed after retry`, error);
-        return { errorResponse: jsonError("internal_error", "Wystąpił błąd serwera.", 500) };
-      }
+    const code = (error as { code?: string }).code;
+    if (code && overrides?.[code]) return { errorResponse: overrides[code] };
+    const mapped = mapPgError(error);
+    if (mapped === "retry" || mapped === null) {
+      console.error(`[sdk-api] ${fn} failed`, error);
+      return { errorResponse: jsonError("internal_error", "Wystąpił błąd serwera.", 500) };
     }
-    if (error) {
-      if (mapped === null) {
-        console.error(`[sdk-api] ${fn} unmapped error`, error);
-        return { errorResponse: jsonError("internal_error", "Wystąpił błąd serwera.", 500) };
-      }
-      return { errorResponse: mapped as Response };
-    }
+    return { errorResponse: mapped };
   }
   return { data: data as Record<string, unknown> };
 }
@@ -66,6 +58,9 @@ async function handleProgram(sb: ReturnType<typeof serviceClient>, programId: st
   const { data } = await sb.from("programs")
     .select("status, display_name, points_per_pln, invite_code")
     .eq("id", programId).single();
+  // resolveProgramFromKey just looked this row up by the same id, so it exists — this
+  // guard is only here to satisfy the type-checker and the top-level catch-all.
+  if (!data) throw new Error(`program ${programId} missing after resolveProgramFromKey`);
   // SdkProgram.status enum is [published, unpublished, suspended, closed]; the DB's
   // `draft` is this contract's `unpublished`.
   const status = data.status === "draft" ? "unpublished" : data.status;
@@ -132,6 +127,7 @@ async function handleScans(
 }
 
 const MONEY_RE = /^\d+\.\d{2}$/;
+const MAX_AMOUNT = 999999.99;
 
 // POST /transactions
 async function handleRegisterTransaction(
@@ -157,9 +153,25 @@ async function handleRegisterTransaction(
       { field: "amount", message: "kwota musi być liczbą dziesiętną z dwoma miejscami po przecinku" },
     ]);
   }
-  if (Number(amount) <= 0) {
+  const amountNum = Number(amount);
+  if (amountNum <= 0) {
     return validationError("Kwota musi być większa od zera.", [
       { field: "amount", message: "kwota musi być większa od zera" },
+    ]);
+  }
+  if (amountNum > MAX_AMOUNT) {
+    return validationError(`Kwota nie może przekraczać ${MAX_AMOUNT}.`, [
+      { field: "amount", message: `kwota nie może przekraczać ${MAX_AMOUNT}` },
+    ]);
+  }
+  if (couponIds !== undefined && !Array.isArray(couponIds)) {
+    return validationError("coupon_ids musi być tablicą identyfikatorów.", [
+      { field: "coupon_ids", message: "coupon_ids musi być tablicą identyfikatorów" },
+    ]);
+  }
+  if (typeof performedAt === "string" && !Number.isFinite(Date.parse(performedAt))) {
+    return validationError("Czas wykonania transakcji ma nieprawidłowy format.", [
+      { field: "performed_at", message: "czas wykonania transakcji ma nieprawidłowy format" },
     ]);
   }
 
@@ -175,7 +187,7 @@ async function handleRegisterTransaction(
         { field: "performed_at", message: "czas wykonania transakcji jest wymagany dla karty offline" },
       ]);
     }
-    if (Array.isArray(couponIds) && couponIds.length > 0) {
+    if (couponIds !== undefined) {
       return jsonError("coupons_not_allowed_offline", "Kupony są niedozwolone w rejestracji offline.", 422);
     }
   }
@@ -197,13 +209,23 @@ async function handleRegisterTransaction(
       return jsonError("card_unrecognized", "Nie rozpoznano kodu. Spróbuj ponownie.", 422);
     }
     if (member.program_id !== auth.programId) {
-      // Sync rejection must be visible to the merchant in the panel.
-      await sb.from("sync_rejections").insert({
+      // Sync rejection must be visible to the merchant in the panel. Idempotent: the
+      // offline queue retries a rejected batch as a matter of course, not an exception, so
+      // a retry must not pile up a second row for the same rejected transaction. A plain
+      // insert relying on the partial unique index (0006) to reject the duplicate with
+      // 23505 — PostgREST's upsert(onConflict:...) can't be used here because Postgres
+      // ON CONFLICT inference doesn't match a column-list target against a *partial*
+      // unique index unless the same predicate is repeated in the ON CONFLICT clause,
+      // which supabase-js has no option for (confirmed: it 42P10s instead).
+      const { error: rejErr } = await sb.from("sync_rejections").insert({
         program_id: auth.programId,
         softpos_transaction_id: transactionId,
         performed_at: performedAt,
         reason: "card_foreign_program",
       });
+      if (rejErr && rejErr.code !== "23505") {
+        console.error("[sdk-api] sync_rejections insert failed", rejErr);
+      }
       return jsonError("card_foreign_program", "Karta spoza tego programu.", 404);
     }
     memberId = member.id;
@@ -211,12 +233,14 @@ async function handleRegisterTransaction(
   }
 
   if (auth.status !== "published") {
-    // `programs.updated_at` doesn't record WHEN the program was suspended/closed — it's
-    // just the last row update — but it's the best available proxy: an offline sync whose
-    // performed_at predates that update happened before the state change and should pass.
-    const { data: prog } = await sb.from("programs").select("updated_at").eq("id", auth.programId).single();
+    // status_changed_at (0006) is the real moment programs.status last changed (a trigger
+    // sets it only when status itself changes, unlike updated_at which moves on every
+    // column edit e.g. a branding tweak) — an offline sync whose performed_at predates it
+    // happened before the state change and should still be accepted.
+    const { data: prog } = await sb.from("programs").select("status_changed_at").eq("id", auth.programId).single();
+    if (!prog) throw new Error(`program ${auth.programId} missing mid-request`);
     const predatesStateChange = typeof performedAt === "string" &&
-      new Date(performedAt) < new Date(prog.updated_at as string);
+      new Date(performedAt) < new Date(prog.status_changed_at as string);
     if (!predatesStateChange) {
       return jsonError("program_not_active", "Program nie jest aktywny.", 409);
     }
@@ -228,7 +252,7 @@ async function handleRegisterTransaction(
     p_softpos_tx_id: transactionId,
     p_amount: amount,
     p_performed_at: typeof performedAt === "string" ? performedAt : null,
-    p_coupon_ids: Array.isArray(couponIds) ? couponIds : [],
+    p_coupon_ids: couponIds ?? [],
     p_metadata: body.metadata ?? null,
     p_delayed_sync: delayedSync,
   });
@@ -236,10 +260,7 @@ async function handleRegisterTransaction(
 
   const data = result.data;
   if (!data.idempotent_replay) {
-    fireAndForget((async () => {
-      const { data: m } = await sb.from("members").select("passkit_member_id").eq("id", memberId).single();
-      await updateBalance((m?.passkit_member_id as string | null) ?? memberId, data.points_balance as number);
-    })());
+    fireAndForget(syncPassBalance(sb, memberId, data.points_balance as number));
   }
   return json(data, data.idempotent_replay ? 200 : 201);
 }
@@ -250,68 +271,66 @@ async function handleCancellation(
   auth: { programId: string; status: string },
   softposTxId: string,
 ): Promise<Response> {
-  const { data, error } = await sb.rpc("cancel_transaction", {
-    p_program_id: auth.programId,
-    p_softpos_tx_id: softposTxId,
-  });
-  if (error) {
-    // Contract's 404 for this endpoint is `transaction_unknown`, not mapPgError's generic
-    // `not_found` — override just this code, fall back to the shared mapping otherwise.
-    if ((error as { code?: string }).code === "LG002") {
-      return jsonError("transaction_unknown", "Transakcja nieznana.", 404);
-    }
-    const mapped = mapPgError(error);
-    if (mapped === "retry" || mapped === null) {
-      console.error("[sdk-api] cancel_transaction unmapped error", error);
-      return jsonError("internal_error", "Wystąpił błąd serwera.", 500);
-    }
-    return mapped;
-  }
+  // Contract's 404 for this endpoint is `transaction_unknown`, not mapPgError's generic
+  // `not_found` for LG002 — override just this code.
+  const result = await callRpc(
+    sb,
+    "cancel_transaction",
+    { p_program_id: auth.programId, p_softpos_tx_id: softposTxId },
+    { LG002: jsonError("transaction_unknown", "Transakcja nieznana.", 404) },
+  );
+  if ("errorResponse" in result) return result.errorResponse;
 
-  const result = data as Record<string, unknown>;
-  if (!result.already_cancelled) {
+  const data = result.data;
+  if (!data.already_cancelled) {
     fireAndForget((async () => {
-      const { data: tx } = await sb.from("transactions").select("member_id").eq("id", result.id as string).single();
+      const { data: tx } = await sb.from("transactions").select("member_id").eq("id", data.id as string).single();
       if (!tx) return;
-      const { data: m } = await sb.from("members").select("passkit_member_id").eq("id", tx.member_id).single();
-      await updateBalance((m?.passkit_member_id as string | null) ?? tx.member_id, result.points_balance as number);
+      await syncPassBalance(sb, tx.member_id as string, data.points_balance as number);
     })());
   }
-  return json(result, 200);
+  return json(data, 200);
 }
 
 Deno.serve(async (req) => {
-  const url = new URL(req.url);
-  // Supabase serves functions at /functions/v1/sdk-api/...; the local dev CLI (`supabase
-  // functions serve`) strips the `/functions/v1` part and invokes us with just
-  // `/sdk-api/...` as req.url's pathname (verified against the running local stack) — so
-  // strip either prefix, whichever is present.
-  let path = url.pathname.replace(/^(\/functions\/v1)?\/sdk-api/, "");
-  if (path === "") path = "/";
+  try {
+    const url = new URL(req.url);
+    // Supabase serves functions at /functions/v1/sdk-api/...; the local dev CLI (`supabase
+    // functions serve`) strips the `/functions/v1` part and invokes us with just
+    // `/sdk-api/...` as req.url's pathname (verified against the running local stack) — so
+    // strip either prefix, whichever is present.
+    let path = url.pathname.replace(/^(\/functions\/v1)?\/sdk-api/, "");
+    if (path === "") path = "/";
 
-  const cancellationMatch = path.match(/^\/transactions\/([^/]+)\/cancellation$/);
+    const cancellationMatch = path.match(/^\/transactions\/([^/]+)\/cancellation$/);
 
-  const isKnownPath = path === "/program" || path === "/scans" || path === "/transactions" ||
-    cancellationMatch !== null;
-  if (!isKnownPath) return jsonError("not_found", "Nie znaleziono zasobu.", 404);
+    const isKnownPath = path === "/program" || path === "/scans" || path === "/transactions" ||
+      cancellationMatch !== null;
+    if (!isKnownPath) return jsonError("not_found", "Nie znaleziono zasobu.", 404);
 
-  const expectedMethod = path === "/program" ? "GET" : "POST";
-  if (req.method !== expectedMethod) {
-    return jsonError("method_not_allowed", "Metoda niedozwolona.", 405);
+    const expectedMethod = path === "/program" ? "GET" : "POST";
+    if (req.method !== expectedMethod) {
+      return jsonError("method_not_allowed", "Metoda niedozwolona.", 405);
+    }
+
+    const auth = await resolveProgramFromKey(req);
+    if (!auth) {
+      return jsonError(
+        "invalid_program_key",
+        "Klucz programu jest nieważny. Skonfiguruj SoftPOS nowym kluczem z panelu.",
+        401,
+      );
+    }
+    const sb = serviceClient();
+
+    if (path === "/program") return await handleProgram(sb, auth.programId);
+    if (path === "/scans") return await handleScans(req, sb, auth);
+    if (path === "/transactions") return await handleRegisterTransaction(req, sb, auth);
+    // decodeURIComponent throws URIError on a malformed %-escape — caught below, not left
+    // to escape as a non-contract response.
+    return await handleCancellation(sb, auth, decodeURIComponent(cancellationMatch![1]));
+  } catch (err) {
+    console.error("[sdk-api] unhandled error", err);
+    return jsonError("internal_error", "Wystąpił błąd serwera.", 500);
   }
-
-  const auth = await resolveProgramFromKey(req);
-  if (!auth) {
-    return jsonError(
-      "invalid_program_key",
-      "Klucz programu jest nieważny. Skonfiguruj SoftPOS nowym kluczem z panelu.",
-      401,
-    );
-  }
-  const sb = serviceClient();
-
-  if (path === "/program") return await handleProgram(sb, auth.programId);
-  if (path === "/scans") return await handleScans(req, sb, auth);
-  if (path === "/transactions") return await handleRegisterTransaction(req, sb, auth);
-  return await handleCancellation(sb, auth, decodeURIComponent(cancellationMatch![1]));
 });

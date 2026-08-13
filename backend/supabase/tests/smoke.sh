@@ -17,8 +17,15 @@ BASE_URL="${BASE_URL:-http://127.0.0.1:54321/functions/v1}"
 SDK_BASE="$BASE_URL/sdk-api"
 
 KEY_A="test"               # plaintext program key, merchant A (seed.sql)
+KEY_B="test-b"              # plaintext program key, merchant B (seed.sql)
 CARD_A="seed-card-a-001"
 CARD_B="seed-card-b-001"   # belongs to merchant B — used for cross-tenant checks
+PROGRAM_A="53000000-0000-0000-0000-000000000001"
+
+# psql_count SQL -- runs a scalar count query against the local DB via docker, trimmed
+psql_count() {
+  docker exec -i supabase_db_backend psql -U postgres -d postgres -tAc "$1" | tr -d '[:space:]'
+}
 
 PASS=0
 FAIL=0
@@ -127,6 +134,44 @@ sdk_tests() {
   body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
   check "POST cancellation unknown status" "$status" "404"
   check "POST cancellation unknown error code" "$(echo "$body" | jq -r .error.code)" "transaction_unknown"
+
+  # -- security regressions (fix round 1) --
+
+  # cross-program scan token: merchant B must not be able to use a scan_token issued
+  # under merchant A's key.
+  local cross_tx="TX-CROSS-1"
+  r=$(req POST /transactions "{\"transaction_id\":\"$cross_tx\",\"amount\":\"10.00\",\"scan_token\":\"$scan_token\"}" "$KEY_B")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "cross-program scan_token status" "$status" "409"
+  check "cross-program scan_token error code" "$(echo "$body" | jq -r .error.code)" "scan_context_expired"
+  check "cross-program scan_token created no transaction row" \
+    "$(psql_count "select count(*) from public.transactions where softpos_transaction_id='$cross_tx';")" "0"
+
+  # tampered token: flip a char in the signature segment -> signature no longer matches.
+  local tampered="${scan_token%.*}.X${scan_token##*.?}"
+  r=$(req POST /transactions "{\"transaction_id\":\"TX-TAMPER-1\",\"amount\":\"10.00\",\"scan_token\":\"$tampered\"}" "$KEY_A")
+  status=$(echo "$r" | tail -1)
+  check "tampered scan_token status" "$status" "409"
+
+  # performed_at with an unparseable date -> 422 validation_failed, not a 500 from Postgres.
+  r=$(req POST /transactions \
+    "{\"transaction_id\":\"TX-BADDATE-1\",\"amount\":\"10.00\",\"card_token\":\"$CARD_A\",\"performed_at\":\"not-a-date\"}" "$KEY_A")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "invalid performed_at status" "$status" "422"
+  check "invalid performed_at error code" "$(echo "$body" | jq -r .error.code)" "validation_failed"
+
+  # repeated foreign-card offline sync must leave exactly one sync_rejections row (the
+  # offline queue retries a rejected batch as routine, not an exception).
+  local foreign_tx="TX-FOREIGN-DEDUP-1"
+  req POST /transactions \
+    "{\"transaction_id\":\"$foreign_tx\",\"amount\":\"5.00\",\"card_token\":\"$CARD_B\",\"performed_at\":\"2026-08-13T09:00:00Z\"}" \
+    "$KEY_A" > /dev/null
+  req POST /transactions \
+    "{\"transaction_id\":\"$foreign_tx\",\"amount\":\"5.00\",\"card_token\":\"$CARD_B\",\"performed_at\":\"2026-08-13T09:00:00Z\"}" \
+    "$KEY_A" > /dev/null
+  check "repeated foreign-card sync_rejections row count" \
+    "$(psql_count "select count(*) from public.sync_rejections where program_id='$PROGRAM_A' and softpos_transaction_id='$foreign_tx';")" \
+    "1"
 }
 
 public_tests() {

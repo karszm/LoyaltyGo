@@ -5,6 +5,8 @@
 // every function before any network call and returns deterministic `stub-*` values, logging what
 // would have been sent — Tasks 6-8 exercise the real HTTP paths end to end.
 
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+
 const PASSKIT_BASE_URL = "https://api.pub1.passkit.io";
 
 function passkitHeaders(): HeadersInit {
@@ -78,6 +80,21 @@ export async function updateBalance(memberId: string, balance: number): Promise<
     body: JSON.stringify({ balance }),
   });
   if (!res.ok) throw new Error(`passkit updateBalance failed: ${res.status} ${await res.text()}`);
+}
+
+// Shared by sdk-api's register and cancel handlers: resolve the LoyaltyGo member's PassKit
+// id (falling back to our own id if the member was never enrolled with PassKit yet) and
+// push the new balance. Caller decides fire-and-forget vs. awaited.
+// (Typed as `SupabaseClient` rather than a hand-rolled structural type — a narrower custom
+// type here blew up `tsc`/`deno check` with "type instantiation is excessively deep" when
+// matched against the real client's generic query-builder chain.)
+export async function syncPassBalance(
+  sb: SupabaseClient,
+  memberId: string,
+  balance: number,
+): Promise<void> {
+  const { data } = await sb.from("members").select("passkit_member_id").eq("id", memberId).single();
+  await updateBalance((data?.passkit_member_id as string | null) ?? memberId, balance);
 }
 
 export async function updateTemplate(templateId: string, branding: Branding): Promise<void> {

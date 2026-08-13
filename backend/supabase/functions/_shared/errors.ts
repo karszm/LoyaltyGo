@@ -1,9 +1,23 @@
-// Contract error shape: { error: { code, message } } (docs/api/openapi.yaml)
-export function jsonError(code: string, message: string, status: number): Response {
-  return new Response(JSON.stringify({ error: { code, message } }), {
+// Contract error shape: { error: { code, message } } (docs/api/openapi.yaml). Pass `fields`
+// for the ValidationError variant used by /sdk, /public and /panel alike (fields[] of
+// { field, message }).
+export function jsonError(
+  code: string,
+  message: string,
+  status: number,
+  fields?: { field: string; message: string }[],
+): Response {
+  const error: Record<string, unknown> = { code, message };
+  if (fields) error.fields = fields;
+  return new Response(JSON.stringify({ error }), {
     status,
     headers: { "content-type": "application/json" },
   });
+}
+
+// Thin helper for the common case: 422 validation_failed with a fields[] array.
+export function validationError(message: string, fields: { field: string; message: string }[]): Response {
+  return jsonError("validation_failed", message, 422, fields);
 }
 
 /**

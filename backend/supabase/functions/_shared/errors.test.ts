@@ -1,11 +1,25 @@
 import { assertEquals } from "jsr:@std/assert";
-import { jsonError, mapPgError } from "./errors.ts";
+import { jsonError, mapPgError, validationError } from "./errors.ts";
 
 Deno.test("jsonError produces the contract body shape and status", async () => {
   const res = jsonError("some_code", "Some message.", 418);
   assertEquals(res.status, 418);
   assertEquals(res.headers.get("content-type"), "application/json");
   assertEquals(await res.json(), { error: { code: "some_code", message: "Some message." } });
+});
+
+Deno.test("validationError produces the ValidationError fields[] shape", async () => {
+  const res = validationError("Kwota musi być większa od zera.", [
+    { field: "amount", message: "kwota musi być większa od zera" },
+  ]);
+  assertEquals(res.status, 422);
+  assertEquals(await res.json(), {
+    error: {
+      code: "validation_failed",
+      message: "Kwota musi być większa od zera.",
+      fields: [{ field: "amount", message: "kwota musi być większa od zera" }],
+    },
+  });
 });
 
 Deno.test("mapPgError: LG002 -> 404 not_found", async () => {
