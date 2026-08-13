@@ -1,0 +1,64 @@
+-- seed.sql — reusable fixture for the sdk-api / public-api / panel-api smoke tests
+-- (Tasks 5-7 share this seed, per the backend plan).
+--
+-- Run against a running `supabase start` DB, e.g.:
+--   docker exec -i supabase_db_backend psql -U postgres -d postgres -f - < backend/supabase/tests/seed.sql
+--
+-- Idempotent: deletes the fixture auth.users rows first. merchants/programs/members/
+-- offers/transactions/... all cascade from auth.users -> merchants -> programs, so a
+-- clean re-run always starts from a known state.
+--
+-- Program A's key_hash is sha256("test" + pepper "local-dev-pepper") — the pepper must
+-- match backend/supabase/functions/.env.local's PROGRAM_KEY_PEPPER. Program key plaintext
+-- for merchant A (used by the smoke script): "test".
+
+delete from auth.users where id in (
+  '51000000-0000-0000-0000-000000000001',
+  '61000000-0000-0000-0000-000000000001'
+);
+
+-- Merchant A — main fixture, published program, one active member, one active offer.
+insert into auth.users (id, email, instance_id, aud, role)
+values ('51000000-0000-0000-0000-000000000001', 'seed-a@loyaltygo.test',
+        '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated');
+insert into public.merchants (id, auth_user_id, email)
+values ('52000000-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001',
+        'seed-a@loyaltygo.test');
+insert into public.programs
+  (id, merchant_id, status, display_name, points_per_pln, invite_code, key_hash, key_created_at)
+values
+  ('53000000-0000-0000-0000-000000000001', '52000000-0000-0000-0000-000000000001', 'published',
+   'Seed Salon A', 0.1, 'SEEDA1',
+   'f521316e95bcbd40a871f9510c7798e2183220cbff0914c014747ffbc9cfdafc', now());
+insert into public.members
+  (id, program_id, email, first_name, last_name, card_token, points_balance, consent_at)
+values
+  ('54000000-0000-0000-0000-000000000001', '53000000-0000-0000-0000-000000000001',
+   'seed-member-a@test.pl', 'Ala', 'Testowa', 'seed-card-a-001', 100, now());
+insert into public.offers (id, program_id, title, description)
+values ('55000000-0000-0000-0000-000000000001', '53000000-0000-0000-0000-000000000001',
+        'Kawa gratis', 'Darmowa kawa przy zakupie ciasta');
+
+-- Merchant B — foreign program/member/offer, for cross-tenant rejection cases
+-- (card_foreign_program, foreign coupon, etc.). Key plaintext: "test-b" (not exercised
+-- by the sdk smoke script, kept for Tasks 6-7).
+insert into auth.users (id, email, instance_id, aud, role)
+values ('61000000-0000-0000-0000-000000000001', 'seed-b@loyaltygo.test',
+        '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated');
+insert into public.merchants (id, auth_user_id, email)
+values ('62000000-0000-0000-0000-000000000001', '61000000-0000-0000-0000-000000000001',
+        'seed-b@loyaltygo.test');
+insert into public.programs
+  (id, merchant_id, status, display_name, points_per_pln, invite_code, key_hash, key_created_at)
+values
+  ('63000000-0000-0000-0000-000000000001', '62000000-0000-0000-0000-000000000001', 'published',
+   'Seed Kawiarnia B', 0.2, 'SEEDB1',
+   '9d4f162401208c0a0910b879f95eeba47426ab2d6525fcf226ef999417af858c', now());
+insert into public.members
+  (id, program_id, email, first_name, last_name, card_token, points_balance, consent_at)
+values
+  ('64000000-0000-0000-0000-000000000001', '63000000-0000-0000-0000-000000000001',
+   'seed-member-b@test.pl', 'Bob', 'Testowy', 'seed-card-b-001', 50, now());
+insert into public.offers (id, program_id, title, description)
+values ('65000000-0000-0000-0000-000000000001', '63000000-0000-0000-0000-000000000001',
+        'Oferta obca', null);
