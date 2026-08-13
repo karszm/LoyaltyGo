@@ -78,9 +78,19 @@ Funkcja: Dołączenie klienta do programu lojalnościowego
     Zakładając, że należę już do programu "Salon Le Perle" z adresem "karol@example.com"
     Oraz mam na koncie 180 punktów
     Gdy ponownie skanuję kod QR zaproszenia i podaję ten sam adres e-mail
-    Wtedy system rozpoznaje istniejące członkostwo
-    Oraz dostaję ponownie tę samą kartę, z saldem 180 punktów
+    Wtedy karta nie jest zwracana bezpośrednio na stronie
+    Oraz widzę komunikat: "Jeżeli ten adres należy do programu u tego merchanta, karta pojawi się w Twojej skrzynce e-mail"
+    Oraz dostaję na skrzynkę wiadomość z linkiem do mojej karty, z saldem 180 punktów
     Ale nie powstaje drugie członkostwo ani drugie saldo
+
+  @corner @bezpieczenstwo
+  Scenariusz: Podanie cudzego adresu e-mail w formularzu dołączenia
+    Zakładając, że adres "ofiara@example.com" należy już do programu "Salon Le Perle"
+    Gdy inna osoba wypełnia formularz dołączenia z tym adresem
+    Wtedy nie otrzymuje karty ani salda w odpowiedzi
+    Oraz widzi wyłącznie komunikat "być może" — taki sam jak dla własnego adresu
+    Oraz link do karty trafia wyłącznie na skrzynkę "ofiara@example.com"
+    Oraz dane osobowe członkostwa pozostają bez zmian
 
   # ------------------------------------------------------------------
   # Odzyskiwanie karty
@@ -110,7 +120,7 @@ Funkcja: Dołączenie klienta do programu lojalnościowego
   Scenariusz: Odzyskiwanie na adres bez członkostwa nie ujawnia stanu konta
     Zakładając, że adres "ktos@example.com" nie należy do programu "Salon Le Perle"
     Gdy wybieram "Odzyskaj kartę" i podaję ten adres
-    Wtedy widzę ten sam komunikat co zawsze: sprawdź swoją skrzynkę
+    Wtedy widzę ten sam komunikat co zawsze: "Jeżeli ten adres należy do programu u tego merchanta, karta pojawi się w Twojej skrzynce e-mail"
     Ale żadna wiadomość z kartą nie zostaje wysłana
     Oraz odpowiedź nie ujawnia, czy ten adres należy do programu
 
@@ -165,12 +175,13 @@ Funkcja: Dołączenie klienta do programu lojalnościowego
     Oraz punkty i oferty obu programów są całkowicie rozdzielne
     Oraz żaden z merchantów nie widzi danych klienta z drugiego programu
 
-  @corner
-  Scenariusz: Zmiana danych osobowych przy ponownym dołączeniu
+  @corner @bezpieczenstwo
+  Scenariusz: Próba zmiany danych osobowych przy ponownym dołączeniu
     Zakładając, że należę do programu jako "Karol Nowak"
     Gdy ponownie przechodzę onboarding z tym samym adresem, ale nazwiskiem "Karol Kowalski"
-    Wtedy dane na moim członkostwie zostają zaktualizowane
+    Wtedy dane na moim członkostwie pozostają bez zmian
     Oraz saldo punktów pozostaje bez zmian
+    Ponieważ formularz nie weryfikuje własności adresu — aktualizacja danych wymagałaby zweryfikowanej ścieżki, która jest poza zakresem v1
 
   # ------------------------------------------------------------------
   # Program niedostępny
