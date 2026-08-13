@@ -3,6 +3,7 @@ import { assert, assertEquals, assertMatch, assertRejects } from "jsr:@std/asser
 Deno.env.set("PASSKIT_MODE", "stub");
 Deno.env.set("PASSKIT_API_KEY", "test-api-key");
 Deno.env.set("PASSKIT_API_SECRET", "test-api-secret");
+Deno.env.delete("PASSKIT_PASS_TYPE_IDENTIFIER");
 
 const passkit = await import("./passkit.ts");
 const { createProgram, enrolMember, updateBalance, updateTemplate } = passkit;
@@ -16,7 +17,7 @@ Deno.test("stub: createProgram returns deterministic ids without a network call"
 });
 
 Deno.test("stub: enrolMember returns deterministic ids/urls without a network call", async () => {
-  const result = await enrolMember({ programId: "p1", externalId: "m1" });
+  const result = await enrolMember({ programId: "p1", externalId: "m1", tierId: "default" });
   assertEquals(result, {
     memberId: "stub-member-id",
     appleUrl: "https://stub.passkit.io/apple/stub-member-id",
@@ -96,7 +97,9 @@ Deno.test("live: createProgram sends POST /members/program then POST /members/ti
       assertEquals(calls[0].url, "https://api.pub1.passkit.io/members/program");
       assertEquals(calls[0].method, "POST");
       assertEquals(calls[0].headers["content-type"], "application/json");
-      assertEquals(JSON.parse(calls[0].body!), { name: "Kawiarnia Test", description: "punkty za kawę" });
+      // No PASSKIT_PASS_TYPE_IDENTIFIER set -> no passTypeIdentifier/status sent (description
+      // has no confirmed field name on Program, so it's dropped rather than guessed).
+      assertEquals(JSON.parse(calls[0].body!), { name: "Kawiarnia Test" });
       const { header, payload } = await decodeAndVerifyPKAuth(calls[0].headers["authorization"], "test-api-secret");
       assertEquals(header, { alg: "HS256", typ: "JWT" });
       assertEquals(payload.key, "test-api-key");
@@ -107,16 +110,51 @@ Deno.test("live: createProgram sends POST /members/program then POST /members/ti
 
       assertEquals(calls[1].url, "https://api.pub1.passkit.io/members/tier");
       assertEquals(calls[1].method, "POST");
-      assertEquals(JSON.parse(calls[1].body!), { programId: "prog-123", tierIndex: 0, name: "default" });
+      assertEquals(JSON.parse(calls[1].body!), { id: "default", programId: "prog-123", tierIndex: 0, name: "default" });
     },
   );
 });
 
-Deno.test("live: enrolMember sends POST /members/member and builds the pkpass/gpay URLs from the returned id", async () => {
+Deno.test("live: createProgram sends passTypeIdentifier + status when PASSKIT_PASS_TYPE_IDENTIFIER is set", async () => {
+  Deno.env.set("PASSKIT_PASS_TYPE_IDENTIFIER", "pass.pl.loyaltygo.test");
+  try {
+    await withFetch(
+      [
+        new Response(JSON.stringify({ id: "prog-123" }), { status: 200 }),
+        new Response(JSON.stringify({ id: "tier-456" }), { status: 200 }),
+      ],
+      async (calls) => {
+        await createProgram({ displayName: "Kawiarnia Test" });
+        assertEquals(JSON.parse(calls[0].body!), {
+          name: "Kawiarnia Test",
+          passTypeIdentifier: "pass.pl.loyaltygo.test",
+          status: ["PROJECT_PUBLISHED"],
+        });
+      },
+    );
+  } finally {
+    Deno.env.delete("PASSKIT_PASS_TYPE_IDENTIFIER");
+  }
+});
+
+Deno.test("live: createProgram throws (does not corrupt state) when PassKit's response has no id", async () => {
+  await withFetch([new Response(JSON.stringify({ oops: "no id field" }), { status: 200 })], async () => {
+    await assertRejects(() => createProgram({ displayName: "x" }), Error, "createProgram");
+  });
+});
+
+Deno.test("live: createProgram throws when PassKit's response has an empty id", async () => {
+  await withFetch([new Response(JSON.stringify({ id: "" }), { status: 200 })], async () => {
+    await assertRejects(() => createProgram({ displayName: "x" }), Error, "createProgram");
+  });
+});
+
+Deno.test("live: enrolMember sends POST /members/member with tierId and person.{displayName,forename,surname,emailAddress}, builds pkpass/gpay URLs from the returned id", async () => {
   await withFetch([new Response(JSON.stringify({ id: "AbCdEf1234567890abcdEF" }), { status: 200 })], async (calls) => {
     const result = await enrolMember({
       programId: "prog-123",
       externalId: "member-1",
+      tierId: "default",
       firstName: "Anna",
       lastName: "Kowalska",
       email: "anna@example.com",
@@ -131,9 +169,36 @@ Deno.test("live: enrolMember sends POST /members/member and builds the pkpass/gp
     assertEquals(JSON.parse(calls[0].body!), {
       programId: "prog-123",
       externalId: "member-1",
-      person: { forename: "Anna", surname: "Kowalska", emailAddress: "anna@example.com" },
+      tierId: "default",
+      person: {
+        displayName: "Anna Kowalska",
+        forename: "Anna",
+        surname: "Kowalska",
+        emailAddress: "anna@example.com",
+      },
     });
     await decodeAndVerifyPKAuth(calls[0].headers["authorization"], "test-api-secret");
+  });
+});
+
+Deno.test("live: enrolMember throws before any network call when tierId is null", async () => {
+  await withFetch([], async (calls) => {
+    await assertRejects(
+      () => enrolMember({ programId: "p1", externalId: "m1", tierId: null }),
+      Error,
+      "tierId",
+    );
+    assertEquals(calls.length, 0, "must not call fetch with a request we already know is malformed");
+  });
+});
+
+Deno.test("live: enrolMember throws (does not build a broken pass URL) when PassKit's response has no id", async () => {
+  await withFetch([new Response(JSON.stringify({}), { status: 200 })], async () => {
+    await assertRejects(
+      () => enrolMember({ programId: "p1", externalId: "m1", tierId: "default" }),
+      Error,
+      "enrolMember",
+    );
   });
 });
 
@@ -160,12 +225,12 @@ Deno.test("live: a non-ok response is thrown as an Error carrying status and bod
     [new Response(JSON.stringify({ error: { code: 16, message: "no jwt token provided" } }), { status: 401 })],
     async () => {
       await assertRejects(
-        () => enrolMember({ programId: "p1", externalId: "m1" }),
+        () => enrolMember({ programId: "p1", externalId: "m1", tierId: "default" }),
         Error,
         "401",
       );
       await assertRejects(
-        () => enrolMember({ programId: "p1", externalId: "m1" }),
+        () => enrolMember({ programId: "p1", externalId: "m1", tierId: "default" }),
         Error,
         "no jwt token provided",
       );
@@ -181,7 +246,7 @@ Deno.test("live: never logs the api key, secret, or signed token", async () => {
   console.error = (...args: unknown[]) => logged.push(args.map(String).join(" "));
   try {
     await withFetch([new Response(JSON.stringify({ id: "m1" }), { status: 200 })], async () => {
-      await enrolMember({ programId: "p1", externalId: "m1" });
+      await enrolMember({ programId: "p1", externalId: "m1", tierId: "default" });
     });
   } finally {
     console.log = originalLog;

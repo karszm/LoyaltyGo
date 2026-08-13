@@ -50,7 +50,13 @@ async function issueCardLinkEmail(
   await sendCardLink(email, cardLinkUrl(tokenRow.token as string), programName);
 }
 
-type ProgramRow = { id: string; status: string; display_name: string | null; passkit_program_id: string | null };
+type ProgramRow = {
+  id: string;
+  status: string;
+  display_name: string | null;
+  passkit_program_id: string | null;
+  passkit_template_id: string | null;
+};
 
 function programUnavailableResponse(status: string): Response {
   // Contract shows both codes under the same 409 (docs/api/openapi.yaml, joinProgram's 409
@@ -87,7 +93,7 @@ async function handleGetInvite(sb: ReturnType<typeof serviceClient>, code: strin
 // POST /invites/:code/join
 async function handleJoin(req: Request, sb: ReturnType<typeof serviceClient>, code: string): Promise<Response> {
   const { data: program } = await sb.from("programs")
-    .select("id, status, display_name, passkit_program_id")
+    .select("id, status, display_name, passkit_program_id, passkit_template_id")
     .eq("invite_code", code).maybeSingle();
   if (!program) return jsonError("not_found", "Nie znaleziono zasobu.", 404);
 
@@ -181,6 +187,7 @@ async function joinNewOrExisting(
     const enrolled = await enrolMember({
       programId: program.passkit_program_id ?? "",
       externalId: memberId,
+      tierId: program.passkit_template_id,
       firstName: input.firstName,
       lastName: input.lastName,
       email: input.email,
@@ -262,7 +269,7 @@ async function handleGetCardLink(sb: ReturnType<typeof serviceClient>, token: st
   // Lazy retry: replaces the retry worker the plan deliberately cut. Try issuance now;
   // on failure leave pass_status alone so the next click through the same link retries again.
   const { data: program } = await sb.from("programs")
-    .select("status, passkit_program_id").eq("id", member.program_id).maybeSingle();
+    .select("status, passkit_program_id, passkit_template_id").eq("id", member.program_id).maybeSingle();
   if (program?.status !== "published") {
     // Program suspended/closed/draft: don't issue a brand-new pass against it. The link
     // still resolves — just with whatever state the member already has (never a 404/409;
@@ -274,6 +281,7 @@ async function handleGetCardLink(sb: ReturnType<typeof serviceClient>, token: st
     const enrolled = await enrolMember({
       programId: program.passkit_program_id ?? "",
       externalId: member.id as string,
+      tierId: program.passkit_template_id,
       firstName: member.first_name as string,
       lastName: member.last_name as string,
       email: member.email as string,

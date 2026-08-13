@@ -78,6 +78,19 @@ async function passkitRequest(method: string, path: string, body?: unknown): Pro
   return text ? JSON.parse(text) : {};
 }
 
+// Fix round 1 (review): we were casting PassKit's response `as { id: string }` and using
+// it unchecked — if the real field name ever differs (the review flagged a concrete reason
+// to expect this for Tier specifically, see createProgram below), `data.id` is `undefined`
+// at runtime and silently gets interpolated into a URL/foreign key instead of throwing.
+// Every id we pull out of a PassKit response goes through this first.
+function requireId(data: unknown, op: string): string {
+  const id = (data as { id?: unknown } | null)?.id;
+  if (typeof id !== "string" || id.length === 0) {
+    throw new Error(`passkit ${op}: brak pola "id" w odpowiedzi: ${JSON.stringify(data).slice(0, 300)}`);
+  }
+  return id;
+}
+
 export type Branding = {
   displayName: string;
   logoUrl?: string;
@@ -95,35 +108,58 @@ export async function createProgram(
 
   // POST /members/program — route confirmed live (401 "no jwt token provided" without
   // auth; the old guessed path /loyalty/program returned a literal nginx 404, i.e. didn't
-  // exist at all). Response shape (a bare `{"id": "..."}`) is inferred from PassKit's gRPC
-  // `createProgram` returning a `.io.Id` message (grpc-definitions.md) — protobuf JSON for a
-  // single-field `Id` message is `{"id": ...}` by convention, but not independently
-  // confirmed against a real 2xx. Field names beyond `name` are UNVERIFIED — PassKit's
-  // `Program` message has more fields (status, passTypeIdentifier, distributionSettings...)
-  // we couldn't enumerate without credentials.
+  // exist at all). Field table for the `Program` message (docs.passkit.io/protocols/member/
+  // grpc-definitions.md, fetched directly — CONFIRMED, not the nav-chrome-only result Task
+  // 8's first pass got): `name`, `passTypeIdentifier` ("needs to be set for programs where
+  // status contains PROJECT_PUBLISHED"), `status` (repeated `io.ProjectStatus` bitmask,
+  // defaults to PROJECT_ACTIVE_FOR_OBJECT_CREATION + PROJECT_DRAFT if omitted). Since
+  // panel-api calls createProgram exactly when OUR side marks the program published, we
+  // send `status: ["PROJECT_PUBLISHED"]` + `passTypeIdentifier` together, but only when
+  // PASSKIT_PASS_TYPE_IDENTIFIER is configured (that identifier must already be registered
+  // with PassKit/Apple — it's account setup, not something we can derive) — otherwise we
+  // omit both and PassKit creates it as a draft, which is honest given we don't have a real
+  // identifier to publish it under. `description`/`distributionSettings` aren't in the field
+  // table under those names for the top-level Program (no exact fit found) — dropped rather
+  // than sent under a guessed name. Response shape `{"id": "..."}` is still UNVERIFIED
+  // against a real 2xx (inferred from `.io.Id`'s single-field protobuf-JSON convention) —
+  // requireId() below turns a wrong guess into a thrown error instead of a corrupted URL.
+  const passTypeIdentifier = Deno.env.get("PASSKIT_PASS_TYPE_IDENTIFIER");
   const program = await passkitRequest("POST", "/members/program", {
     name: branding.displayName,
-    description: branding.description,
+    ...(passTypeIdentifier ? { passTypeIdentifier, status: ["PROJECT_PUBLISHED"] } : {}),
   }) as { id: string };
+  const programId = requireId(program, "createProgram");
 
   // POST /members/tier — route confirmed live the same way. PassKit's hierarchy is
   // Program -> Tier -> (Pass Template); a program needs at least one tier
   // (docs.passkit.io/protocols/member/grpc-definitions.md). We create one default tier and
-  // return its id as our `templateId` — the closest confirmed analog to "the thing that
-  // controls this program's card" available without a verified Pass Template endpoint (see
-  // updateTemplate below). Branding colors/logo are NOT sent on this call.
+  // return its id as our `templateId`. IMPORTANT correction from the field table: `Tier.id`
+  // is documented as "could just be: blue, gold, etc — needs to be lower case", i.e. a
+  // caller-CHOSEN slug, unlike `Program.id` which is server-generated — so unlike the
+  // program call above, PassKit may well echo back exactly the id we send rather than
+  // minting one; requireId() still guards it either way. `passTemplateId` (the actual
+  // visual template, a separate Common API resource) is deliberately omitted — see
+  // updateTemplate below for why that path is still unverified.
   const tier = await passkitRequest("POST", "/members/tier", {
-    programId: program.id,
+    id: "default",
+    programId,
     tierIndex: 0,
     name: "default",
   }) as { id: string };
+  const templateId = requireId(tier, "createProgram (tier)");
 
-  return { programId: program.id, templateId: tier.id };
+  return { programId, templateId };
 }
 
 export type Member = {
   programId: string;
   externalId: string;
+  // Required live (see the throw below) — the id of the tier this member enrols into.
+  // createProgram returns it as `templateId`; panel-api persists that as
+  // `programs.passkit_template_id`. `null` covers a program provisioned before this field
+  // existed — enrolMember throws rather than send PassKit a request we already know is
+  // malformed (a program needs ≥1 tier, confirmed in grpc-definitions.md).
+  tierId: string | null;
   firstName?: string;
   lastName?: string;
   email?: string;
@@ -140,28 +176,41 @@ export async function enrolMember(
       googleUrl: "https://stub.passkit.io/google/stub-member-id",
     };
   }
+  if (!member.tierId) {
+    throw new Error("passkit enrolMember: brak tierId — program nie ma jeszcze przypisanego tieru w PassKit.");
+  }
 
   // POST /members/member — route confirmed live (401 without auth; sibling guesses like
-  // /members/member/enrol 404'd). Body shape (programId, externalId, person.{forename,
-  // surname,emailAddress}) confirmed verbatim from PassKit's own support-article examples:
-  // help.passkit.com/en/articles/6324096 and .../3991200.
+  // /members/member/enrol 404'd). Body shape corrected in fix round 1: `tierId` is REQUIRED
+  // (both cited examples below include it at the top level, and grpc-definitions.md lists
+  // `Member.tierId` as a real field — Task 8's first pass omitted it entirely). `person`
+  // fields corrected too — the previous citations (articles 6324096/3991200) only actually
+  // show `person.displayName` (+ `emailAddress` in 3991200); `forename`/`surname` are real
+  // fields (confirmed against the `io.Person` field table, docs.passkit.io/common/
+  // grpc-definitions.md) but the example that actually uses them is a different article,
+  // help.passkit.com/en/articles/6219735. We send both displayName and forename/surname —
+  // all four are confirmed real Person fields, and no example rules out sending more than
+  // it shows.
   const data = await passkitRequest("POST", "/members/member", {
     programId: member.programId,
     externalId: member.externalId,
+    tierId: member.tierId,
     person: {
+      displayName: [member.firstName, member.lastName].filter(Boolean).join(" ") || undefined,
       forename: member.firstName,
       surname: member.lastName,
       emailAddress: member.email,
     },
   }) as { id: string };
+  const memberId = requireId(data, "enrolMember");
 
   // Pass URL: PassKit returns ONLY the pass id — the URL is built client-side as
   // https://pub1.pskt.io/{id}, and appending .pkpass / .gpay gets the direct Apple/Google
   // link instead of the universal device-detecting landing page — confirmed via
   // help.passkit.com/en/articles/11891934 (this also confirms Task 4's original guess was
   // right: only a Pass ID comes back, the URL is built from it, not returned whole).
-  const passUrl = `${PASS_URL_HOST}/${data.id}`;
-  return { memberId: data.id, appleUrl: `${passUrl}.pkpass`, googleUrl: `${passUrl}.gpay` };
+  const passUrl = `${PASS_URL_HOST}/${memberId}`;
+  return { memberId, appleUrl: `${passUrl}.pkpass`, googleUrl: `${passUrl}.gpay` };
 }
 
 export async function updateBalance(memberId: string, balance: number): Promise<void> {

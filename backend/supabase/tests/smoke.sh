@@ -4,7 +4,9 @@
 # Prereqs:
 #   supabase start
 #   docker exec -i supabase_db_backend psql -U postgres -d postgres -f - < backend/supabase/tests/seed.sql
-#   supabase functions serve sdk-api --env-file supabase/functions/.env.local --no-verify-jwt &
+#   supabase functions serve --env-file supabase/functions/.env.local --no-verify-jwt &
+#   (the CLI serves every function in supabase/functions/ together -- it does not take a
+#   single function name as an argument)
 #
 # Usage: backend/supabase/tests/smoke.sh [sdk|public|panel]   (default: all sections)
 #
