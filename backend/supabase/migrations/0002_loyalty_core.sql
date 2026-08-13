@@ -40,6 +40,7 @@ create table public.program_rates (
 );
 create index program_rates_lookup on public.program_rates (program_id, valid_from desc);
 
+-- Historia stawek: AFTER (wiersz programu musi już istnieć — FK z program_rates).
 create or replace function public.programs_rate_history() returns trigger
 language plpgsql as $$
 begin
@@ -47,18 +48,29 @@ begin
     insert into public.program_rates (program_id, points_per_pln)
     values (new.id, new.points_per_pln);
   end if;
+  return null;
+end $$;
+create trigger programs_rate_history
+  after insert or update on public.programs
+  for each row execute function public.programs_rate_history();
+
+create or replace function public.programs_touch_updated_at() returns trigger
+language plpgsql as $$
+begin
   new.updated_at := now();
   return new;
 end $$;
-create trigger programs_rate_history
-  before insert or update on public.programs
-  for each row execute function public.programs_rate_history();
+create trigger programs_touch_updated_at
+  before update on public.programs
+  for each row execute function public.programs_touch_updated_at();
 
+-- Tie-break po id: insert + zmiana stawki w tej samej transakcji mają identyczny
+-- valid_from (now() jest stały per transakcja) — wygrywa nowszy wpis.
 create or replace function public.current_rate(p_program_id uuid, p_at timestamptz)
 returns numeric language sql stable as $$
   select points_per_pln from public.program_rates
   where program_id = p_program_id and valid_from <= p_at
-  order by valid_from desc limit 1
+  order by valid_from desc, id desc limit 1
 $$;
 
 create table public.members (
