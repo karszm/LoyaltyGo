@@ -42,7 +42,7 @@ create index program_rates_lookup on public.program_rates (program_id, valid_fro
 
 -- Historia stawek: AFTER (wiersz programu musi już istnieć — FK z program_rates).
 create or replace function public.programs_rate_history() returns trigger
-language plpgsql as $$
+language plpgsql security definer set search_path = public as $$
 begin
   if tg_op = 'INSERT' or new.points_per_pln is distinct from old.points_per_pln then
     insert into public.program_rates (program_id, points_per_pln)

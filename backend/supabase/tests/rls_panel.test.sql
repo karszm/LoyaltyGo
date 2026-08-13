@@ -21,6 +21,7 @@ set local request.jwt.claims to '{"sub":"a0000000-0000-0000-0000-00000000000a","
 
 do $$
 declare n int;
+declare rate numeric;
 begin
   select count(*) into n from public.programs;
   assert n = 1, format('A widzi %s programów, oczekiwano 1', n);
@@ -40,5 +41,36 @@ begin
   -- branding wolno edytować
   update public.programs set display_name = 'Salon A bis'
     where merchant_id = 'a1000000-0000-0000-0000-000000000001';
+
+  -- a) Update the rate and assert history grew
+  select count(*) into n from public.program_rates where program_id = 'a2000000-0000-0000-0000-000000000001';
+  update public.programs set points_per_pln = 0.25
+    where merchant_id = 'a1000000-0000-0000-0000-000000000001';
+  select count(*) into rate from public.program_rates where program_id = 'a2000000-0000-0000-0000-000000000001';
+  assert rate = n + 1, format('Historia stawek: było %s, teraz %s (oczekiwano %s)', n, rate, n + 1);
+  select public.current_rate('a2000000-0000-0000-0000-000000000001', now()) into rate;
+  assert rate = 0.25, format('current_rate = %s, oczekiwano 0.25', rate);
+
+  -- b) Cross-tenant UPDATE must affect zero rows
+  update public.members set status = 'blocked'
+    where program_id = 'b2000000-0000-0000-0000-000000000001';
+  get diagnostics n = row_count;
+  assert n = 0, format('A nie może modyfikować członków B: zmieniono %s wierszy, oczekiwano 0', n);
+
+  -- c) Cross-tenant INSERT must be rejected
+  begin
+    insert into public.offers (program_id, title)
+      values ('b2000000-0000-0000-0000-000000000001', 'Obca oferta');
+    raise exception 'with check nie zadziałał';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- d) Assert panel cannot touch forbidden column
+  begin
+    update public.members set points_balance = 9999
+      where program_id = 'a2000000-0000-0000-0000-000000000001';
+    raise exception 'grant kolumnowy nie zadziałał';
+  exception when insufficient_privilege then null;
+  end;
 end $$;
 rollback;

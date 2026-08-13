@@ -4,16 +4,33 @@ language sql stable security definer set search_path = public as $$
   select id from public.merchants where auth_user_id = auth.uid()
 $$;
 
--- Grant base privileges to authenticated role
-grant select, insert, update, delete on public.merchants to authenticated;
-grant select, insert, update, delete on public.programs to authenticated;
-grant select, insert, update, delete on public.program_rates to authenticated;
-grant select, insert, update, delete on public.members to authenticated;
-grant select, insert, update, delete on public.offers to authenticated;
-grant select, insert, update, delete on public.transactions to authenticated;
-grant select, insert, update, delete on public.coupon_redemptions to authenticated;
-grant select, insert, update, delete on public.card_link_tokens to authenticated;
-grant select, insert, update, delete on public.sync_rejections to authenticated;
+-- Panel (rola authenticated) dostaje wyłącznie czasowniki i kolumny, których
+-- używa kontrakt /panel. Reszta = default deny. Nigdzie DELETE.
+grant select                                on public.merchants          to authenticated;
+grant insert (auth_user_id, email, company_name, contact_email)
+                                            on public.merchants          to authenticated;
+grant update (company_name, contact_email)  on public.merchants          to authenticated;
+
+grant select                                on public.programs           to authenticated;
+grant insert (merchant_id, display_name, logo_url, background_color, description, points_per_pln)
+                                            on public.programs           to authenticated;
+grant update (display_name, logo_url, background_color, description, points_per_pln)
+                                            on public.programs           to authenticated;
+
+grant select                                on public.program_rates      to authenticated;
+
+grant select                                on public.members            to authenticated;
+grant update (status, blocked_at)           on public.members            to authenticated;
+
+grant select                                on public.offers             to authenticated;
+grant insert (program_id, title, description)
+                                            on public.offers             to authenticated;
+grant update (status, deactivated_at)       on public.offers             to authenticated;
+
+grant select                                on public.transactions       to authenticated;
+grant select                                on public.coupon_redemptions to authenticated;
+grant select                                on public.sync_rejections    to authenticated;
+-- card_link_tokens: zero grantów dla authenticated (dostęp tylko service role).
 
 alter table public.merchants          enable row level security;
 alter table public.programs           enable row level security;
@@ -76,8 +93,3 @@ create policy rejections_own on public.sync_rejections
   for select to authenticated
   using (program_id in (select id from public.programs where merchant_id = public.my_merchant_id()));
 
--- Panel może edytować branding/przelicznik, ale NIE stan maszyny stanów,
--- pola PassKit ani klucz programu — column-level grants zamiast triggera.
-revoke update on public.programs from authenticated;
-grant update (display_name, logo_url, background_color, description, points_per_pln)
-  on public.programs to authenticated;
