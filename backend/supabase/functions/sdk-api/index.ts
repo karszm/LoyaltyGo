@@ -6,6 +6,12 @@ import { jsonError, mapPgError, validationError } from "../_shared/errors.ts";
 import { json, parseBody, preflight, safeDecode } from "../_shared/http.ts";
 import { syncPassBalance } from "../_shared/adapters/passkit.ts";
 
+// The customer-facing program page (karta.loyaltygo.pl), NOT the merchant panel
+// (app.loyaltygo.pl) — this is what the SoftPOS app renders as the invitation QR
+// (displayed on-device or printed); mixing the two up sends a scanning customer into the
+// merchant panel instead of the program page, and a printed QR can't be recalled.
+const PROGRAM_PAGE_BASE_URL = Deno.env.get("PROGRAM_PAGE_BASE_URL") ?? "https://karta.loyaltygo.pl";
+
 // Fire-and-forget: a PassKit failure must never change the HTTP response to the SDK —
 // the DB balance is the source of truth, PassKit catches up on the next successful call.
 function fireAndForget(p: Promise<unknown>): void {
@@ -56,7 +62,7 @@ async function handleProgram(sb: ReturnType<typeof serviceClient>, programId: st
     status,
     display_name: data.display_name,
     points_per_pln: Number(data.points_per_pln),
-    invite_url: data.status === "published" ? `https://app.loyaltygo.pl/${data.invite_code}` : null,
+    invite_url: data.status === "published" ? `${PROGRAM_PAGE_BASE_URL}/${data.invite_code}` : null,
   });
 }
 

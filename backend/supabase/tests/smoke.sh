@@ -80,7 +80,7 @@ sdk_tests() {
   body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
   check "GET /program status code" "$status" "200"
   check "GET /program .status" "$(echo "$body" | jq -r .status)" "published"
-  check "GET /program .invite_url" "$(echo "$body" | jq -r .invite_url)" "https://app.loyaltygo.pl/SEEDA1"
+  check "GET /program .invite_url" "$(echo "$body" | jq -r .invite_url)" "https://karta.loyaltygo.pl/SEEDA1"
 
   # scan known card
   r=$(req POST /scans "{\"card_token\":\"$CARD_A\"}" "$KEY_A")
