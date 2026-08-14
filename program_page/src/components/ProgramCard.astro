@@ -25,14 +25,24 @@ const { brand } = Astro.props;
        merchant sees their own logo read badly on their own colour. */}
     {/* The monogram is ALWAYS rendered underneath, not swapped in on failure: Task 7 adds a
        CSP, and any script-src directive disables inline event handlers (onerror included —
-       CSP hashes don't cover them without 'unsafe-hashes'). A JS-dependent swap would mean a
-       merchant whose logo 404s gets a permanently broken-image glyph at the till. Rendering
-       both and layering the logo image (possibly absent or failed) on top is CSP-proof and
-       script-free: a failed image paints nothing, and the monogram underneath simply shows
-       through.
-       It's also not an edge case in practice today: the seed fixtures (SEEDA1/SEEDB1) both have
-       logo_url = NULL, and while panel-api's publish check requires one going forward, nothing
-       enforces that retroactively — so right now this is a live, common path, not a rare one. */}
+       CSP hashes don't cover them without 'unsafe-hashes'), so there is no script-free way to
+       react to a failed image load. Three real states, no JS in any of them:
+         - no logo_url at all (both seed rows today, and the live path until the panel starts
+           uploading one) -- no image tag is rendered, so the monogram is what shows. This is
+           the case the monogram exists for.
+         - logo loads -- .program-card__logo-img's own `background: var(--card-bg)` makes the
+           image opaque (it matches the card, so it reads as no layer at all), fully covering
+           the monogram underneath. A transparent PNG/wordmark then shows the card's own colour
+           through its transparent regions, exactly like the real Wallet pass.
+         - logo 404s -- the (still opaque) image box paints the card colour and covers the
+           monogram anyway, so the slot goes quietly empty rather than showing a letter or a
+           broken-image glyph. That's a deliberate trade, not an oversight: this is rare (the
+           seed fixtures don't even have a logo_url to fail), and the program name is already
+           rendered as text right beside it -- an empty slot is quieter than either alternative.
+       It's not an edge case that logo_url is absent, though: the seed fixtures (SEEDA1/SEEDB1)
+       both have logo_url = NULL, and while panel-api's publish check requires one going
+       forward, nothing enforces that retroactively — so right now the no-logo path is live and
+       common, not rare. */}
     <span class="program-card__monogram" aria-hidden="true">
       {brand.monogram}
     </span>
@@ -101,6 +111,12 @@ const { brand } = Astro.props;
     width: 100%;
     height: 100%;
     object-fit: contain;
+    /* Opaque, matching the card: covers the monogram underneath completely (object-fit:
+       contain never fills a box whose aspect ratio differs from the image, so without this
+       the monogram would bleed through a transparent PNG or a non-square wordmark — nearly
+       every real logo). A transparent region in the logo then shows the card's own colour,
+       same as the real Wallet pass. */
+    background: var(--card-bg);
   }
 
   .program-card__monogram {
