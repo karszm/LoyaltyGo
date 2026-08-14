@@ -1,0 +1,13 @@
+{
+  "name": "loyaltygo-program-page",
+  "main": "./dist/_worker.js/index.js",
+  "compatibility_date": "2025-08-12",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist"
+  },
+  "routes": [
+    { "pattern": "karta.loyaltygo.pl", "custom_domain": true }
+  ]
+}
