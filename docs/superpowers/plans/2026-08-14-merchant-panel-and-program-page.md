@@ -265,10 +265,18 @@ działa bez JS. Szczegółowe uzasadnienie i tabela porównawcza — w opisie Ta
 
 - [ ] `<title>` z nazwą merchanta **tylko** w stanie aktywnym — inaczej wyciekłaby marka,
   której API celowo nie wydało.
-- [ ] `middleware.ts`: `GET` zaproszenia → `s-maxage=60, stale-while-revalidate=600`
-  (zawieszenie programu widoczne w minutę, kolejka przy kasie zaabsorbowana); wszystko inne → `no-store`.
+- [ ] `middleware.ts`: `GET` zaproszenia **kończący się statusem 200** → `s-maxage=60,
+  stale-while-revalidate=600` (zawieszenie programu widoczne w minutę, kolejka przy kasie
+  zaabsorbowana); **wszystko inne, w tym 410/404/503 na tej samej trasie → `no-store`**.
+  Uściślenie względem pierwszej wersji planu: zbuforowany 503 zamienia przycisk „Spróbuj ponownie"
+  w kłamstwo na 10 minut — CDN oddawałby tę samą stronę awarii mimo że backend już wstał.
   Do tego `nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY` i CSP z
   `img-src https:` (ustępstwo dla logo merchanta) oraz `form-action 'self'`.
+- [ ] **CSP musi mieć `style-src 'self' 'unsafe-inline'`.** Kolor marki jedzie atrybutem `style`
+  na karcie (`ProgramCard.astro:19`, cztery custom properties), a Astro wstrzykuje małe arkusze
+  inline przy budowaniu — `style-src 'self'` dałoby kartę bez koloru, niewidoczną w devie, bo
+  dev serwer CSP nie wymusza. Wartości są bezpieczne: `sanitizeBackgroundColor` przepuszcza
+  wyłącznie `#rrggbb`, pozostałe trzy są z niego wyliczone. `script-src 'self'` zostaje ścisłe.
 - [ ] commit `feat(program-page): strona zaproszenia — pięć stanów, nagłówki bezpieczeństwa`
 
 ### Task 8: Formularz dołączenia (działa bez JS) + ulepszenie klienckie
