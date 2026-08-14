@@ -21,6 +21,11 @@ import { createProgram } from "../_shared/adapters/passkit.ts";
 const PROGRAM_COLUMNS =
   "id, status, display_name, logo_url, background_color, description, points_per_pln, invite_code";
 
+// The customer-facing program page (karta.loyaltygo.pl), NOT the merchant panel
+// (app.loyaltygo.pl) — mixing these up prints a QR that sends the customer into the
+// merchant panel instead of the program page; the QR is on paper and cannot be recalled.
+const PROGRAM_PAGE_BASE_URL = Deno.env.get("PROGRAM_PAGE_BASE_URL") ?? "https://karta.loyaltygo.pl";
+
 type ProgramRow = {
   id: string;
   status: string;
@@ -44,7 +49,7 @@ function toProgramResponse(row: ProgramRow): Record<string, unknown> {
     description: row.description,
     points_per_pln: Number(row.points_per_pln),
     invite_url: row.status === "published" && row.invite_code
-      ? `https://app.loyaltygo.pl/${row.invite_code}`
+      ? `${PROGRAM_PAGE_BASE_URL}/${row.invite_code}`
       : null,
     invite_qr_url: null,
     branding_propagation: null,

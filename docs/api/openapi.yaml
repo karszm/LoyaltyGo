@@ -12,9 +12,10 @@ info:
 
     ## Obszary API
     - **Public** — onboarding klienta i odzyskiwanie karty; bez uwierzytelnienia, rate-limitowane.
-      Konsumowane przez dedykowany landing page programu hostowany w aplikacji
-      panelu merchanta (publiczna trasa, np. `https://app.loyaltygo.pl/{inviteCode}`) —
-      statyczny QR zaproszenia przekierowuje właśnie tam.
+      Konsumowane przez dedykowany landing page programu na własnej domenie
+      (np. `https://karta.loyaltygo.pl/{inviteCode}`, konfigurowalne przez
+      `PROGRAM_PAGE_BASE_URL`) — osobno od panelu merchanta (`app.loyaltygo.pl`); statyczny
+      QR zaproszenia przekierowuje właśnie tam.
     - **SDK** — operacje SoftPOS (skan karty, rejestracja transakcji, anulowanie);
       uwierzytelnianie kluczem programu merchanta (`X-Program-Key`).
     - **Panel** — panel merchanta; uwierzytelnianie tokenem JWT Supabase Auth
@@ -258,13 +259,24 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '410':
-          description: Link wygasł (ponad 24 h) — odzyskiwanie trzeba uruchomić ponownie
+          description: |
+            Link wygasł (ponad 24 h) — odzyskiwanie trzeba uruchomić ponownie. Odpowiedź
+            niesie `invite_code` obok `error`, żeby strona linku mogła odesłać klienta z
+            powrotem na stronę programu.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                type: object
+                properties:
+                  error:
+                    $ref: '#/components/schemas/ErrorBody'
+                  invite_code:
+                    type: string
+                    nullable: true
+                    description: Kod zaproszenia programu, do zbudowania linku powrotnego na stronę programu
               example:
                 error: { code: link_expired, message: "Link wygasł. Uruchom odzyskiwanie karty ponownie." }
+                invite_code: "8fK3xQ"
 
   # ==================================================================
   # SDK — operacje SoftPOS (klucz programu)
@@ -308,7 +320,7 @@ paths:
         rejestracji transakcji online.
 
         (QR zaproszenia to co innego — statyczny URL landing page'a programu
-        `app.loyaltygo.pl/{inviteCode}`, wyświetlany na SoftPOS lub wydruku,
+        `karta.loyaltygo.pl/{inviteCode}`, wyświetlany na SoftPOS lub wydruku,
         skanowany aparatem telefonu klienta, nie przez SDK.)
 
         Karta innego merchanta → 404 `card_foreign_program`, bez żadnych danych
@@ -1498,6 +1510,20 @@ components:
           format: uri
           nullable: true
           description: Link "Save to Google Wallet" — cel przycisku "Dodaj do Google Wallet"
+        display_name:
+          type: string
+          nullable: true
+          description: Nazwa programu merchanta — do wyświetlenia marki na stronie linku do karty
+        background_color:
+          type: string
+          nullable: true
+          example: "#1A1A2E"
+        invite_code:
+          type: string
+          nullable: true
+          description: |
+            Kod zaproszenia programu — pozwala stronie linku odesłać klienta z powrotem
+            na stronę programu (istotne zwłaszcza przy wygasłym linku, patrz 410 niżej)
 
     # ----------------------------------------------------------------
     # SDK
@@ -1517,8 +1543,8 @@ components:
           nullable: true
           description: |
             Statyczny link zaproszenia do renderowania jako QR — prowadzi do
-            dedykowanego landing page'a programu w aplikacji panelu merchanta;
-            `null` poza statusem `published`
+            dedykowanego landing page'a programu na własnej domenie (osobno od
+            panelu merchanta); `null` poza statusem `published`
         points_per_pln:
           type: number
           format: double
@@ -1756,10 +1782,10 @@ components:
           format: uri
           nullable: true
           description: |
-            Statyczny link zapraszający — dedykowany landing page programu
-            w aplikacji panelu merchanta (np. `https://app.loyaltygo.pl/{inviteCode}`);
-            dostępny po publikacji
-          example: "https://app.loyaltygo.pl/8fK3xQ"
+            Statyczny link zapraszający — dedykowany landing page programu na
+            własnej domenie, osobno od panelu merchanta
+            (np. `https://karta.loyaltygo.pl/{inviteCode}`); dostępny po publikacji
+          example: "https://karta.loyaltygo.pl/8fK3xQ"
         invite_qr_url:
           type: string
           format: uri

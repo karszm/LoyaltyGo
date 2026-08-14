@@ -22,7 +22,10 @@ import { sendCardLink } from "../_shared/adapters/email.ts";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NAME_MAX_LENGTH = 80;   // JoinRequest.first_name/last_name maxLength (docs/api/openapi.yaml)
 const EMAIL_MAX_LENGTH = 254; // RFC 5321 total-address limit
-const APP_BASE_URL = "https://app.loyaltygo.pl";
+// The customer-facing program page (karta.loyaltygo.pl), NOT the merchant panel
+// (app.loyaltygo.pl) — mixing these up e-mails the customer a link into the merchant panel,
+// a broken dead end for them.
+const PROGRAM_PAGE_BASE_URL = Deno.env.get("PROGRAM_PAGE_BASE_URL") ?? "https://karta.loyaltygo.pl";
 // Contract's exact "maybe" message (docs/api/openapi.yaml MaybeEmailResponse) — shared by
 // joinProgram's existing-member branch and recoverCard's always-202 response so the two
 // surfaces can never drift apart and leak an enumeration signal through wording.
@@ -30,7 +33,7 @@ const MAYBE_MESSAGE =
   "Jeżeli ten adres należy do programu u tego merchanta, karta pojawi się w Twojej skrzynce e-mail.";
 
 function cardLinkUrl(token: string): string {
-  return `${APP_BASE_URL}/card-links/${token}`;
+  return `${PROGRAM_PAGE_BASE_URL}/card-links/${token}`;
 }
 
 // Issues a 24h card-link token for `memberId` and e-mails it. Shared by join's existing-member
@@ -248,43 +251,90 @@ async function handleCardRecovery(req: Request, sb: ReturnType<typeof serviceCli
   return json({ message: MAYBE_MESSAGE }, 202);
 }
 
+type CardLinkMember = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  pass_status: string;
+  apple_wallet_url: string | null;
+  google_wallet_url: string | null;
+  programs: {
+    status: string;
+    passkit_program_id: string | null;
+    passkit_template_id: string | null;
+    display_name: string | null;
+    background_color: string | null;
+    invite_code: string | null;
+  } | null;
+};
+
 // GET /card-links/:token
 async function handleGetCardLink(sb: ReturnType<typeof serviceClient>, token: string): Promise<Response> {
+  // One round trip for token + member + program branding (card_link_tokens -> members ->
+  // programs, both to-one FKs) instead of three separate queries — the branding is needed
+  // on every branch below, including the 410, so there's no cheaper path that fetches less.
   const { data: tokenRow } = await sb.from("card_link_tokens")
-    .select("member_id, expires_at").eq("token", token).maybeSingle();
+    .select(`
+      expires_at,
+      members (
+        id, first_name, last_name, email, pass_status, apple_wallet_url, google_wallet_url,
+        programs ( status, passkit_program_id, passkit_template_id, display_name, background_color, invite_code )
+      )
+    `)
+    .eq("token", token).maybeSingle();
   if (!tokenRow) return jsonError("not_found", "Nie znaleziono zasobu.", 404);
+
+  const member = tokenRow.members as unknown as CardLinkMember | null;
+  if (!member) throw new Error(`card_link_tokens row ${token} points to a missing member`);
+  const program = member.programs;
+  if (!program) throw new Error(`member ${member.id} has no program`);
+
+  // Branding travels on every branch below (ready/preparing/410) so the page a customer
+  // opens from their e-mail can always show the merchant's brand, and — on the 410 — link
+  // the customer back to the program page via invite_code.
+  const branding = {
+    display_name: program.display_name,
+    background_color: program.background_color,
+    invite_code: program.invite_code,
+  };
+
   if (new Date(tokenRow.expires_at as string) < new Date()) {
-    return jsonError("link_expired", "Link wygasł. Uruchom odzyskiwanie karty ponownie.", 410);
+    // Sibling field next to `error`, same shape as closeProgram's 409 `affected_members`
+    // (panel-api/index.ts) — the contract already has that precedent for "extra context
+    // alongside the error object" rather than nesting it inside `error` itself.
+    return json({
+      error: { code: "link_expired", message: "Link wygasł. Uruchom odzyskiwanie karty ponownie." },
+      invite_code: program.invite_code,
+    }, 410);
   }
 
-  const { data: member } = await sb.from("members")
-    .select("id, program_id, first_name, last_name, email, pass_status, apple_wallet_url, google_wallet_url")
-    .eq("id", tokenRow.member_id).maybeSingle();
-  if (!member) throw new Error(`card_link_tokens row ${token} points to a missing member`);
-
   if (member.pass_status === "ready") {
-    return json({ status: "ready", apple_wallet_url: member.apple_wallet_url, google_wallet_url: member.google_wallet_url });
+    return json({
+      status: "ready",
+      apple_wallet_url: member.apple_wallet_url,
+      google_wallet_url: member.google_wallet_url,
+      ...branding,
+    });
   }
 
   // Lazy retry: replaces the retry worker the plan deliberately cut. Try issuance now;
   // on failure leave pass_status alone so the next click through the same link retries again.
-  const { data: program } = await sb.from("programs")
-    .select("status, passkit_program_id, passkit_template_id").eq("id", member.program_id).maybeSingle();
-  if (program?.status !== "published") {
+  if (program.status !== "published") {
     // Program suspended/closed/draft: don't issue a brand-new pass against it. The link
     // still resolves — just with whatever state the member already has (never a 404/409;
     // the customer's existing card link must keep working regardless of merchant status).
-    return json({ status: "preparing" });
+    return json({ status: "preparing", ...branding });
   }
 
   try {
     const enrolled = await enrolMember({
       programId: program.passkit_program_id ?? "",
-      externalId: member.id as string,
+      externalId: member.id,
       tierId: program.passkit_template_id,
-      firstName: member.first_name as string,
-      lastName: member.last_name as string,
-      email: member.email as string,
+      firstName: member.first_name,
+      lastName: member.last_name,
+      email: member.email,
     });
     await sb.from("members").update({
       pass_status: "ready",
@@ -292,10 +342,10 @@ async function handleGetCardLink(sb: ReturnType<typeof serviceClient>, token: st
       google_wallet_url: enrolled.googleUrl,
       passkit_member_id: enrolled.memberId,
     }).eq("id", member.id);
-    return json({ status: "ready", apple_wallet_url: enrolled.appleUrl, google_wallet_url: enrolled.googleUrl });
+    return json({ status: "ready", apple_wallet_url: enrolled.appleUrl, google_wallet_url: enrolled.googleUrl, ...branding });
   } catch (err) {
     console.error("[public-api] lazy pass retry failed", err);
-    return json({ status: "preparing" });
+    return json({ status: "preparing", ...branding });
   }
 }
 

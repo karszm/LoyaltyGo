@@ -394,12 +394,16 @@ public_tests() {
   code=$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_BASE/card-links/%ED%A0%80")
   check "GET /card-links malformed percent-escape status" "$code" "404"
 
-  # expired token: insert one directly, 1h in the past
+  # expired token: insert one directly, 1h in the past. The 410 body must still carry
+  # invite_code (MEMBER_A -> program A -> SEEDA1) so the page can link the customer back
+  # to the program page even though their card link itself is dead.
   psql_exec "insert into public.card_link_tokens (member_id, expires_at) values ('$MEMBER_A', now() - interval '1 hour');"
   local expired_token
   expired_token=$(psql_count "select token from public.card_link_tokens where member_id='$MEMBER_A' and expires_at < now() order by created_at desc limit 1;")
-  code=$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_BASE/card-links/$expired_token")
-  check "GET /card-links expired token status" "$code" "410"
+  r=$(preq GET "/card-links/$expired_token")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "GET /card-links expired token status" "$status" "410"
+  check "GET /card-links expired token .invite_code" "$(echo "$body" | jq -r .invite_code)" "SEEDA1"
 
   # lazy retry: MEMBER_A's pass_status is 'pending' by default (seed never sets it) --
   # hitting the still-valid $first_token must retry issuance now and flip the DB row.
@@ -409,6 +413,10 @@ public_tests() {
   body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
   check "GET /card-links lazy retry status" "$status" "200"
   check "GET /card-links lazy retry .status" "$(echo "$body" | jq -r .status)" "ready"
+  # Branding travels on the ready response too -- this is what the card-link page renders
+  # as the merchant's brand (Seed Salon A, program A's seeded display_name).
+  check "GET /card-links lazy retry .display_name" "$(echo "$body" | jq -r .display_name)" "Seed Salon A"
+  check "GET /card-links lazy retry .invite_code" "$(echo "$body" | jq -r .invite_code)" "SEEDA1"
   check "MEMBER_A pass_status flipped to ready in DB" \
     "$(psql_count "select pass_status from public.members where id='$MEMBER_A';")" "ready"
 }
