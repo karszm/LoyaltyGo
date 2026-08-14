@@ -54,6 +54,18 @@ info:
       kuponu przy skanie niczego nie zużywa. Niedostępny kupon nie blokuje transakcji
       (ostrzeżenie), z wyjątkiem walidacji wielu kuponów naraz (wszystko albo nic).
     - Endpointy publiczne nie ujawniają istnienia konta/członkostwa (enumeration-safe).
+
+    ## Odpowiedzi przekrojowe
+    Każda operacja pod tagami `SDK`, `Public` i `Panel` — niezależnie od tego, czy
+    wymieniono to niżej przy operacji — może dodatkowo zwrócić:
+    - **`405 method_not_allowed`** — metoda HTTP nieobsługiwana na danej ścieżce
+      (`{ error: { code: method_not_allowed, message: "Metoda niedozwolona." } }`).
+    - **`500 internal_error`** — nieoczekiwany błąd serwera
+      (`{ error: { code: internal_error, message: "Wystąpił błąd serwera." } }`).
+
+    Obie odpowiedzi mają kształt `Error` i nie są powtarzane przy każdej z ~20
+    operacji tych trzech tagów — trzy Edge Functions (`sdk-api`, `public-api`,
+    `panel-api`) zwracają je identycznie dla każdej trasy na poziomie routera.
   contact:
     email: kontakt@loyaltygo.example
 
@@ -129,6 +141,10 @@ paths:
         Przy awarii wystawcy kart członkostwo powstaje, a odpowiedź ma
         `pass.status = "preparing"` — link do karty dojdzie e-mailem po udanym
         wydaniu (kolejka ponowień).
+
+        Przekroczenie limitu wysyłki e-maili dla tego adresu daje dokładnie to samo
+        `202` „być może" — wiadomość po prostu nie zostaje wysłana, bez odrębnego
+        statusu, żeby limit nie ujawniał istnienia członkostwa.
       parameters:
         - $ref: '#/components/parameters/InviteCode'
       requestBody:
@@ -171,8 +187,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidationError'
-        '429':
-          $ref: '#/components/responses/RateLimited'
 
   /public/invites/{inviteCode}/card-recovery:
     post:
@@ -187,6 +201,10 @@ paths:
         u tego merchanta, karta pojawi się w Twojej skrzynce e-mail."*
         Link ważny 24 godziny. Gdy karta nie została jeszcze wydana (awaria
         wystawcy), wiadomość zostanie wysłana po udanym wydaniu.
+
+        Przekroczenie limitu wysyłki e-maili dla tego adresu daje dokładnie to samo
+        `202` „być może" — wiadomość po prostu nie zostaje wysłana, bez odrębnego
+        statusu, żeby limit nie ujawniał istnienia członkostwa.
       parameters:
         - $ref: '#/components/parameters/InviteCode'
       requestBody:
@@ -214,8 +232,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '429':
-          $ref: '#/components/responses/RateLimited'
 
   /public/card-links/{recoveryToken}:
     get:
@@ -670,6 +686,17 @@ paths:
                 $ref: '#/components/schemas/Program'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: |
+            Program w stanie, z którego publikacja jest niedozwolona (`suspended`
+            lub `closed` — publikacja działa wyłącznie z `draft`; z `published`
+            jest idempotentna i zwraca 200)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: { code: invalid_state_transition, message: "Nie można wykonać tej operacji: program jest w stanie suspended." }
         '422':
           description: Brak kompletu konfiguracji
           content:
@@ -703,6 +730,12 @@ paths:
         Link zapraszający przestaje przyjmować nowych klientów; skan i rejestracja
         transakcji są odrzucane. Karty pozostają w portfelach z zachowanym saldem.
         Transakcje z kolejki offline wykonane przed zawieszeniem są nadal przyjmowane.
+
+        Dozwolone wyłącznie ze stanu `published` — inaczej `409
+        invalid_state_transition`. Maszyna stanów programu: `publish` działa
+        tylko z `draft` (z `published` jest idempotentny), `resume` tylko
+        z `suspended`, `close` z `published` lub `suspended`. Ze stanu `closed`
+        nie ma powrotu — żadna operacja nie wskrzesza zamkniętego programu.
       security:
         - supabaseJwt: []
       responses:
@@ -714,6 +747,14 @@ paths:
                 $ref: '#/components/schemas/Program'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Program nie jest w stanie `published` — zawieszenie dozwolone tylko z tego stanu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: { code: invalid_state_transition, message: "Nie można wykonać tej operacji: program jest w stanie draft." }
 
   /panel/program/resume:
     post:
@@ -731,6 +772,14 @@ paths:
                 $ref: '#/components/schemas/Program'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Program nie jest w stanie `suspended` — wznowienie dozwolone tylko z tego stanu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: { code: invalid_state_transition, message: "Nie można wykonać tej operacji: program jest w stanie published." }
 
   /panel/program/close:
     post:
@@ -1274,7 +1323,17 @@ components:
           example:
             error: { code: program_not_active, message: "Program nie jest aktywny." }
     RateLimited:
-      description: Przekroczony limit żądań
+      description: |
+        Przekroczony limit żądań.
+
+        **Niezmiennik anty-enumeracyjny:** na powierzchni publicznej ten status
+        nie może NIGDY zależeć od tego, czy podany adres ma członkostwo —
+        limiter oparty na członkostwie sam w sobie odpowiada na pytanie „czy
+        ten adres należy do programu" (dwa żądania wystarczą). Limit wysyłki
+        e-maili jest kluczowany hashem (program + adres) i po jego przekroczeniu
+        odpowiedź pozostaje `202` z komunikatem „być może" — wiadomość po prostu
+        nie wychodzi. `429` wolno zwracać wyłącznie z przyczyn niezależnych od
+        członkostwa (np. limit per IP).
       headers:
         Retry-After:
           description: Sekundy do odblokowania

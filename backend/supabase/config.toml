@@ -68,7 +68,7 @@ schema_paths = []
 enabled = true
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
-sql_paths = ["./seed.sql"]
+sql_paths = ["./tests/seed.sql"]
 
 [db.network_restrictions]
 # Enable management of network restrictions.
@@ -384,6 +384,21 @@ deno_version = 2
 
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
+
+[functions.sdk-api]
+# SoftPOS uwierzytelnia się nagłówkiem X-Program-Key, nie tokenem Supabase.
+# Domyślne verify_jwt = true odrzuciłoby każde żądanie w bramie, jeszcze przed
+# wejściem do funkcji — i bez śladu w jej logach.
+verify_jwt = false
+
+[functions.public-api]
+# Powierzchnia publiczna (landing page klienta) jest z definicji bez uwierzytelnienia.
+verify_jwt = false
+
+[functions.panel-api]
+# Panel merchanta weryfikuje JWT sam (resolveMerchant → auth.getUser), żeby móc
+# zwrócić błąd zgodny z kontraktem zamiast odpowiedzi bramy.
+verify_jwt = false
 
 [analytics]
 enabled = true

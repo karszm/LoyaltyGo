@@ -18,3 +18,10 @@ create policy "anon can insert waitlist"
   for insert
   to anon
   with check (true);
+
+-- The policy alone is not enough: PostgREST/Postgres also requires the table-level
+-- GRANT before the role can touch the table at all -- RLS then narrows that access
+-- down to insert-only. Without this grant, every insert is denied with 42501 before
+-- RLS is even evaluated. Select/update/delete are deliberately NOT granted here, so
+-- anon really can only insert, matching the comment above.
+grant insert on public.waitlist to anon;

@@ -72,6 +72,21 @@ deno test --allow-env
 `smoke.sh` mutates seed data (publishes/rotates/closes programs) — re-run the seed command
 above before re-running it, or before demoing from a known state.
 
+## Deploying
+
+`supabase/config.toml` sets `verify_jwt = false` for all three functions
+(`[functions.sdk-api]`, `[functions.public-api]`, `[functions.panel-api]`). Do not "tidy
+these up" back to the CLI default (`verify_jwt = true`) — that default makes the platform
+gateway reject any request without a Supabase JWT *before* the function ever runs, which
+would 401 every real caller on the first deploy with nothing in the function's own logs to
+explain why:
+
+- `sdk-api` authenticates SoftPOS with `X-Program-Key`, never a Supabase JWT.
+- `public-api` is unauthenticated by design (public landing-page surface).
+- `panel-api` *does* use a Supabase JWT, but verifies it itself
+  (`resolveMerchant` → `auth.getUser`, see `supabase/functions/_shared/auth.ts`) so it can
+  return the contract's `401 unauthorized` body instead of the gateway's own error shape.
+
 ## PassKit: rotating credentials and running the live smoke test
 
 **The PassKit credentials from this project leaked into a session transcript on
