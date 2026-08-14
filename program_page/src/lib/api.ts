@@ -142,6 +142,9 @@ export interface PassLinks {
   google_wallet_url?: string | null;
   display_name?: string | null;
   background_color?: string | null;
+  // Lets Task 9's card-link page send an expired-link customer back to the program's invite
+  // page (docs/api/openapi.yaml PassLinks) — present on the plain 200 too, not just the 410.
+  invite_code?: string | null;
 }
 
 // 410's body carries `invite_code` alongside `error` (docs/api/openapi.yaml) so the card-link

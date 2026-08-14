@@ -19,32 +19,26 @@ const { brand } = Astro.props;
   style={`--card-bg:${brand.backgroundColor};--card-ink:${brand.primaryInk};--card-ink-2:${brand.secondaryInk};--card-edge:${brand.edgeColor};`}
 >
   <div class="program-card__logo">
+    {/* Logo sits directly on the merchant's colour, deliberately with no white chip behind it:
+       a chip would make every logo look fine here and different from how it actually renders
+       in the real Wallet pass — this preview has to stay truthful, even when that means a
+       merchant sees their own logo read badly on their own colour. */}
+    {/* The monogram is ALWAYS rendered underneath, not swapped in on failure: Task 7 adds a
+       CSP, and any script-src directive disables inline event handlers (onerror included —
+       CSP hashes don't cover them without 'unsafe-hashes'). A JS-dependent swap would mean a
+       merchant whose logo 404s gets a permanently broken-image glyph at the till. Rendering
+       both and layering the logo image (possibly absent or failed) on top is CSP-proof and
+       script-free: a failed image paints nothing, and the monogram underneath simply shows
+       through.
+       It's also not an edge case in practice today: the seed fixtures (SEEDA1/SEEDB1) both have
+       logo_url = NULL, and while panel-api's publish check requires one going forward, nothing
+       enforces that retroactively — so right now this is a live, common path, not a rare one. */}
+    <span class="program-card__monogram" aria-hidden="true">
+      {brand.monogram}
+    </span>
     {
-      brand.logoUrl ? (
-        <>
-          {/* Logo sits directly on the merchant's colour, deliberately with no white chip
-             behind it: a chip would make every logo look fine here and different from how it
-             actually renders in the real Wallet pass — this preview has to stay truthful, even
-             when that means a merchant sees their own logo read badly on their own colour. */}
-          <img
-            class="program-card__logo-img"
-            src={brand.logoUrl}
-            alt={`Logo: ${brand.displayName}`}
-            loading="eager"
-            decoding="async"
-            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
-          />
-          {/* Edge case, not the default path: every program a customer can reach has a logo
-             (publish requires it — backend/supabase/functions/panel-api/index.ts), so this
-             monogram only ever appears if that logo URL 404s or otherwise fails to load. */}
-          <span class="program-card__monogram" aria-hidden="true" style="display:none">
-            {brand.monogram}
-          </span>
-        </>
-      ) : (
-        <span class="program-card__monogram" aria-hidden="true">
-          {brand.monogram}
-        </span>
+      brand.logoUrl && (
+        <img class="program-card__logo-img" src={brand.logoUrl} alt="" loading="eager" decoding="async" />
       )
     }
   </div>
@@ -68,13 +62,19 @@ const { brand } = Astro.props;
     padding: var(--space-8);
     border-radius: var(--radius-2xl);
     background: var(--card-bg);
-    /* The edge is what keeps a colour close to the page ground (#08090a) from vanishing --
-       it's derived from the ink (always the higher-contrast side of white/black for this
-       exact background), so it reads regardless of what the background happens to be. */
-    border: 1px solid var(--card-edge);
+    /* The edge is a `box-shadow` ring (0 0 0 1px), NOT a `border` — deliberately, so it paints
+       OUTSIDE the box, against the actual page ground behind it, rather than being clipped
+       under the card's own background like a border would be. That's what keeps a brand colour
+       identical to the page ground (#08090a) from vanishing: brand.ts solves this ring's alpha
+       specifically against that fixed page colour (see CARD_EDGE_COLOR), which only works if
+       it's actually rendered against that colour, not the card's own arbitrary fill.
+       The two shadow layers are indigo-tinted, not neutral black: on this dark page, a pure
+       black shadow is nearly identical in luminance to the page itself and can't register at
+       all — the tint is what makes it read as an intentional shadow rather than nothing. */
     box-shadow:
-      0 2px 6px rgba(0, 0, 0, 0.35),
-      0 16px 32px -12px rgba(0, 0, 0, 0.5);
+      0 0 0 1px var(--card-edge),
+      0 2px 5px rgba(10, 8, 24, 0.5),
+      0 18px 36px -14px rgba(18, 14, 40, 0.6);
     animation: card-enter 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
@@ -90,16 +90,16 @@ const { brand } = Astro.props;
   }
 
   .program-card__logo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: relative;
     width: 48px;
     height: 48px;
   }
 
   .program-card__logo-img {
-    max-width: 100%;
-    max-height: 100%;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     object-fit: contain;
   }
 
