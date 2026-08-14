@@ -1,0 +1,72 @@
+---
+// StatusPanel.astro — one panel, four variants, zero JS (task-7-design.md §7).
+// `unpublished` and `suspended` are NOT separate values here: [inviteCode].astro maps both
+// onto "unavailable" at the call site, so this component physically cannot tell them apart
+// (task-7-design.md §8 — indistinguishability is enforced by the type, not by discipline).
+interface Props {
+  state: "unavailable" | "closed" | "not_found" | "offline";
+}
+const { state } = Astro.props;
+
+const COPY = {
+  unavailable: {
+    headline: "Karta lojalnościowa jest teraz niedostępna.",
+    note: "Zapytaj o nią przy kasie.",
+  },
+  closed: {
+    headline: "Ten program lojalnościowy został zakończony.",
+    note: "Nowych kart nie można już zakładać.",
+  },
+  not_found: {
+    headline: "Nie rozpoznajemy tego kodu.",
+    note: "Zeskanuj kod ponownie przy kasie.",
+  },
+  offline: {
+    // First sentence of NETWORK_ERROR_MESSAGE (lib/api.ts) is the headline; the second is the
+    // button label below — no new copy, no drift from what api.ts already authors.
+    headline: "Nie udało się połączyć z serwerem.",
+    note: "Sprawdź połączenie z internetem.",
+  },
+} as const;
+
+const { headline, note } = COPY[state];
+---
+
+<div class="status-panel">
+  <h1 class="status-panel__headline">{headline}</h1>
+  <p class="status-panel__note">{note}</p>
+  {state === "offline" && (
+    <a class="btn btn--amber btn--lg" href={Astro.url.pathname}>Spróbuj ponownie</a>
+  )}
+</div>
+
+<style>
+  .status-panel {
+    width: min(100%, 380px);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    padding: var(--space-8);
+    border-radius: var(--radius-xl); /* chrome, not a card — see ProgramCard's --radius-2xl */
+    border: 1px solid var(--border-strong); /* component edge, must survive glare at the till */
+    background: var(--bg-raised);
+    /* no box-shadow: shadows are reserved for depicted objects (ProgramCard), not page chrome */
+  }
+
+  .status-panel__headline {
+    font-size: 22px;
+    line-height: 28px;
+  }
+
+  .status-panel__note {
+    font-size: 15px;
+    line-height: 24px;
+    letter-spacing: -0.165px;
+    color: var(--text-2); /* not --text-3: this is the only instruction on screen */
+  }
+
+  .status-panel .btn {
+    width: 100%;
+    margin-top: var(--space-5);
+  }
+</style>

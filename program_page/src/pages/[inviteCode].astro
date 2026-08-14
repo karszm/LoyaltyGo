@@ -1,0 +1,67 @@
+---
+// [inviteCode].astro — the page a customer lands on after scanning a merchant's printed QR
+// code. GET /invites/:code has five customer-visible outcomes (task-7-brief.md); the pure
+// mapInviteResult() does the branching so it's unit-tested without a browser, and this file
+// only wires the result to a status code and a component.
+//
+// `active` renders ProgramCard (Task 6) inside the shared shell below; the join form and
+// "Odzyskaj kartę" that also belong on that screen are Task 8's work, not this one's.
+import Base from "../layouts/Base.astro";
+import ProgramCard from "../components/ProgramCard.astro";
+import StatusPanel from "../components/StatusPanel.astro";
+import { getInvite } from "../lib/api.ts";
+import { deriveBrand } from "../lib/brand.ts";
+import { mapInviteResult } from "../lib/invite-outcome.ts";
+
+const { inviteCode } = Astro.params;
+const result = await getInvite(inviteCode as string);
+const outcome = mapInviteResult(result);
+
+Astro.response.status = outcome.status;
+
+// <title> carries the merchant's name ONLY in the active state (task-7-brief.md) — every other
+// outcome gets the same fixed string, so `unpublished`/`suspended` stay indistinguishable down
+// to the rendered <title> (task-7-design.md §8's audit).
+const title = outcome.kind === "active" ? outcome.program.display_name : "LoyaltyGo";
+const description = "Karta lojalnościowa LoyaltyGo.";
+---
+
+<Base title={title} description={description}>
+  <main class="status-shell">
+    {
+      outcome.kind === "active" ? (
+        <ProgramCard brand={deriveBrand(outcome.program)} />
+      ) : (
+        <StatusPanel state={outcome.state} />
+      )
+    }
+    <footer class="status-mark">Loyalty<b>Go</b></footer>
+  </main>
+</Base>
+
+<style>
+  /* Shell lives here, not in StatusPanel, because Task 8's active state (ProgramCard + join
+     form) reuses the same centring and the same LoyaltyGo mark (task-7-design.md §7). */
+  .status-shell {
+    min-height: 100svh; /* svh, not vh: iOS's collapsing address bar must not reflow the page */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-8);
+    padding: var(--space-10) var(--space-8) var(--space-11); /* optical centring, raised */
+  }
+
+  .status-mark {
+    width: min(100%, 380px);
+    font-size: 13px;
+    font-weight: 590;
+    letter-spacing: -0.02em;
+    color: var(--text-3);
+  }
+
+  .status-mark b {
+    color: var(--accent); /* the one brand trace on an otherwise brandless screen */
+    font-weight: inherit;
+  }
+</style>
