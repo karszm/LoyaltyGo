@@ -123,6 +123,7 @@ create table public.program_rates (
 );
 create index program_rates_lookup on public.program_rates (program_id, valid_from desc);
 
+-- Historia stawek: AFTER (wiersz programu musi już istnieć — FK z program_rates).
 create or replace function public.programs_rate_history() returns trigger
 language plpgsql as $$
 begin
@@ -130,18 +131,29 @@ begin
     insert into public.program_rates (program_id, points_per_pln)
     values (new.id, new.points_per_pln);
   end if;
+  return null;
+end $$;
+create trigger programs_rate_history
+  after insert or update on public.programs
+  for each row execute function public.programs_rate_history();
+
+create or replace function public.programs_touch_updated_at() returns trigger
+language plpgsql as $$
+begin
   new.updated_at := now();
   return new;
 end $$;
-create trigger programs_rate_history
-  before insert or update on public.programs
-  for each row execute function public.programs_rate_history();
+create trigger programs_touch_updated_at
+  before update on public.programs
+  for each row execute function public.programs_touch_updated_at();
 
+-- Tie-break po id: insert + zmiana stawki w tej samej transakcji mają identyczny
+-- valid_from (now() jest stały per transakcja) — wygrywa nowszy wpis.
 create or replace function public.current_rate(p_program_id uuid, p_at timestamptz)
 returns numeric language sql stable as $$
   select points_per_pln from public.program_rates
   where program_id = p_program_id and valid_from <= p_at
-  order by valid_from desc limit 1
+  order by valid_from desc, id desc limit 1
 $$;
 
 create table public.members (
@@ -425,7 +437,10 @@ git commit -m "feat(db): RLS isolation per merchant + column-level grants on pro
 - Consumes: schemat z Task 1 (`current_rate`, tabele).
 - Produces:
   - `register_transaction(p_program_id uuid, p_member_id uuid, p_softpos_tx_id text, p_amount numeric, p_performed_at timestamptz, p_coupon_ids uuid[], p_metadata jsonb, p_delayed_sync boolean) returns jsonb` — kształt jsonb = `RegisterTransactionResponse` z kontraktu (`id`, `transaction_id`, `points_awarded`, `points_balance`, `points_rate_used`, `coupons[]`, `warnings[]`, `idempotent_replay`, `delayed_sync`).
-  - `cancel_transaction(p_program_id uuid, p_softpos_tx_id text) returns jsonb` — kształt = `CancelTransactionResponse` (`id`, `transaction_id`, `status`, `points_reverted`, `correction`, `points_balance`, `coupons_restored[]`, `already_cancelled`). Nieznana transakcja → `raise exception ... errcode 'P0002'` (Edge mapuje na 404).
+  - `cancel_transaction(p_program_id uuid, p_softpos_tx_id text) returns jsonb` — kształt = `CancelTransactionResponse` (`id`, `transaction_id`, `status`, `points_reverted`, `correction`, `points_balance`, `coupons_restored[]`, `already_cancelled`). Nieznana transakcja → `raise exception ... errcode 'LG002'` (Edge mapuje na 404).
+  - Kody błędów w prywatnej klasie `LG` (`LG002` not found, `LG003` idempotency_conflict, `LG004` member_blocked, `LG005` program_not_active) — wbudowane `P000x` są zajęte i `P0004` = `assert_failure` nie łapie się przez `WHEN OTHERS`.
+  - `transactions.coupon_results` / `transactions.warnings` (jsonb, dodane przez `alter table` w 0004) — wynik kuponów i ostrzeżenia pierwotnej rejestracji, żeby replay zwracał kasjerowi ten sam komunikat.
+  - EXECUTE odebrane `public/anon/authenticated`, **jawnie nadane `service_role`** — bez tego grantu Edge Functions nie mogą wołać RPC wcale.
 
 - [ ] **Step 1: Napisz test (FAIL — funkcji nie ma)**
 
@@ -691,6 +706,7 @@ git commit -m "feat(db): atomic register_transaction + cancel_transaction with c
 **Interfaces:**
 - Produces:
   - `jsonError(code: string, message: string, status: number): Response` — kształt `{ error: { code, message } }` z kontraktu.
+  - `mapPgError(err: unknown): Response | null` — tłumaczy SQLSTATE z RPC na odpowiedź kontraktu; `null` gdy kod nieznany (wołający zwraca 500). PostgREST mapuje nieznane SQLSTATE na 500, więc bez tej mapy zwykłe wyniki biznesowe wyglądałyby jak awaria. Obowiązkowo: `LG002 → 404`, `LG003 → 409 idempotency_conflict`, `LG004 → 403 membership_blocked`, `LG005 → 409 program_not_active`, `40001` (serialization failure — możliwy przy równoległej rejestracji tej samej transakcji) → **ponów raz**, potem 409, `23505 → 409 idempotency_conflict`, `23514` (check violation, np. saldo < 0) → 409.
   - `serviceClient(): SupabaseClient` — klient service role (env `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`).
   - `hashProgramKey(plaintext: string): Promise<string>` — SHA-256(plaintext + `PROGRAM_KEY_PEPPER`), hex.
   - `resolveProgramFromKey(req: Request): Promise<{ programId: string; status: string } | null>` — nagłówek `X-Program-Key`; lookup `programs` po `key_hash`, aktualizuje `programs.key_last_used_at`; `null` → 401.
@@ -817,8 +833,8 @@ Routing: `switch` po `new URL(req.url).pathname` (4 trasy, zero zależności); k
 Reguły handlerów (wprost z kontraktu):
 - `GET /program`: zwraca `status`, `display_name`, `invite_url` (`https://app.loyaltygo.pl/{invite_code}`, `null` gdy status ≠ `published`), `points_per_pln`.
 - `POST /scans` `{card_token}`: lookup `members` po `card_token`. Członek w innym programie → `404 card_foreign_program`. Brak w ogóle → `422 card_unrecognized`. Program ≠ published → `409 program_not_active`. OK → `signScanToken(programId, memberId)`, zwrot `scan_token`, `expires_at`, `member {membership_id, first_name, last_name, points_balance, status}`, `offers` (aktywne oferty minus `coupon_redemptions status='redeemed'` członka; pusta lista gdy `blocked`).
-- `POST /transactions`: walidacja — `transaction_id` niepusty, `amount` string `^\d+\.\d{2}$` > 0 (422 `validation_failed`); dokładnie jedno z `scan_token` / `card_token` (422 `member_not_identified`); `card_token` wymaga `performed_at`, zakazuje `coupon_ids` (422 `coupons_not_allowed_offline`). `scan_token` → `verifyScanToken` (zły podpis/wygasły/inny program → `409 scan_context_expired`). Program `suspended`/`closed` a `performed_at` ≥ momentu zawieszenia → `409 program_not_active`; transakcja offline sprzed zawieszenia przechodzi. Wywołanie RPC `register_transaction`; mapowanie błędów: `P0003 → 409 idempotency_conflict`, `P0004 → 403 membership_blocked`, `P0002 → 404 card_foreign_program` — przy ścieżce `card_token` (synchronizacja offline) dodatkowo insert do `sync_rejections (reason='card_foreign_program', softpos_transaction_id, performed_at)`, żeby odrzut był widoczny w panelu. Sukces: `201`, replay (`idempotent_replay: true`): `200`. Po sukcesie: fire-and-forget `passkit.updateBalance(...)` przez `EdgeRuntime.waitUntil` — błąd tylko logowany, saldo w DB jest źródłem prawdy, karta nadgania przy kolejnej udanej aktualizacji.
-- `POST /transactions/:id/cancellation`: RPC `cancel_transaction`; `P0002 → 404 transaction_unknown`; sukces `200` + fire-and-forget `passkit.updateBalance(...)`.
+- `POST /transactions`: walidacja — `transaction_id` niepusty, `amount` string `^\d+\.\d{2}$` > 0 (422 `validation_failed`); dokładnie jedno z `scan_token` / `card_token` (422 `member_not_identified`); `card_token` wymaga `performed_at`, zakazuje `coupon_ids` (422 `coupons_not_allowed_offline`). `scan_token` → `verifyScanToken` (zły podpis/wygasły/inny program → `409 scan_context_expired`). Program `suspended`/`closed` a `performed_at` ≥ momentu zawieszenia → `409 program_not_active`; transakcja offline sprzed zawieszenia przechodzi. Wywołanie RPC `register_transaction`; mapowanie błędów (klasa `LG`, nie wbudowane `P000x` — `P0004` to `assert_failure` i jest nieprzechwytywalne): `LG003 → 409 idempotency_conflict`, `LG004 → 403 membership_blocked`, `LG002 → 404 card_foreign_program`, `LG005 → 409 program_not_active` — przy ścieżce `card_token` (synchronizacja offline) dodatkowo insert do `sync_rejections (reason='card_foreign_program', softpos_transaction_id, performed_at)`, żeby odrzut był widoczny w panelu. Sukces: `201`, replay (`idempotent_replay: true`): `200`. Po sukcesie: fire-and-forget `passkit.updateBalance(...)` przez `EdgeRuntime.waitUntil` — błąd tylko logowany, saldo w DB jest źródłem prawdy, karta nadgania przy kolejnej udanej aktualizacji.
+- `POST /transactions/:id/cancellation`: RPC `cancel_transaction`; `LG002 → 404 transaction_unknown`; sukces `200` + fire-and-forget `passkit.updateBalance(...)`.
 
 - [ ] **Step 1: Napisz smoke test (bash + curl, FAIL przed implementacją)**
 
