@@ -1,3 +1,5 @@
+import { CORS_HEADERS } from "./http.ts";
+
 // Contract error shape: { error: { code, message } } (docs/api/openapi.yaml). Pass `fields`
 // for the ValidationError variant used by /sdk, /public and /panel alike (fields[] of
 // { field, message }).
@@ -9,9 +11,12 @@ export function jsonError(
 ): Response {
   const error: Record<string, unknown> = { code, message };
   if (fields) error.fields = fields;
+  // CORS headers are required here too, not just on success responses: without them a
+  // browser's fetch() hides the response body of a cross-origin 401/404/422, and the panel
+  // has no way to show the user the message it was actually given.
   return new Response(JSON.stringify({ error }), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...CORS_HEADERS },
   });
 }
 

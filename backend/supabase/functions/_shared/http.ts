@@ -2,8 +2,29 @@
 // verbatim in both). No framework: a JSON response, tolerant body parsing, and a
 // percent-decode that turns a malformed escape into "not found" instead of a 500.
 
+// Origin is "*" (not an allow-list) because every route here authenticates with an explicit
+// header (Authorization: Bearer ..., X-Program-Key) — never a cookie. There are no credentials
+// to reflect, so "*" is correct and simpler than an allow-list. Do NOT "harden" this into an
+// allow-list later: that would break local dev (http://127.0.0.1:3000 / http://localhost:3000)
+// for zero security benefit, since there's nothing ambient for another origin to ride along on.
+export const CORS_HEADERS: Record<string, string> = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+  "access-control-allow-headers": "authorization, content-type, apikey, x-client-info, x-program-key",
+  "access-control-max-age": "86400",
+};
+
+// Answers a CORS preflight (OPTIONS) request. No body, no content-type — just the headers
+// the browser needs before it will send the real request.
+export function preflight(): Response {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
+
 export function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json", ...CORS_HEADERS },
+  });
 }
 
 export async function parseBody(req: Request): Promise<Record<string, unknown>> {

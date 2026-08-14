@@ -15,7 +15,7 @@
 
 import { allowSend, serviceClient, throttleKey } from "../_shared/auth.ts";
 import { jsonError, validationError } from "../_shared/errors.ts";
-import { json, parseBody, safeDecode } from "../_shared/http.ts";
+import { json, parseBody, preflight, safeDecode } from "../_shared/http.ts";
 import { enrolMember } from "../_shared/adapters/passkit.ts";
 import { sendCardLink } from "../_shared/adapters/email.ts";
 
@@ -300,6 +300,8 @@ async function handleGetCardLink(sb: ReturnType<typeof serviceClient>, token: st
 }
 
 Deno.serve(async (req) => {
+  // Preflight carries no Authorization header — answer it before any auth resolution.
+  if (req.method === "OPTIONS") return preflight();
   try {
     const url = new URL(req.url);
     // Same prefix-stripping as sdk-api: local `supabase functions serve` invokes us with just

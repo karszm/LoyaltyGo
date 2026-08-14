@@ -8,7 +8,7 @@
 #   (the CLI serves every function in supabase/functions/ together -- it does not take a
 #   single function name as an argument)
 #
-# Usage: backend/supabase/tests/smoke.sh [sdk|public|panel]   (default: all sections)
+# Usage: backend/supabase/tests/smoke.sh [sdk|public|panel|cors]   (default: all sections)
 #
 # Structured as one function per surface (Task 5 = sdk; Tasks 6-7 add public/panel) so
 # new sections can be appended without touching this one.
@@ -649,13 +649,50 @@ panel_tests() {
   check "A restored to published in DB" "$(psql_count "select status from public.programs where id='$PROGRAM_A';")" "published"
 }
 
+cors_tests() {
+  echo "== cors =="
+
+  local origin="http://127.0.0.1:3000"
+  local pair fn path headers status origin_header
+
+  # Preflight (OPTIONS) on one real route per function must succeed with
+  # access-control-allow-origin: * -- before this task these all fell through to the
+  # method if-chain in the function itself and came back 405 (confirmed by curling the
+  # edge-runtime container directly, bypassing Kong -- see task-1-report.md).
+  #
+  # Through BASE_URL (Kong on :54321, what a browser actually hits locally) the expected
+  # status is 200, not the function's own 204: the local `supabase start` kong.yml applies
+  # a "cors" plugin to the functions-v1 route too, so Kong answers OPTIONS itself before
+  # the request ever reaches our preflight() -- our 204 never surfaces through Kong. This
+  # check therefore asserts the observable local-browser behaviour (succeeds, not 405/count
+  # blocked), not literally which layer answered it.
+  for pair in "sdk-api:/program" "public-api:/invites/SEEDA1" "panel-api:/program/key"; do
+    fn="${pair%%:*}"
+    path="${pair#*:}"
+    headers=$(curl -s -D - -o /dev/null -X OPTIONS \
+      -H "Origin: $origin" -H "Access-Control-Request-Method: GET" \
+      "$BASE_URL/$fn$path")
+    status=$(echo "$headers" | head -1 | awk '{print $2}')
+    origin_header=$(echo "$headers" | grep -i '^access-control-allow-origin:' | tr -d '\r' | awk '{print $2}')
+    check "OPTIONS $fn$path preflight status" "$status" "200"
+    check "OPTIONS $fn$path preflight allow-origin" "$origin_header" "*"
+  done
+
+  # A real (non-preflight) 401 must carry the header too -- without it the browser hides
+  # the error body from the panel's fetch(), and the panel can't show the message it was given.
+  headers=$(curl -s -D - -o /dev/null "$BASE_URL/sdk-api/program")
+  origin_header=$(echo "$headers" | grep -i '^access-control-allow-origin:' | tr -d '\r' | awk '{print $2}')
+  check "401 GET /program (no key) carries access-control-allow-origin" "$origin_header" "*"
+}
+
 SECTION="${1:-all}"
 case "$SECTION" in
   sdk) sdk_tests ;;
   public) public_tests ;;
   panel) panel_tests ;;
-  all) sdk_tests; public_tests; panel_tests ;;
-  *) echo "usage: $0 [sdk|public|panel]"; exit 2 ;;
+  cors) cors_tests ;;
+  all) sdk_tests; public_tests; panel_tests; cors_tests ;;
+  *) echo "usage: $0 [sdk|public|panel|cors]"; exit 2 ;;
 esac
 
 echo

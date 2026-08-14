@@ -3,7 +3,7 @@
 
 import { resolveProgramFromKey, serviceClient, signScanToken, verifyScanToken } from "../_shared/auth.ts";
 import { jsonError, mapPgError, validationError } from "../_shared/errors.ts";
-import { json, parseBody, safeDecode } from "../_shared/http.ts";
+import { json, parseBody, preflight, safeDecode } from "../_shared/http.ts";
 import { syncPassBalance } from "../_shared/adapters/passkit.ts";
 
 // Fire-and-forget: a PassKit failure must never change the HTTP response to the SDK —
@@ -311,6 +311,8 @@ async function handleCancellation(
 }
 
 Deno.serve(async (req) => {
+  // Preflight carries no Authorization header — answer it before any auth resolution.
+  if (req.method === "OPTIONS") return preflight();
   try {
     const url = new URL(req.url);
     // Supabase serves functions at /functions/v1/sdk-api/...; the local dev CLI (`supabase

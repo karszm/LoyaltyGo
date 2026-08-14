@@ -15,7 +15,7 @@
 
 import { hashProgramKey, resolveMerchant, serviceClient } from "../_shared/auth.ts";
 import { jsonError, validationError } from "../_shared/errors.ts";
-import { json, parseBody } from "../_shared/http.ts";
+import { json, parseBody, preflight } from "../_shared/http.ts";
 import { createProgram } from "../_shared/adapters/passkit.ts";
 
 const PROGRAM_COLUMNS =
@@ -295,6 +295,8 @@ const KNOWN_PATHS = new Set([
 ]);
 
 Deno.serve(async (req) => {
+  // Preflight carries no Authorization header — answer it before any auth resolution.
+  if (req.method === "OPTIONS") return preflight();
   try {
     const url = new URL(req.url);
     // Local `supabase functions serve` invokes us with just `/panel-api/...`; the deployed
