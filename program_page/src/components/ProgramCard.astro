@@ -1,0 +1,156 @@
+---
+// ProgramCard — a truthful preview of the Wallet card the customer is about to receive.
+// Ground is the merchant's own colour (or the neutral fallback brand.ts computed for one that
+// hasn't picked one yet), logo top-left, program name, and the balance line every fresh card
+// starts at. This is the one depicted physical object on the page, so — unlike page chrome —
+// it's allowed its own edge and a shadow (see packages/design-tokens and the impeccable rule
+// this project follows: shadows exist only for depicted objects, never for page structure).
+import type { BrandModel } from "../lib/brand.ts";
+
+interface Props {
+  brand: BrandModel;
+}
+
+const { brand } = Astro.props;
+---
+
+<div
+  class="program-card"
+  style={`--card-bg:${brand.backgroundColor};--card-ink:${brand.primaryInk};--card-ink-2:${brand.secondaryInk};--card-edge:${brand.edgeColor};`}
+>
+  <div class="program-card__logo">
+    {
+      brand.logoUrl ? (
+        <>
+          {/* Logo sits directly on the merchant's colour, deliberately with no white chip
+             behind it: a chip would make every logo look fine here and different from how it
+             actually renders in the real Wallet pass — this preview has to stay truthful, even
+             when that means a merchant sees their own logo read badly on their own colour. */}
+          <img
+            class="program-card__logo-img"
+            src={brand.logoUrl}
+            alt={`Logo: ${brand.displayName}`}
+            loading="eager"
+            decoding="async"
+            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
+          />
+          {/* Edge case, not the default path: every program a customer can reach has a logo
+             (publish requires it — backend/supabase/functions/panel-api/index.ts), so this
+             monogram only ever appears if that logo URL 404s or otherwise fails to load. */}
+          <span class="program-card__monogram" aria-hidden="true" style="display:none">
+            {brand.monogram}
+          </span>
+        </>
+      ) : (
+        <span class="program-card__monogram" aria-hidden="true">
+          {brand.monogram}
+        </span>
+      )
+    }
+  </div>
+
+  <div class="program-card__body">
+    <p class="program-card__name">{brand.displayName}</p>
+    <p class="program-card__balance">
+      <span class="program-card__balance-label">Saldo</span>
+      <span class="program-card__balance-value">0 <span class="program-card__balance-unit">pkt</span></span>
+    </p>
+  </div>
+</div>
+
+<style>
+  .program-card {
+    width: min(100%, 380px);
+    aspect-ratio: 8 / 5; /* wallet-pass-ish proportions, not a page card */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: var(--space-8);
+    border-radius: var(--radius-2xl);
+    background: var(--card-bg);
+    /* The edge is what keeps a colour close to the page ground (#08090a) from vanishing --
+       it's derived from the ink (always the higher-contrast side of white/black for this
+       exact background), so it reads regardless of what the background happens to be. */
+    border: 1px solid var(--card-edge);
+    box-shadow:
+      0 2px 6px rgba(0, 0, 0, 0.35),
+      0 16px 32px -12px rgba(0, 0, 0, 0.5);
+    animation: card-enter 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes card-enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .program-card__logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+  }
+
+  .program-card__logo-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  .program-card__monogram {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-size: 26px;
+    font-weight: 590;
+    color: var(--card-ink);
+  }
+
+  .program-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+
+  .program-card__name {
+    font-size: 17px;
+    font-weight: 590;
+    letter-spacing: -0.01em;
+    color: var(--card-ink);
+  }
+
+  .program-card__balance {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .program-card__balance-label {
+    font-size: 12px;
+    font-weight: 590;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--card-ink-2);
+  }
+
+  .program-card__balance-value {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 28px;
+    font-weight: 590;
+    color: var(--card-ink);
+  }
+
+  .program-card__balance-unit {
+    font-size: 16px;
+    font-weight: 500;
+  }
+</style>
