@@ -76,6 +76,12 @@ chorobę zamiast ją leczyć).
 - **Testy proporcjonalnie**: `vitest`/`node --test` tylko dla funkcji czystych (formatery, kontrast,
   mapowanie błędów, walidacja). Reszta = runbook ręczny + `verify.sh` w stylu `smoke.sh`.
   Bez Playwrighta, bez testów komponentów, bez lintera (repo go nie ma).
+- **Skille obowiązkowe (decyzja usera 2026-08-14):** każdy task dotykający UI panelu lub strony
+  programu przechodzi przez skill **`impeccable`** — wywołać go PRZED projektowaniem ekranu
+  i przekazać wytyczne implementerowi w briefie (hierarchia, dostępność, stany brzegowe, kopia UX).
+  Każdy task implementacyjny stosuje **`ponytail`** — najprostsze działające rozwiązanie, zero
+  spekulatywnych abstrakcji, zero nadmiarowych zależności; na diffie warto puścić `ponytail-review`.
+  Dotyczy Tasków 6-9 i 10-17.
 - Commity: Conventional Commits, jeden po każdym tasku.
 
 ## Struktura plików
@@ -210,7 +216,15 @@ działa bez JS. Szczegółowe uzasadnienie i tabela porównawcza — w opisie Ta
 
 ### Task 6: Klient API + bezpieczne renderowanie brandingu
 
-**Files:** create `src/lib/{api.ts,api.test.ts,brand.ts,brand.test.ts}`, `src/components/BrandHeader.astro`
+**Files:** create `src/lib/{api.ts,api.test.ts,brand.ts,brand.test.ts}`, `src/components/ProgramCard.astro`
+
+> **Kierunek ustalony z userem 2026-08-14 (przez skill `impeccable`, tryb Operate) — zastępuje
+> wcześniejszy opis „paska marki" w tym tasku.** Bohaterem strony jest **podgląd karty Wallet,
+> którą klient zaraz dostanie**: kolor merchanta jako tło karty, jego logo, nazwa programu,
+> linia `0 pkt`. Powód: dowolny kolor merchanta może być prawie identyczny z tłem strony
+> (`#08090a`) — pasek by zniknął, ograniczony obiekt z krawędzią i cieniem nie może. Rozwiązanie
+> strukturalne, nie wyjątek. Zgodne z zasadą produktu „karta w portfelu JEST produktem i kanałem".
+> Pod kartą `<h1>` z nazwą programu, potem formularz (Task 8).
 
 - [ ] **Klient** zachowuje **status HTTP** w wyniku — 201 vs 202 to cała semantyka dołączania
   i nie wolno jej spłaszczyć do „ok". Timeout 4 s → ekran ponowienia (kasjer czeka).
@@ -221,10 +235,17 @@ działa bez JS. Szczegółowe uzasadnienie i tabela porównawcza — w opisie Ta
   punkcie, czysty atrament 4.58:1. Próg `L > 0.179`.
 - [ ] **Test to dowód, nie próbka:** przemiataj 4096 kolorów `#RGB` + rampę szarości, asertuj
   `contrast >= 4.5` dla każdego i wypisz zaobserwowane minimum.
-- [ ] **Logo zawsze na białym kaflu 56×56** (`object-fit: contain`) — konwencja Apple Wallet
-  i jedyne tło, na którym dowolne logo bywa czytelne. Brak/niepoprawne/nieudane logo → **monogram**
-  (pierwsza litera nazwy, `#08090a` na białym kaflu = 20:1). W PoC `logo_url` jest zwykle `null`,
-  bo nic go jeszcze nie produkuje — monogram jest ścieżką **domyślną**, nie skrajną.
+- [ ] **Logo JEST zawsze obecne** — `panel-api/index.ts:137-141` odrzuca publikację (422) bez
+  `display_name` **i** bez `logo_url`, więc każdy program, który klient może zobaczyć, ma logo
+  (decyzja produktowa usera: „merchant będzie musiał dodać logo, żeby wystartować program").
+  Monogram to zatem **obsługa zepsutego obrazka** (`onerror`, bez pliku skryptu), nie ścieżka domyślna.
+- [ ] **Logo wprost na kolorze merchanta, BEZ białego kafla.** Kafel sprawiłby, że każde logo
+  wygląda tu dobrze, a w prawdziwym passie inaczej. Ten podgląd ma obowiązek być prawdziwy:
+  jeśli logo merchanta źle czyta się na jego własnym kolorze, to realna informacja, której on
+  potrzebuje, a kreator karty w panelu (Task 13) jest miejscem, gdzie ją zobaczy i poprawi.
+  Zostawić komentarz w kodzie, żeby nikt tego nie „ulepszył" w kafel.
+- [ ] **Tekst drugiego poziomu na karcie tintowany z odcienia marki** (`color-mix`), nigdy szary
+  i nigdy przez `opacity` — wymóg podłogi jakości impeccable dla tekstu na kolorowym tle.
 - [ ] Blok marki zawsze ma hairline `--border` i stałą minimalną wysokość, żeby kolor bliski `--bg`
   nie zniknął w tle.
 - [ ] commit `feat(program-page): klient public-api i bezpieczne renderowanie brandingu`
@@ -479,5 +500,9 @@ Krok 6 jest jedynym, który dowodzi, że trzy części systemu spinają się ze 
 3. **Limity dev w `config.toml`** (`email_sent` 2/h → 30/h, `max_frequency` 1s → 60s) są oznaczone
    `# dev only` i **nie mogą trafić na produkcję**. Potrzebny osobny plik konfiguracji albo
    świadomy krok przy wdrożeniu.
-4. **Logo na białym kaflu** oznacza, że białe logo na przezroczystym tle zniknie. Trwała naprawa
+4. ~~**Logo na białym kaflu**~~ — ROZSTRZYGNIĘTE 2026-08-14: logo idzie wprost na kolor merchanta,
+   bez kafla (patrz Task 6). Konsekwencja zostaje ta sama: logo słabo czytelne na własnym kolorze
+   merchanta to problem, który ma zobaczyć i naprawić w kreatorze karty (Task 13). Poniższy akapit
+   opisuje porzucony wariant, zostawiony jako zapis decyzji:
+   ~~Logo na białym kaflu oznacza, że białe logo na przezroczystym tle zniknie. Trwała naprawa
    to podgląd na białym w kreatorze — jest w Tasku 13, ale warto wiedzieć, że to znany sufit.
