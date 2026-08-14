@@ -164,7 +164,14 @@ session and fix round: the nav CTA was deleted (one amber grade remains), a seco
 (/platnosci-stacjonarne) joined the world, the journey deck became a stepped vertical
 cascade, step 1 of "Trzy kroki" uses a real photograph, and the signup form gained
 celebratory success and red invalid states. Scope: the landing_page boundary — both
-routes; the merchant panel may diverge later. -->
+routes; the merchant panel may diverge later.
+
+As of 2026-08-14, the tokens and base styles below (colors, radii, spacing, fonts,
+resets, `.btn`/`.mono`/`.visually-hidden`) live in `packages/design-tokens/` — that
+package, not this file or global.css, is the source of truth shared with program_page
+and merchant_panel. `landing_page/src/styles/global.css` now only holds the landing's
+own `--salon*` brand colours, its `--container` measure, and its sticky-nav scroll
+offset. -->
 
 ## Overview
 
@@ -350,7 +357,7 @@ or inline in buttons — never filled emoji-style icons.
 - **Hover / Active:** hover shifts fill; active presses down 1px (`translateY(1px)`); all at 140ms ease. Focus is the global 2px **violet** outline, offset 2px — the focus ring did not follow the CTA to amber.
 - **Ghost:** transparent fill, 1px `--border-strong` outline, `--text-2` label; hover brightens border to `--text-4` and text to `--text-1`. The secondary action beside a primary, and the sole button of the payments teaser ("Zobacz, jak działa integracja").
 - **Removed:** `.btn--primary` (violet) and `.btn--amber-strong` (deep amber nav grade) were deleted from global.css — neither class exists anymore. There is no nav CTA.
-- *Defect note (not a rule):* `.btn--lg` is defined in index.astro's page-scoped styles, so the subpage CTA carrying `btn--lg` actually renders at the default 44px there — a scoping gap, not a size decision.
+- `.btn--lg` is defined once, globally, in `packages/design-tokens/base.css` (formerly `global.css`) — it was never page-scoped. Every element carrying `btn--lg` (the hero signup submit, the subpage CTA) renders at 52px; there is no scoping gap.
 
 ### Chips (provenance, state, payload)
 - **Demo chip:** uppercase 10px/590/0.08em micro label in `--text-4`, 1px `--border` pill, 2px×12px padding ("Widok ilustracyjny"). Present on the journey copy column, the clienteling stage, and the subpage's Wallet-card stage (`.demo-chip-sub`, an identical page-scoped copy).

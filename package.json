@@ -1,0 +1,10 @@
+{
+  "name": "loyaltygo",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "landing_page",
+    "program_page",
+    "merchant_panel"
+  ]
+}
