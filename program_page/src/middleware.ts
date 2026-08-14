@@ -7,14 +7,16 @@ import { defineMiddleware } from "astro:middleware";
 // strict; `style-src 'self' 'unsafe-inline'` is required because ProgramCard.astro:19 puts the
 // merchant's brand colour on a `style` attribute (CSP3 blocks style attributes under
 // `style-src 'self'` alone, and the dev server doesn't enforce CSP, so this would silently ship
-// a colourless card). `img-src https:` is the concession for the merchant's own logo URL.
+// a colourless card). `img-src https: data:` covers both the merchant's own logo URL (https)
+// and Base.astro:26's `data:image/svg+xml` favicon — `https:` alone does not cover `data:`, and
+// without it the favicon request is silently blocked (task-8 review carryover from Task 7).
 // `default-src 'self'` covers everything task-7-brief.md didn't call out by name (fonts,
 // connect) with the same strict default rather than leaving those directives unrestricted.
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src https:",
+  "img-src https: data:",
   "form-action 'self'",
   "base-uri 'none'",
   "object-src 'none'",

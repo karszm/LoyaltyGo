@@ -1,0 +1,279 @@
+---
+// JoinForm — the only interactive part of the invite page: a plain `<form method="post">`
+// posting back to this same URL (task-8-brief.md's no-JS requirement), plus, once
+// [inviteCode].astro has a join outcome, the confirmation it renders instead of the form.
+//
+// The 201-vs-202 rule, enforced by construction here rather than by discipline: `joined` and
+// `maybe` render through the SAME branch below — same badge, same <h1>, same grammar — and the
+// only per-kind difference is the note text and whether WalletButtons has a card to show. A
+// 202 can therefore never pick up error styling or "already a member" wording by accident,
+// because there is no separate code path for it to drift onto (task-8-brief.md).
+import type { JoinOutcome } from "../lib/invite-outcome.ts";
+import { EMAIL_MAX_LENGTH, EMAIL_PATTERN, NAME_MAX_LENGTH } from "../lib/validate.ts";
+import WalletButtons from "./WalletButtons.astro";
+
+interface Props {
+  // Repopulated by [inviteCode].astro from the just-submitted form on a 422 — "nobody retypes
+  // a surname at a till" (task-8-brief.md). Empty strings on a fresh GET.
+  values: { first_name: string; last_name: string; email: string };
+  // `panel` outcomes (409/404/503 race) are rendered by the page itself via StatusPanel, never
+  // reach this component — so this prop only ever carries the three kinds the form itself
+  // knows how to render.
+  result?: Exclude<JoinOutcome, { kind: "panel" }>;
+}
+
+const { values, result } = Astro.props;
+const isConfirmation = result?.kind === "joined" || result?.kind === "maybe";
+
+function fieldError(field: string): string | undefined {
+  return result?.kind === "invalid" ? result.fields.find((f) => f.field === field)?.message : undefined;
+}
+---
+
+{
+  isConfirmation ? (
+    <div class="join-confirm" role="status">
+      <span class="join-confirm__badge" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+          <path
+            d="M4.5 10.5l3.5 3.5 7.5-8"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </span>
+      <h1 class="join-confirm__headline">Gotowe.</h1>
+      <p class="join-confirm__note">
+        {result!.kind === "maybe"
+          ? result!.message
+          : result!.pass.status === "preparing"
+            ? "Karta jest przygotowywana, wyślemy link mailem."
+            : "Dodaj kartę do portfela poniżej."}
+      </p>
+      {result!.kind === "joined" && result!.pass.status === "ready" && (
+        <WalletButtons appleUrl={result!.pass.appleUrl} googleUrl={result!.pass.googleUrl} />
+      )}
+    </div>
+  ) : (
+    <form class="join-form" method="post" novalidate>
+      {result?.kind === "invalid" && (
+        <p class="join-form__error" role="alert">
+          {result.message}
+        </p>
+      )}
+
+      <div class="join-form__field">
+        <label for="join-first-name">Imię</label>
+        <input
+          id="join-first-name"
+          name="first_name"
+          type="text"
+          required
+          maxlength={NAME_MAX_LENGTH}
+          autocomplete="given-name"
+          enterkeyhint="next"
+          value={values.first_name}
+        />
+        {fieldError("first_name") && <p class="join-form__field-error">{fieldError("first_name")}</p>}
+      </div>
+
+      <div class="join-form__field">
+        <label for="join-last-name">Nazwisko</label>
+        <input
+          id="join-last-name"
+          name="last_name"
+          type="text"
+          required
+          maxlength={NAME_MAX_LENGTH}
+          autocomplete="family-name"
+          enterkeyhint="next"
+          value={values.last_name}
+        />
+        {fieldError("last_name") && <p class="join-form__field-error">{fieldError("last_name")}</p>}
+      </div>
+
+      <div class="join-form__field">
+        <label for="join-email">Adres e-mail</label>
+        <input
+          id="join-email"
+          name="email"
+          type="email"
+          required
+          maxlength={EMAIL_MAX_LENGTH}
+          pattern={EMAIL_PATTERN}
+          autocomplete="email"
+          inputmode="email"
+          enterkeyhint="done"
+          value={values.email}
+        />
+        {fieldError("email") && <p class="join-form__field-error">{fieldError("email")}</p>}
+      </div>
+
+      <label class="join-form__consent">
+        <input type="checkbox" name="consent" value="true" required />
+        <span>
+          Wyrażam zgodę na przetwarzanie moich danych osobowych przez LoyaltyGo w celu założenia i
+          obsługi karty lojalnościowej tego programu.
+        </span>
+      </label>
+      {fieldError("consent") && <p class="join-form__field-error">{fieldError("consent")}</p>}
+
+      <button type="submit" class="btn btn--amber btn--lg join-form__submit">
+        Dołącz do programu
+      </button>
+    </form>
+  )
+}
+
+<script>
+  import { isValidEmail, isValidName } from "../lib/validate.ts";
+
+  // ~40 lines total (task-8-brief.md): (1) mirror the server's validation as a live Polish
+  // setCustomValidity() message in place of the browser's own, (2) lock the submit button so a
+  // double-tap at the till can't race ahead of the DB's (program_id,email) unique constraint,
+  // (3) hide whichever Wallet button doesn't match this device. No fetch, no client-rendered
+  // state, no localStorage countdown — a per-address countdown on the device would itself be a
+  // membership oracle.
+
+  const form = document.querySelector("form.join-form");
+  if (form) {
+    const mirror = (name, valid, message) => {
+      const input = form.querySelector(`[name="${name}"]`);
+      if (!input) return;
+      const check = () => input.setCustomValidity(valid(input.value) ? "" : message);
+      input.addEventListener("input", check);
+      check();
+    };
+    mirror("first_name", isValidName, "Podaj imię.");
+    mirror("last_name", isValidName, "Podaj nazwisko.");
+    mirror("email", isValidEmail, "Podaj prawidłowy adres e-mail.");
+
+    form.addEventListener("submit", () => {
+      form.querySelector('button[type="submit"]')?.setAttribute("disabled", "");
+    });
+  }
+
+  const ua = navigator.userAgent;
+  const isApple = /iPhone|iPad|iPod|Macintosh/.test(ua);
+  const isAndroid = /Android/.test(ua);
+  if (isApple || isAndroid) {
+    document.querySelectorAll("[data-wallet]").forEach((el) => {
+      const relevant = (el.dataset.wallet === "apple" && isApple) || (el.dataset.wallet === "google" && isAndroid);
+      if (!relevant) el.hidden = true;
+    });
+  }
+</script>
+
+<style>
+  .join-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+
+  .join-form__error {
+    font-size: 14px;
+    color: var(--red);
+  }
+
+  .join-form__field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .join-form__field label {
+    font-size: 13px;
+    font-weight: 590;
+    color: var(--text-3);
+  }
+
+  .join-form__field input {
+    height: 48px;
+    padding-inline: var(--space-6);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-strong);
+    background: var(--bg);
+    color: var(--text-1);
+    font-family: inherit;
+    /* 16px minimum: below this, iOS Safari zooms the viewport on focus — unusable at a till
+       with a queue behind the customer (task-8-brief.md). */
+    font-size: 16px;
+  }
+
+  .join-form__field input:focus-visible {
+    border-color: var(--accent);
+  }
+
+  .join-form__field-error {
+    font-size: 13px;
+    color: var(--red);
+  }
+
+  .join-form__consent {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-4);
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--text-3);
+  }
+
+  .join-form__consent input {
+    margin-top: 2px;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    accent-color: var(--accent);
+  }
+
+  .join-form__submit {
+    width: 100%;
+    margin-top: var(--space-2);
+  }
+
+  .join-form__submit:disabled {
+    opacity: 0.6;
+  }
+
+  /* Chrome matched deliberately to StatusPanel.astro's `.status-panel` (border-strong /
+     bg-raised / radius-xl) — a 202 renders through this exact same block as a 201, so there is
+     no second, independently-styled "recovery confirmation" for it to ever diverge from. */
+  .join-confirm {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-6);
+    padding: var(--space-8);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border-strong);
+    background: var(--bg-raised);
+  }
+
+  .join-confirm__badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-pill);
+    border: 1.5px solid var(--green);
+    color: var(--green);
+  }
+
+  .join-confirm__headline {
+    font-size: 22px;
+    line-height: 28px;
+  }
+
+  .join-confirm__note {
+    font-size: 15px;
+    line-height: 24px;
+    letter-spacing: -0.165px;
+    color: var(--text-2);
+  }
+</style>

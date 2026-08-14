@@ -9,15 +9,54 @@
 import Base from "../layouts/Base.astro";
 import ProgramCard from "../components/ProgramCard.astro";
 import StatusPanel from "../components/StatusPanel.astro";
-import { getInvite } from "../lib/api.ts";
+import JoinForm from "../components/JoinForm.astro";
+import { getInvite, joinProgram } from "../lib/api.ts";
 import { deriveBrand } from "../lib/brand.ts";
-import { mapInviteResult } from "../lib/invite-outcome.ts";
+import { mapInviteResult, mapJoinResult } from "../lib/invite-outcome.ts";
+import type { JoinOutcome } from "../lib/invite-outcome.ts";
 
 const { inviteCode } = Astro.params;
 const result = await getInvite(inviteCode as string);
 const outcome = mapInviteResult(result);
 
-Astro.response.status = outcome.status;
+// Fields the customer typed, echoed back on a 422 — "nobody retypes a surname at a till"
+// (task-8-brief.md). Empty on a fresh GET.
+let formValues = { first_name: "", last_name: "", email: "" };
+let joinOutcome: JoinOutcome | null = null;
+
+// Task 8's join POST renders DIRECTLY from this same request — no redirect. A redirect to
+// `?joined=1` would need a 200 GET to show the confirmation, and middleware.ts's cache rule
+// grants s-maxage=60 to ANY 200 GET on this route regardless of query string: the next
+// customer to scan the same QR code within that minute would get the shared CDN's cached copy
+// of a DIFFERENT customer's confirmation. Rendering the POST's own response (whatever status
+// it carries) never enters that cache at all, because middleware.ts's rule only ever applies
+// to GET.
+//
+// POST only ever reaches the join call when the page's own GET-equivalent check above already
+// says `active` — a POST against a closed/suspended/unknown program renders the exact same
+// StatusPanel a GET would, and never calls joinProgram; public-api's own 409/404 checks are
+// the second line of defense for the race where status changes between that check and this
+// request landing (mapJoinResult's `panel` case, just below).
+if (Astro.request.method === "POST" && outcome.kind === "active") {
+  const form = await Astro.request.formData();
+  formValues = {
+    first_name: String(form.get("first_name") ?? ""),
+    last_name: String(form.get("last_name") ?? ""),
+    email: String(form.get("email") ?? ""),
+  };
+  const joinResult = await joinProgram(inviteCode as string, {
+    first_name: formValues.first_name,
+    last_name: formValues.last_name,
+    email: formValues.email,
+    consent: form.get("consent") === "true",
+  });
+  joinOutcome = mapJoinResult(joinResult);
+}
+
+// A join outcome always carries its own real status (201/202/422/409/404/503) and overrides
+// the GET-derived one — including 422, which still re-renders the active shell's form, just
+// not at 200.
+Astro.response.status = joinOutcome ? joinOutcome.status : outcome.status;
 
 // <title> carries the merchant's name ONLY in the active state (task-7-brief.md) — every other
 // outcome gets the same fixed string, so `unpublished`/`suspended` stay indistinguishable down
@@ -29,8 +68,13 @@ const description = "Karta lojalnościowa LoyaltyGo.";
 <Base title={title} description={description}>
   <main class="status-shell">
     {
-      outcome.kind === "active" ? (
-        <ProgramCard brand={deriveBrand(outcome.program)} />
+      joinOutcome && joinOutcome.kind === "panel" ? (
+        <StatusPanel state={joinOutcome.state} />
+      ) : outcome.kind === "active" ? (
+        <>
+          <ProgramCard brand={deriveBrand(outcome.program)} />
+          <JoinForm values={formValues} result={joinOutcome && joinOutcome.kind !== "panel" ? joinOutcome : undefined} />
+        </>
       ) : (
         <StatusPanel state={outcome.state} />
       )

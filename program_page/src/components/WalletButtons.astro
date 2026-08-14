@@ -1,0 +1,44 @@
+---
+// WalletButtons — the two "add to wallet" links a fresh, `pass.status === 'ready'` join
+// hands back. Both render whenever both URLs exist (real-world default until proven
+// otherwise): the enhancement script in JoinForm.astro hides whichever one doesn't match this
+// device's UserAgent, but with JS disabled both stay visible and both genuinely work — a
+// customer can always tap the "wrong" one and Wallet/Google Pay will simply decline to open
+// it, so nothing is unusable if JS is off (task-8-brief.md's no-JS requirement).
+interface Props {
+  appleUrl: string | null;
+  googleUrl: string | null;
+}
+
+const { appleUrl, googleUrl } = Astro.props;
+---
+
+{
+  (appleUrl || googleUrl) && (
+    <div class="wallet-buttons">
+      {appleUrl && (
+        <a class="btn btn--amber btn--lg" data-wallet="apple" href={appleUrl}>
+          Dodaj do Apple Wallet
+        </a>
+      )}
+      {googleUrl && (
+        <a class="btn btn--amber btn--lg" data-wallet="google" href={googleUrl}>
+          Dodaj do Google Wallet
+        </a>
+      )}
+    </div>
+  )
+}
+
+<style>
+  .wallet-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    width: 100%;
+  }
+
+  .wallet-buttons .btn {
+    width: 100%;
+  }
+</style>
