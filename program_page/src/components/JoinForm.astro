@@ -14,8 +14,9 @@ import WalletButtons from "./WalletButtons.astro";
 
 interface Props {
   // Repopulated by [inviteCode].astro from the just-submitted form on a 422 — "nobody retypes
-  // a surname at a till" (task-8-brief.md). Empty strings on a fresh GET.
-  values: { first_name: string; last_name: string; email: string };
+  // a surname at a till" (task-8-brief.md), consent included: a mistyped e-mail shouldn't force
+  // re-ticking a checkbox that had nothing to do with the mistake. Empty/unchecked on a fresh GET.
+  values: { first_name: string; last_name: string; email: string; consent: boolean };
   // `panel` outcomes (409/404/503 race) are rendered by the page itself via StatusPanel, never
   // reach this component — so this prop only ever carries the three kinds the form itself
   // knows how to render.
@@ -112,7 +113,7 @@ function fieldError(field: string): string | undefined {
       </div>
 
       <label class="join-form__consent">
-        <input type="checkbox" name="consent" value="true" required />
+        <input type="checkbox" name="consent" value="true" required checked={values.consent} />
         <span>
           Wyrażam zgodę na przetwarzanie moich danych osobowych przez LoyaltyGo w celu założenia i
           obsługi karty lojalnościowej tego programu.

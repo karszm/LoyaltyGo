@@ -20,8 +20,10 @@ const result = await getInvite(inviteCode as string);
 const outcome = mapInviteResult(result);
 
 // Fields the customer typed, echoed back on a 422 — "nobody retypes a surname at a till"
-// (task-8-brief.md). Empty on a fresh GET.
-let formValues = { first_name: "", last_name: "", email: "" };
+// (task-8-brief.md). Consent is part of this too: a customer who mistypes their e-mail
+// shouldn't have to re-tick a checkbox that had nothing to do with the mistake (task-8 review).
+// Empty/unchecked on a fresh GET.
+let formValues = { first_name: "", last_name: "", email: "", consent: false };
 let joinOutcome: JoinOutcome | null = null;
 
 // Task 8's join POST renders DIRECTLY from this same request — no redirect. A redirect to
@@ -43,12 +45,13 @@ if (Astro.request.method === "POST" && outcome.kind === "active") {
     first_name: String(form.get("first_name") ?? ""),
     last_name: String(form.get("last_name") ?? ""),
     email: String(form.get("email") ?? ""),
+    consent: form.get("consent") === "true",
   };
   const joinResult = await joinProgram(inviteCode as string, {
     first_name: formValues.first_name,
     last_name: formValues.last_name,
     email: formValues.email,
-    consent: form.get("consent") === "true",
+    consent: formValues.consent,
   });
   joinOutcome = mapJoinResult(joinResult);
 }
