@@ -22,12 +22,29 @@ Uruchamianie, seed i sekrety: `backend/README.md`. Kontrakt: `docs/api/openapi.y
    spalony limit u dostawcy passów i — istotne pod RODO — możliwość wstawienia danych
    dowolnych osób trzecich na listę klientów merchanta.
 
-3. **Kanał czasowy 1,2–2,8 ms na powierzchni publicznej** (zaparkowany świadomie).
-   Dla członka wykonuje się jedno zapytanie więcej niż dla nie-członka, co przy ~100
-   próbach na adres pozwala odtworzyć różnicę i sprawdzić, kto należy do programu.
-   Jednolinijkowa naprawa (wyniesienie sprawdzenia limitu przed warunek członkostwa)
-   otwiera zapis do tabeli limitów przez zasypywanie losowymi adresami — **te dwie
-   rzeczy trzeba zrobić razem z punktem 2, żadna nie jest bezpieczna osobno.**
+3. **Kanał czasowy na powierzchni publicznej — POTWIERDZONY POMIAREM** (zaparkowany świadomie).
+   Dla członka wykonuje się więcej pracy niż dla nie-członka, co przy dostatecznej liczbie
+   prób na adres pozwala odtworzyć różnicę i sprawdzić, kto należy do programu.
+
+   Zmierzone 2026-08-15 na trasie dołączania, po 20 próbek na ścieżkę, lokalnie:
+
+   | Ścieżka | Średnia | Min | Max |
+   |---|---|---|---|
+   | 202 (adres już w programie) | 13,0 ms | 10,97 ms | 25,9 ms |
+   | 201 (nowy adres) | 10,9 ms | 10,05 ms | 11,8 ms |
+
+   Rozkłady mają różny kształt, nie tylko różną średnią: ścieżka 202 ma długi prawy ogon,
+   201 jest wąska. Źródło jest strukturalne — 202 robi nieudany insert, `select` istniejącego
+   wiersza, `throttleKey`, RPC `allowSend` i warunkowy zapis tokenu, wobec `enrolMember`
+   + `update` na 201.
+
+   **Czego świadomie NIE robimy: nie dokładamy sztucznej pracy na ścieżce 201.** To maskuje
+   objaw, obciąża ścieżkę, z której korzystają wszyscy klienci, i rozjeżdża się przy pierwszej
+   zmianie logiki. Jednolinijkowa naprawa (wyniesienie sprawdzenia limitu przed warunek
+   członkostwa) otwiera z kolei zapis do tabeli limitów przez zasypywanie losowymi adresami.
+   Właściwą obroną jest limit liczby PRÓB (punkt 2) — dziś dławiona jest wyłącznie wysyłka
+   maila, więc samo zgadywanie jest darmowe, a atak polega na uśrednieniu wielu prób.
+   **Te rzeczy trzeba zrobić razem z punktem 2, żadna nie jest bezpieczna osobno.**
 
 4. **Jeden sekret pełni trzy role kryptograficzne.** `PROGRAM_KEY_PEPPER` to pieprz do
    hashowania kluczy programów, klucz HMAC tokenów skanu i pieprz limitera naraz.
