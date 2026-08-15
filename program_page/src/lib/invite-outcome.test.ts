@@ -4,7 +4,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mapInviteResult, mapJoinResult } from "./invite-outcome.ts";
+import { mapInviteResult, mapJoinResult, mapRecoveryResult } from "./invite-outcome.ts";
 import type { ApiResult, JoinResponse, MaybeEmailResponse, PublicProgram } from "./api.ts";
 
 function success(data: PublicProgram): ApiResult<PublicProgram> {
@@ -164,5 +164,47 @@ test("unexpected 500 (no case of its own) -> falls onto 503 offline, not a blank
     status: 500,
     body: { error: { code: "internal_error", message: "Wystąpił błąd serwera." } },
   });
+  assert.deepEqual(outcome, { kind: "panel", status: 503, state: "offline" });
+});
+
+// mapRecoveryResult — POST /invites/:code/card-recovery (task-9-brief.md). Thin wrapper around
+// mapJoinResult; these tests exist to pin the anti-enumeration property AT THIS FUNCTION, not
+// just at mapJoinResult, so a future refactor that stops delegating gets caught here too.
+
+test("card-recovery 202 -> maybe, member and non-member indistinguishable at this layer (the server already made them identical)", () => {
+  const msg = "Jeżeli ten adres należy do programu u tego merchanta, karta pojawi się w Twojej skrzynce e-mail.";
+  const memberOutcome = mapRecoveryResult({ kind: "success", status: 202, data: { message: msg } });
+  const strangerOutcome = mapRecoveryResult({ kind: "success", status: 202, data: { message: msg } });
+  assert.deepEqual(memberOutcome, { kind: "maybe", status: 202, message: msg });
+  assert.deepEqual(memberOutcome, strangerOutcome);
+});
+
+test("card-recovery 409 program_closed -> panel 'closed' (program state, not membership)", () => {
+  const outcome = mapRecoveryResult({
+    kind: "error",
+    status: 409,
+    body: { error: { code: "program_closed", message: "Program został zakończony." } },
+  });
+  assert.deepEqual(outcome, { kind: "panel", status: 409, state: "closed" });
+});
+
+test("card-recovery 422 (malformed e-mail) -> invalid, message passed through verbatim", () => {
+  const outcome = mapRecoveryResult({
+    kind: "error",
+    status: 422,
+    body: {
+      error: { code: "validation_failed", message: "Adres e-mail jest nieprawidłowy.", fields: [{ field: "email", message: "adres e-mail jest nieprawidłowy" }] },
+    },
+  });
+  assert.deepEqual(outcome, {
+    kind: "invalid",
+    status: 422,
+    message: "Adres e-mail jest nieprawidłowy.",
+    fields: [{ field: "email", message: "adres e-mail jest nieprawidłowy" }],
+  });
+});
+
+test("card-recovery network failure -> panel 'offline'", () => {
+  const outcome = mapRecoveryResult({ kind: "network_error", message: "Nie udało się połączyć z serwerem. Spróbuj ponownie." });
   assert.deepEqual(outcome, { kind: "panel", status: 503, state: "offline" });
 });

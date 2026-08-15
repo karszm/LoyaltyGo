@@ -9,9 +9,15 @@ import type { BrandModel } from "../lib/brand.ts";
 
 interface Props {
   brand: BrandModel;
+  // `PassLinks` (lib/api.ts, GET /card-links/:token) carries no points balance — a member
+  // arriving via card recovery usually HAS points, so rendering `0 pkt` there would be a
+  // fabrication, and a misleading one (reads as "your balance was wiped"). `null` omits the
+  // balance row entirely, leaving the card a brand plate (logo + name only). Defaults to `0` so
+  // [inviteCode].astro's fresh-signup card (where `0 pkt` is simply true) renders unchanged.
+  balance?: number | null;
 }
 
-const { brand } = Astro.props;
+const { brand, balance = 0 } = Astro.props;
 ---
 
 <div
@@ -55,10 +61,14 @@ const { brand } = Astro.props;
 
   <div class="program-card__body">
     <p class="program-card__name">{brand.displayName}</p>
-    <p class="program-card__balance">
-      <span class="program-card__balance-label">Saldo</span>
-      <span class="program-card__balance-value">0 <span class="program-card__balance-unit">pkt</span></span>
-    </p>
+    {
+      balance !== null && (
+        <p class="program-card__balance">
+          <span class="program-card__balance-label">Saldo</span>
+          <span class="program-card__balance-value">{balance} <span class="program-card__balance-unit">pkt</span></span>
+        </p>
+      )
+    }
   </div>
 </div>
 

@@ -1,0 +1,37 @@
+---
+// StatusShell.astro — the centring shell shared by every customer-facing page in this project:
+// [inviteCode].astro (scan a merchant's QR) and card-links/[token].astro (open a card-recovery
+// e-mail). Extracted from [inviteCode].astro's own <style> block VERBATIM (task-9-design.md
+// §7c) — same padding, same LoyaltyGo mark — so "same scene" stays one copy of CSS rather than
+// two that drift at the first padding tweak.
+---
+
+<main class="status-shell">
+  <slot />
+  <footer class="status-mark">Loyalty<b>Go</b></footer>
+</main>
+
+<style>
+  .status-shell {
+    min-height: 100svh; /* svh, not vh: iOS's collapsing address bar must not reflow the page */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-8);
+    padding: var(--space-10) var(--space-8) var(--space-11); /* optical centring, raised */
+  }
+
+  .status-mark {
+    width: min(100%, 380px);
+    font-size: 13px;
+    font-weight: 590;
+    letter-spacing: -0.02em;
+    color: var(--text-3);
+  }
+
+  .status-mark b {
+    color: var(--accent); /* the one brand trace on an otherwise brandless screen */
+    font-weight: inherit;
+  }
+</style>

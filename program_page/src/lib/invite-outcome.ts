@@ -97,3 +97,22 @@ export function mapJoinResult(result: ApiResult<JoinResponse | MaybeEmailRespons
     },
   };
 }
+
+// mapRecoveryResult — POST /invites/:code/card-recovery (RecoveryForm.astro). MaybeEmailResponse
+// is one arm of mapJoinResult's own input union, and every status this endpoint can return
+// (202/404/409/422/503) is already one of mapJoinResult's cases with `kind: "joined"` simply
+// never reachable here (card-recovery's contract has no 201) — so this is a thin, named wrapper
+// rather than a second copy of that branching that could quietly drift from it.
+//
+// ANTI-ENUMERATION INVARIANT — read this before changing anything downstream of this function:
+// the backend (handleCardRecovery, public-api/index.ts) answers 202 with the byte-identical
+// MAYBE_MESSAGE whether or not the address belongs to a member of THIS program, and whether or
+// not the send was actually throttled. The only branch this contract allows is 202 vs 409/422,
+// and those are properties of the PROGRAM (suspended/closed) or the INPUT (malformed e-mail),
+// never of membership. Do not add, here or in whatever renders this outcome: different copy,
+// a different badge/heading, a client-side check of whether the address "looks like" a member,
+// a countdown derived from the send-throttle window, or a distinct log/metric event per branch
+// — every one of those turns a "did my e-mail work" page into a membership oracle.
+export function mapRecoveryResult(result: ApiResult<MaybeEmailResponse>): JoinOutcome {
+  return mapJoinResult(result);
+}

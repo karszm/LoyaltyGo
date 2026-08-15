@@ -1,43 +1,89 @@
 ---
-// StatusPanel.astro — one panel, four variants, zero JS (task-7-design.md §7).
+// StatusPanel.astro — one panel, many variants, zero JS (task-7-design.md §7, extended by
+// task-9-design.md §7a for the card-link page).
 // `unpublished` and `suspended` are NOT separate values here: [inviteCode].astro maps both
 // onto "unavailable" at the call site, so this component physically cannot tell them apart
 // (task-7-design.md §8 — indistinguishability is enforced by the type, not by discipline).
 interface Props {
-  state: "unavailable" | "closed" | "not_found" | "offline";
+  state:
+    | "unavailable"
+    | "closed"
+    | "not_found"
+    | "offline" // invite page, unchanged since Task 7
+    | "card_ready"
+    | "card_preparing"
+    | "link_expired"
+    | "link_unknown"; // card-link page, Task 9
+  // Action target; defaults to this same URL — that default IS the retry mechanism for
+  // `card_preparing` (every GET re-attempts issuance server-side) and for `offline` (unchanged
+  // from Task 7). `link_expired` passes `/{invite_code}` explicitly instead.
+  href?: string;
 }
-const { state } = Astro.props;
+const { state, href } = Astro.props;
 
 const COPY = {
   unavailable: {
     headline: "Karta lojalnościowa jest teraz niedostępna.",
     note: "Zapytaj o nią przy kasie.",
+    action: null,
   },
   closed: {
     headline: "Ten program lojalnościowy został zakończony.",
     note: "Nowych kart nie można już zakładać.",
+    action: null,
   },
   not_found: {
     headline: "Nie rozpoznajemy tego kodu.",
     note: "Zeskanuj kod ponownie przy kasie.",
+    action: null,
   },
   offline: {
     // First sentence of NETWORK_ERROR_MESSAGE (lib/api.ts) is the headline; the second is the
     // button label below — no new copy, no drift from what api.ts already authors.
     headline: "Nie udało się połączyć z serwerem.",
     note: "Sprawdź połączenie z internetem.",
+    action: { label: "Spróbuj ponownie", variant: "amber" },
+  },
+  card_ready: {
+    headline: "Twoja karta lojalnościowa jest gotowa.",
+    note: "Dodaj ją do portfela w telefonie.",
+    action: null, // the action here is the WalletButtons slot, not a single <a>
+  },
+  card_preparing: {
+    headline: "Twoja karta jest jeszcze przygotowywana.",
+    note: "Wróć do tego linku za jakiś czas, jest ważny 24 godziny.",
+    // ghost, not amber: the most likely outcome of this tap is the SAME screen (issuance is
+    // still failing), and the loudest button on an action that usually does nothing reads as
+    // "this page is broken" (task-9-design.md §3).
+    action: { label: "Sprawdź ponownie", variant: "ghost" },
+  },
+  link_expired: {
+    headline: "Ten link stracił ważność po 24 godzinach.",
+    note: "Nowy link zamówisz na stronie programu.",
+    action: { label: "Zamów nowy link", variant: "amber" },
+  },
+  link_unknown: {
+    headline: "Nie rozpoznajemy tego linku.",
+    note: "Otwórz go jeszcze raz w wiadomości od nas.",
+    action: null,
   },
 } as const;
 
-const { headline, note } = COPY[state];
+const { headline, note, action } = COPY[state];
+// `link_expired` with no `invite_code` (data anomaly, not a designed state — task-9-design.md
+// §4) has nowhere to point "Zamów nowy link" at; a bare `href` default would link the customer
+// back to this same expired token. Omitting `href` here suppresses the action rather than
+// inventing a second copy of the panel for that case.
+const showAction = action && (state !== "link_expired" || href);
 ---
 
 <div class="status-panel">
   <h1 class="status-panel__headline">{headline}</h1>
   <p class="status-panel__note">{note}</p>
-  {state === "offline" && (
-    <a class="btn btn--amber btn--lg" href={Astro.url.pathname}>Spróbuj ponownie</a>
+  {showAction && (
+    <a class={`btn btn--${action!.variant} btn--lg`} href={href ?? Astro.url.pathname}>{action!.label}</a>
   )}
+  {Astro.slots.has("default") && <div class="status-panel__action"><slot /></div>}
 </div>
 
 <style>
@@ -67,6 +113,12 @@ const { headline, note } = COPY[state];
 
   .status-panel .btn {
     width: 100%;
+    margin-top: var(--space-5);
+  }
+
+  /* Same slot geometry as the `.btn` case above (task-9-design.md §7a) so `card_ready`'s
+     WalletButtons slot never shifts the panel's rhythm relative to a single-<a> state. */
+  .status-panel__action {
     margin-top: var(--space-5);
   }
 </style>

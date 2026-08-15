@@ -290,9 +290,13 @@ async function handleGetCardLink(sb: ReturnType<typeof serviceClient>, token: st
   const program = member.programs;
   if (!program) throw new Error(`member ${member.id} has no program`);
 
-  // Branding travels on every branch below (ready/preparing/410) so the page a customer
-  // opens from their e-mail can always show the merchant's brand, and — on the 410 — link
-  // the customer back to the program page via invite_code.
+  // `branding` (display_name/background_color) travels on ready/preparing ONLY — spread in
+  // below at those two `json(...)` call sites, not here. The 410 branch just below builds its
+  // own response with `invite_code` alone (docs/api/openapi.yaml's link_expired schema agrees:
+  // no display_name/background_color on that response). This is deliberate, not an oversight
+  // to "complete": an expired token must stop showing the merchant's brand and program name —
+  // task-9-design.md's card-link-page design is built on that (§8), so "fixing" this to spread
+  // branding into the 410 too would silently break the property it depends on.
   const branding = {
     display_name: program.display_name,
     background_color: program.background_color,

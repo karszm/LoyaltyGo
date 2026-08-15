@@ -98,7 +98,8 @@ paths:
       summary: Dane programu dla landing page'a zaproszenia
       description: |
         Zwraca publiczne dane programu (branding) dla dedykowanego landing page'a
-        programu w aplikacji panelu merchanta — to na niego przekierowuje
+        programu — osobny projekt na własnej domenie (`karta.loyaltygo.pl`, osobno
+        od panelu merchanta pod `app.loyaltygo.pl`), na który przekierowuje
         zeskanowany QR zaproszenia. Strona renderuje branding merchanta,
         formularz dołączenia i przycisk "Dodaj do Apple Wallet" / "Dodaj do
         Google Wallet" po wydaniu karty.

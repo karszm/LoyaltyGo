@@ -41,6 +41,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // route (410/404/503), and every other route or method, gets no-store. Applying
   // s-maxage/stale-while-revalidate to a 503 would make the "Spróbuj ponownie" button on that
   // page lie for up to 10 minutes after the backend recovers (task-7-brief.md).
+  //
+  // card-links/[token].astro (Task 9) needs no rule of its own here: its dynamic segment is
+  // `token`, not `inviteCode`, so `context.params.inviteCode` is always undefined on that route
+  // and it falls straight into the `no-store` branch below — confirmed, not assumed (task-9-
+  // brief.md), because that route's 200 body carries per-customer wallet URLs and a bearer
+  // token in the path. A shared CDN caching that response for even 60s would hand one
+  // customer's card-link credentials to the next visitor of the same URL.
   const isInviteGet = context.request.method === "GET" && context.params.inviteCode !== undefined;
   response.headers.set(
     "Cache-Control",
