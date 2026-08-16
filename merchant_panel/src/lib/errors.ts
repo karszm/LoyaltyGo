@@ -1,4 +1,4 @@
-// One error vocabulary for two backend dialects:
+// One error vocabulary for three backend dialects:
 //
 // 1. panel-api (Edge Function) — { error: { code, message, fields? } }, always with a Polish
 //    message (backend/supabase/functions/_shared/errors.ts:jsonError). Used by api.ts for
@@ -7,8 +7,12 @@
 //    SQLSTATEs and PGRST* codes, English and technical. Used by db.ts for everything else
 //    (migration 0003_rls_panel.sql's column grants are the actual security boundary; this
 //    layer only explains a refusal in the same words as the other dialect).
+// 3. GoTrue's AuthError (supabase.auth.*, task 11's Login/AuthCallback) — { code, status,
+//    message }, English and technical, thrown by signInWithOtp/verifyOtp.
 //
-// normalizeCode() is the single translator both call sites go through.
+// normalizeCode() is the single translator all three call sites go through.
+
+import { isAuthError } from '@supabase/supabase-js'
 
 export interface ErrorField {
   field: string
@@ -38,6 +42,10 @@ const FALLBACK_MESSAGE: Record<string, string> = {
   constraint_violated: 'Operacja narusza ograniczenie danych.',
   network_error: 'Nie udało się połączyć z serwerem.',
   internal_error: 'Wystąpił błąd serwera.',
+  // The one GoTrue case with real, specific advice (task-11-design.md §4, "Odmowa wysyłki
+  // (429)") — everything else an AuthError can throw falls back to internal_error below, same
+  // as the other two dialects, rather than growing its own private vocabulary.
+  auth_rate_limited: 'Wiadomość została już wysłana. Odczekaj chwilę i spróbuj ponownie.',
 }
 
 function fallbackMessage(code: string): string {
@@ -48,8 +56,18 @@ function isPanelApiError(err: unknown): err is { error: { code?: string; message
   return typeof err === 'object' && err !== null && 'error' in err
 }
 
-function isPostgrestError(err: unknown): err is { code?: string; message?: string } {
-  return typeof err === 'object' && err !== null && 'code' in err
+// A real PostgrestError always carries `details` and `hint` alongside `code`/`message` (empty
+// strings when Postgres has nothing to add, but the properties are always present — see
+// @supabase/postgrest-js's PostgrestError class). GoTrue's AuthError also carries a `code`, but
+// never `details`/`hint`, so the old check here (`'code' in err`) matched both dialects: every
+// auth failure fell into this branch, got looked up in a table that was never meant for it, and
+// came out as `internal_error` — a 429 rate-limit lost its actual advice this way. Don't loosen
+// this back to a single shared field: the next error shape that happens to carry `code` deserves
+// the same protection AuthError just needed.
+function isPostgrestError(
+  err: unknown,
+): err is { code?: string; message?: string; details?: string; hint?: string } {
+  return typeof err === 'object' && err !== null && 'code' in err && 'details' in err && 'hint' in err
 }
 
 /** Pure translator. No side effects — this is what the tests assert against. */
@@ -60,6 +78,18 @@ export function normalizeCode(err: unknown): AppError {
     // Prefer the backend's own message: panel-api speaks Polish and knows more about the
     // situation (e.g. "program jest w stanie suspended") than this lookup table does.
     return { code, message: body?.message || fallbackMessage(code), fields: body?.fields }
+  }
+  if (isAuthError(err)) {
+    // Rate limiting is the one case worth a code of its own here: it has real, specific advice
+    // ("wait and try again"), unlike everything else this branch can see. In particular,
+    // `otp_expired` covers BOTH an expired/used/superseded magic link AND a mistyped
+    // verification code (task-11-design.md §5, "Pułapka") — GoTrue does not distinguish them,
+    // so this translator can't either. The Login/AuthCallback screens choose which of those two
+    // messages to show from their own call-site context (which action just ran), not from this
+    // code, and fall back to the shared internal_error sentence for anything they don't
+    // specifically recognise — so the vocabulary here stays one, not a private auth dialect.
+    const code = err.status === 429 || err.code === 'over_email_send_rate_limit' ? 'auth_rate_limited' : (err.code ?? 'internal_error')
+    return { code, message: fallbackMessage(code) }
   }
   if (isPostgrestError(err)) {
     const raw = err.code ?? 'internal_error'

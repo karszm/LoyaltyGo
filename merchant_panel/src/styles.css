@@ -18,6 +18,10 @@
   --panel-measure: 1080px;
   --panel-form: 640px;
   --panel-gutter: var(--space-9);
+  /* Same measure as ProgramCard/StatusPanel's "one thing, one decision" objects (task-11-design.md
+     §2) — a new name, not a new value. Used by the /login and /auth screens, which stand outside
+     .shell entirely. */
+  --auth-measure: 380px;
 }
 @media (max-width: 1023px) {
   :root {
@@ -422,4 +426,91 @@ dialog.confirm::backdrop {
 .table-scroll:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Wordmark (panel-shell-design.md §1 "Brand zone") — the landing's Violet Residue rule,        */
+/* verbatim (landing_page/src/pages/index.astro's .wordmark/.wordmark-go). Task 11's /login and  */
+/* /auth are the first consumers, ahead of task 12's sidebar brand zone; same object either way. */
+/* ------------------------------------------------------------------ */
+
+.wordmark {
+  font-size: 16px;
+  font-weight: 640;
+  letter-spacing: -0.02em;
+  color: var(--text-1);
+}
+.wordmark-go {
+  color: var(--accent);
+}
+
+/* ------------------------------------------------------------------ */
+/* Auth screens (task-11-design.md) — /login and /auth stand outside .shell; this is their whole */
+/* layout. No breakpoints: a single centered column has no layout left to break.                 */
+/* ------------------------------------------------------------------ */
+
+.auth {
+  min-block-size: 100dvh;
+  display: grid;
+  justify-items: center;
+  align-content: safe center; /* `safe`: content scrolls instead of clipping at a short viewport */
+  padding: var(--space-10) var(--space-7);
+}
+.auth__col {
+  inline-size: min(100%, var(--auth-measure));
+}
+
+/* Both fields 16px instead of the spec's 15px: below 16px iOS Safari zooms the viewport on
+   focus, and this is the one panel screen that will actually see a phone (the e-mail link).
+   Precedent: program_page/src/components/JoinForm.astro:206. */
+.auth .field {
+  font-size: 16px;
+}
+
+.field--code {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2em;
+}
+
+/* Third button weight — the same object the sidebar footer's `Wyloguj` uses (panel-shell-
+   design.md §1). Text-only, no fill, no border; 44px tall despite reading as a link. */
+.btn--text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  block-size: 44px;
+  padding-inline: var(--space-4);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-3);
+  background: none;
+  border: 0;
+}
+.btn--text:hover {
+  color: var(--text-1);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Second/third sentence of a collective error-summary message (task-11-design.md §5). */
+.error-summary__body {
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--text-2);
+  margin-block-start: var(--space-4);
+}
+
+/* Flicker suppression on /auth (task-11-design.md §6) — not an entrance animation (§8 of the
+   shell forbids those): a session that resolves faster than 400ms never shows this text at all. */
+.reveal-delayed {
+  animation: reveal 120ms ease 400ms both;
+}
+@keyframes reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
