@@ -8,6 +8,8 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 import { setUnauthorizedHandler } from './errors'
 import { safeReturnTo } from './returnTo'
+import { AppShell, ShellSkeleton } from '../components/AppShell'
+import { SideNav } from '../components/SideNav'
 
 interface SessionContextValue {
   session: Session | null
@@ -89,15 +91,24 @@ export function useSession(): SessionContextValue {
 }
 
 /**
- * Layout route gating every screen task 12+ adds, in one place. Renders nothing while the
- * initial session check is in flight (this app has no spinner vocabulary — §8 of the shell
- * design shows loading with a skeleton or text, never an icon, and there is no layout here yet
- * to skeleton); redirects to /login with the attempted path preserved otherwise.
+ * Layout route gating every screen task 12+ adds, in one place. Renders the shell chrome with a
+ * skeleton in the data region while the initial session check is in flight, instead of a blank
+ * screen (this app has no spinner vocabulary -- panel-shell-design.md §8 shows loading with a
+ * skeleton or text, never an icon); redirects to /login with the attempted path preserved
+ * otherwise. Merchant/program data (and the real SideNav identity) isn't known yet at this
+ * point -- that's ../lib/program.tsx's gate, one step further in -- so the nav here always
+ * renders in its own loading state.
  */
 export function RequireAuth() {
-  const { session, loading } = useSession()
+  const { session, loading, logout } = useSession()
   const location = useLocation()
-  if (loading) return null
+  if (loading) {
+    return (
+      <AppShell sideNav={<SideNav onLogout={logout} />}>
+        <ShellSkeleton />
+      </AppShell>
+    )
+  }
   if (!session) {
     const returnTo = location.pathname + location.search
     return <Navigate to={`/login?returnTo=${encodeURIComponent(safeReturnTo(returnTo))}`} replace />

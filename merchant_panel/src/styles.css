@@ -70,6 +70,187 @@
   }
 }
 
+/* Skip link (panel-shell-design.md §8) — first focusable element on the page, visually hidden
+   off-screen until it receives focus. */
+.skip-link {
+  position: absolute;
+  inset-block-start: -100%;
+  inset-inline-start: var(--space-6);
+  z-index: 100;
+  padding: var(--space-5) var(--space-6);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--text-1);
+}
+.skip-link:focus-visible {
+  inset-block-start: var(--space-6);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* SideNav internals (panel-shell-design.md §1) — geometry is verbatim: 56px brand zone, 44px    */
+/* nav rows, the sticky 96px two-row header below 1024px. One markup covers both arrangements;   */
+/* only one of .shell__nav-desktop / .shell__nav-mobile is display:block at a time.              */
+/* ------------------------------------------------------------------ */
+
+.shell__nav-desktop {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+}
+.shell__nav-mobile {
+  display: none;
+}
+
+.shell__brand {
+  block-size: 56px;
+  display: flex;
+  align-items: center;
+  padding-inline: var(--space-6);
+  border-block-end: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.shell__identity {
+  padding: var(--space-7) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4); /* 8px, "below it, 8px down, the state chip" */
+}
+.shell__program-name {
+  font-size: 13px;
+  line-height: 19.5px;
+  font-weight: 590;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shell__nav-list {
+  display: flex;
+  flex-direction: column;
+}
+.shell__nav-item {
+  display: flex;
+  align-items: center;
+  block-size: 44px;
+  padding-inline: var(--space-6);
+  font-size: 14px;
+  line-height: 21px;
+  letter-spacing: -0.13px;
+  font-weight: 400;
+  color: var(--text-3);
+}
+.shell__nav-item:hover {
+  color: var(--text-1);
+}
+/* Threefold active treatment (panel-shell-design.md §8): colour + weight + wash, not accent --
+   accent stays reserved for "action or focus" everywhere in the app. */
+.shell__nav-item--active {
+  color: var(--text-1);
+  font-weight: 590;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.shell__spacer {
+  flex: 1;
+}
+
+.shell__footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+.shell__footer-email {
+  font-size: 12px;
+  line-height: 16.8px;
+  color: var(--text-4); /* directly on --bg (4.69:1) -- allowed, see the file-level contrast note */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 1023px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+  .shell__nav {
+    position: sticky;
+    inset-block-start: 0;
+    block-size: auto;
+    border-inline-end: none;
+    border-block-end: 1px solid var(--border);
+    background: var(--bg);
+    z-index: 20;
+  }
+  .shell__nav-desktop {
+    display: none;
+  }
+  .shell__nav-mobile {
+    display: flex;
+    flex-direction: column;
+  }
+  .shell__nav-row1 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    block-size: 48px;
+    padding-inline: var(--space-6);
+  }
+  .shell__nav-row1 .shell__program-name--inline {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .shell__nav-row2 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-6);
+    block-size: 48px;
+    padding-inline: var(--space-6);
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+  }
+  .shell__nav-row2 .shell__nav-item {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    padding-inline: 0;
+  }
+  .shell__nav-row2 .shell__nav-logout {
+    margin-inline-start: auto;
+    flex-shrink: 0;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Status block (panel-shell-design.md §6.3) — shared geometry behind DraftGate now, and behind  */
+/* EmptyState/ErrorState once a later task needs them: max 380px, centred, 16px gap.             */
+/* ------------------------------------------------------------------ */
+
+.status-block {
+  max-inline-size: 380px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.status-block__headline {
+  font-size: 17px;
+  line-height: 26px;
+  font-weight: 590;
+  color: var(--text-1);
+}
+.status-block__note {
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--text-2);
+}
+
 /* ------------------------------------------------------------------ */
 /* Field — 52px form, 44px compact (panel-shell-design.md §5.1)                                */
 /* ------------------------------------------------------------------ */

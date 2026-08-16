@@ -1,14 +1,36 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { RequireAuth, SessionProvider } from './lib/session'
+import { RequireProgram, RootRedirect, useProgram } from './lib/program'
 import Login from './screens/Login'
 import AuthCallback from './screens/AuthCallback'
+import Onboarding from './screens/Onboarding'
+import { DraftGate } from './components/DraftGate'
 
-// Placeholder screens — the real shell (AppShell, SideNav, ProgramStateChip, DraftGate) is
-// task 12's job (panel-shell-design.md), the first screen inside a logged-in session. This only
-// proves the route table and the / -> /karta redirect the spec fixes in its "First run" section
-// (§7): "/" and unknown paths always land on /karta, once authenticated.
-function Screen({ label }: { label: string }) {
-  return <p>{label}</p>
+// Placeholder screen bodies for tasks 13-17 -- each real screen owns its own h1#screen-title and
+// (for the four gated ones) its own DraftGate note in that screen's terms (panel-shell-design.md
+// §2(b)); until those tasks land, this is enough to prove the shell/gate/routing wiring task 12
+// owns actually works end to end.
+function PlaceholderScreen({ label, gateNote }: { label: string; gateNote?: string }) {
+  const { program } = useProgram()
+  const gated = gateNote !== undefined && program.status !== 'published'
+  return (
+    <>
+      <h1
+        id="screen-title"
+        tabIndex={-1}
+        style={{ fontSize: 20, lineHeight: '28px', fontWeight: 590, color: 'var(--text-1)' }}
+      >
+        {label}
+      </h1>
+      <div style={{ marginBlockStart: 'var(--space-8)' }}>
+        {gated ? (
+          <DraftGate note={gateNote} />
+        ) : (
+          <p style={{ color: 'var(--text-3)' }}>Ekran budowany w kolejnym zadaniu.</p>
+        )}
+      </div>
+    </>
+  )
 }
 
 function App() {
@@ -18,13 +40,48 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/auth" element={<AuthCallback />} />
         <Route element={<RequireAuth />}>
-          <Route path="/" element={<Navigate to="/karta" replace />} />
-          <Route path="/karta" element={<Screen label="Karta programu" />} />
-          <Route path="/klienci" element={<Screen label="Klienci" />} />
-          <Route path="/transakcje" element={<Screen label="Transakcje" />} />
-          <Route path="/integracja" element={<Screen label="Integracja" />} />
-          <Route path="/zaproszenie" element={<Screen label="Zaproszenie" />} />
-          <Route path="*" element={<Navigate to="/karta" replace />} />
+          <Route path="/onboarding" element={<Onboarding />} />
+          <Route element={<RequireProgram />}>
+            <Route path="/" element={<RootRedirect />} />
+            <Route path="/karta" element={<PlaceholderScreen label="Karta programu" />} />
+            <Route
+              path="/klienci"
+              element={
+                <PlaceholderScreen
+                  label="Klienci"
+                  gateNote="Link zapraszający i kod QR nie istnieją, dopóki program nie zostanie opublikowany, więc nikt nie może jeszcze dołączyć."
+                />
+              }
+            />
+            <Route
+              path="/transakcje"
+              element={
+                <PlaceholderScreen
+                  label="Transakcje"
+                  gateNote="Transakcje pojawią się dopiero, gdy klienci zaczną korzystać z karty, a to wymaga opublikowania programu."
+                />
+              }
+            />
+            <Route
+              path="/integracja"
+              element={
+                <PlaceholderScreen
+                  label="Integracja"
+                  gateNote="Klucz programu będzie dostępny po publikacji programu."
+                />
+              }
+            />
+            <Route
+              path="/zaproszenie"
+              element={
+                <PlaceholderScreen
+                  label="Zaproszenie"
+                  gateNote="Link zapraszający i kod QR powstają dopiero w chwili publikacji programu."
+                />
+              }
+            />
+            <Route path="*" element={<Navigate to="/karta" replace />} />
+          </Route>
         </Route>
       </Routes>
     </SessionProvider>
