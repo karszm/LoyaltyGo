@@ -21,3 +21,14 @@ export function formatDate(iso: string): string {
     new Date(iso),
   )
 }
+
+// Card wizard (task 13) speaks to the merchant in "punkty za 100 zł"; the column actually stored
+// is Program.points_per_pln (task-13-design.md §7: "punkty za 100 zł = points_per_pln × 100").
+// Two pure, invertible conversions so the screen never does this arithmetic inline twice.
+export function pointsPerPlnToRatePer100(pointsPerPln: number): number {
+  return pointsPerPln * 100
+}
+
+export function ratePer100ToPointsPerPln(ratePer100: number): number {
+  return ratePer100 / 100
+}

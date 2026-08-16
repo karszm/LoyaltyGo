@@ -4,6 +4,7 @@ import { RequireProgram, RootRedirect, useProgram } from './lib/program'
 import Login from './screens/Login'
 import AuthCallback from './screens/AuthCallback'
 import Onboarding from './screens/Onboarding'
+import CardWizard from './screens/CardWizard'
 import { DraftGate } from './components/DraftGate'
 
 // Placeholder screen bodies for tasks 13-17 -- each real screen owns its own h1#screen-title and
@@ -43,7 +44,7 @@ function App() {
           <Route path="/onboarding" element={<Onboarding />} />
           <Route element={<RequireProgram />}>
             <Route path="/" element={<RootRedirect />} />
-            <Route path="/karta" element={<PlaceholderScreen label="Karta programu" />} />
+            <Route path="/karta" element={<CardWizard />} />
             <Route
               path="/klienci"
               element={

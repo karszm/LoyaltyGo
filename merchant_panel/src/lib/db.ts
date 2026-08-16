@@ -3,7 +3,7 @@
 // nothing itself, it only translates a refusal into the one error vocabulary (errors.ts) so
 // a screen can explain it. Edge-function-only operations (publish, key rotation, state
 // transitions) live in api.ts, not here — see docs/api/openapi.yaml's `/panel` intro.
-import type { PostgrestError } from '@supabase/supabase-js'
+import { StorageApiError, type PostgrestError } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 import { toPanelError } from './errors'
 
@@ -66,6 +66,46 @@ export function updateProgram(patch: {
   points_per_pln?: number
 }): Promise<Program> {
   return unwrap(supabase.from('programs').update(patch).select(PROGRAM_COLUMNS).single())
+}
+
+// Logo upload (task 13, card wizard) — the panel's one Storage write. `0010_program_logos.sql`'s
+// bucket is the real gate (1 MiB, png/jpeg/webp only); client-side checks in CardWizard.tsx are
+// courtesy only. Storage errors are a fourth dialect errors.ts doesn't speak (StorageApiError
+// never reaches unwrap()'s PostgrestError branch), so this is translated locally rather than
+// growing normalizeCode() a branch for a single caller.
+const LOGO_BUCKET = 'program-logos'
+const LOGO_EXTENSION: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }
+
+export class LogoUploadError extends Error {
+  /** true: the bucket (or our own client check) refused the file itself — same string either
+   *  way, per task-13-design.md §6.2 ("odmowa kliencka i odmowa serwerowa mają dosłownie ten sam
+   *  string"). false: the request itself failed (network/5xx) — a distinct, retry-oriented string. */
+  rejected: boolean
+  constructor(rejected: boolean) {
+    super(rejected ? 'logo rejected' : 'logo upload failed')
+    this.name = 'LogoUploadError'
+    this.rejected = rejected
+  }
+}
+
+/**
+ * Uploads straight to Storage (PostgREST can't take multipart/form-data — 0010's own comment),
+ * then returns the public URL. Never touches `programs.logo_url` itself: the caller does that
+ * `update` only after this resolves, so a rejected file leaves the previous logo untouched
+ * (§6.2/§6.3 — no optimistic write, no optimistic preview).
+ */
+export async function uploadLogo(merchantId: string, file: File): Promise<string> {
+  const ext = LOGO_EXTENSION[file.type] ?? 'png'
+  const path = `${merchantId}/logo-${Date.now()}.${ext}`
+  const { error } = await supabase.storage.from(LOGO_BUCKET).upload(path, file)
+  if (error) {
+    // A real HTTP response the bucket sent back (400 bad mime type, 413 too large, 403 RLS) is
+    // always a StorageApiError with a status — the only Storage error shape that carries one
+    // (see @supabase/storage-js's handleError: anything else, e.g. the request never completing,
+    // becomes a StorageUnknownError with no status).
+    throw new LogoUploadError(error instanceof StorageApiError)
+  }
+  return supabase.storage.from(LOGO_BUCKET).getPublicUrl(path).data.publicUrl
 }
 
 // Bootstrap (task 12) — a merchant who has just authenticated has neither row yet:

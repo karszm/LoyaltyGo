@@ -329,6 +329,13 @@ select.field {
   line-height: 19.5px;
   color: var(--text-4);
 }
+/* KOREKTA (authorised at task 13, docs/design/panel-shell.md §5.1): task 10 implemented the rule
+   above verbatim and flagged the AA failure rather than silently changing it — correct call at
+   the time, since /karta (task 13) is the first screen to actually nest a .fieldset inside a
+   .panel and make the 4.44:1 failure real rather than theoretical. */
+.panel .fieldset__hint {
+  color: var(--text-3);
+}
 .fieldset__error {
   font-size: 13px;
   line-height: 19.5px;
@@ -694,4 +701,145 @@ dialog.confirm::backdrop {
   to {
     opacity: 1;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Card wizard (/karta, task-13-design.md) — two-column layout (container query, not a viewport   */
+/* breakpoint, §2.2), the CardPreview port, the contrast warning and the colour input row.        */
+/* ------------------------------------------------------------------ */
+
+.card-editor {
+  container-type: inline-size;
+}
+.card-editor__grid {
+  display: grid;
+  gap: var(--space-9);
+}
+@container (min-width: 812px) {
+  .card-editor__grid {
+    grid-template-columns: minmax(0, var(--panel-form)) 380px;
+  }
+  .card-editor__form {
+    grid-area: 1 / 1;
+  }
+  .card-editor__preview {
+    grid-area: 1 / 2;
+  }
+  /* Sticky on the child, not the grid cell — and NEVER add align-items: start on the grid here,
+     it removes the row height sticky needs to travel across (task-13-design.md §2.3). */
+  .card-editor__preview > .card-preview {
+    position: sticky;
+    inset-block-start: var(--space-9);
+  }
+}
+
+/* CardPreview.tsx — geometry ported verbatim from program_page/src/components/ProgramCard.astro
+   (width min(100%, 380px), aspect-ratio 8/5, --radius-2xl, the edge ring + two indigo-tinted
+   shadow layers). No card-enter animation, fixed white ink — see that file's own header comment.
+   This is the one shadowed object in the whole panel (§5.2) and it must sit directly on --bg,
+   never inside a .panel: the edge ring's alpha is solved against #08090a specifically (brand.ts's
+   CARD_EDGE_COLOR), and a --bg-raised surface underneath breaks that (task-13-design.md §3.2). */
+.card-preview {
+  width: min(100%, 380px);
+  aspect-ratio: 8 / 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--space-8);
+  border-radius: var(--radius-2xl);
+  background: var(--card-bg);
+  box-shadow:
+    0 0 0 1px var(--card-edge),
+    0 2px 5px rgba(10, 8, 24, 0.5),
+    0 18px 36px -14px rgba(18, 14, 40, 0.6);
+}
+.card-preview__logo {
+  position: relative;
+  width: 48px;
+  height: 48px;
+}
+.card-preview__logo-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: var(--card-bg); /* opaque: covers the monogram, matches the real Wallet pass */
+}
+.card-preview__monogram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 26px;
+  font-weight: 590;
+  color: var(--card-ink);
+}
+.card-preview__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.card-preview__name {
+  font-size: 17px;
+  font-weight: 590;
+  letter-spacing: -0.01em;
+  color: var(--card-ink);
+}
+.card-preview__balance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.card-preview__balance-label {
+  font-size: 12px;
+  font-weight: 590;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--card-ink-2);
+}
+.card-preview__balance-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 28px;
+  font-weight: 590;
+  color: var(--card-ink);
+}
+.card-preview__balance-unit {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* Contrast warning — .error-summary's grammar (§5.8) at a smaller scale (task-13-design.md §4.3):
+   red spent on the border only, no background, no icon, no radius. It is not an error: it never
+   blocks saving, and it stands beside .form-status rather than replacing it. */
+.card-warning {
+  border-inline-start: 2px solid var(--red);
+  padding-inline-start: var(--space-5);
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--text-2);
+  margin-block-start: var(--space-6);
+}
+
+/* Colour swatch + HEX field, one row, both controls 52px to match .field. */
+.color-input {
+  display: flex;
+  gap: var(--space-5);
+  align-items: center;
+}
+.color-input__swatch {
+  inline-size: 52px;
+  block-size: 52px;
+  padding: var(--space-2);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+}
+.color-input__hex {
+  flex: 1;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
 }

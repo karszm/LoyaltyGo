@@ -23,3 +23,12 @@ export function sanitizeCode(value: string): string {
 export function isValidCode(value: string): boolean {
   return /^\d{6}$/.test(value)
 }
+
+// Card wizard (task 13) — Program.background_color's shape, mirrored from
+// program_page/src/lib/brand.ts's HEX_COLOR_RE (that file's own copy-not-import comment applies
+// here too: separate Vite app, same rule, not a shared import across the app boundary).
+export const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i
+
+export function isValidHexColor(value: string): boolean {
+  return HEX_COLOR_RE.test(value)
+}

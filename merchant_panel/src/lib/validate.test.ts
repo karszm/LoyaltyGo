@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isValidCode, isValidEmail, sanitizeCode } from './validate'
+import { isValidCode, isValidEmail, isValidHexColor, sanitizeCode } from './validate'
 
 describe('isValidEmail', () => {
   it('accepts a plain address', () => {
@@ -58,5 +58,27 @@ describe('isValidCode', () => {
 
   it('rejects non-digit characters', () => {
     expect(isValidCode('12345a')).toBe(false)
+  })
+})
+
+describe('isValidHexColor', () => {
+  it('accepts a lowercase 6-digit hex', () => {
+    expect(isValidHexColor('#34363c')).toBe(true)
+  })
+
+  it('accepts uppercase, case-insensitively', () => {
+    expect(isValidHexColor('#0F5132')).toBe(true)
+  })
+
+  it('rejects the 3-digit shorthand', () => {
+    expect(isValidHexColor('#fff')).toBe(false)
+  })
+
+  it('rejects a missing #', () => {
+    expect(isValidHexColor('34363c')).toBe(false)
+  })
+
+  it('rejects a non-hex character', () => {
+    expect(isValidHexColor('#34363g')).toBe(false)
   })
 })

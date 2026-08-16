@@ -322,6 +322,15 @@ select.field { padding-inline-end: var(--space-5); }   /* native select; no cust
 .fieldset__label { font-size: 13px; line-height: 19.5px; color: var(--text-3); }
 .fieldset__hint  { font-size: 13px; line-height: 19.5px; color: var(--text-4); }
 .fieldset__error { font-size: 13px; line-height: 19.5px; color: var(--red); }
+
+/* KOREKTA (autoryzowana wprost przy tasku 13, nie samodzielne odwrocenie implementera):
+   --text-4 na .fieldset__hint trzyma AA (4.69:1) tylko bezposrednio na --bg. Wewnatrz .panel
+   powierzchnia to --bg-raised i ta sama wartosc daje 4.44:1, ponizej AA (patrz §8's table i
+   §5.5's ogolna zasada "na --bg-raised najciemniejszy dopuszczalny tekst to --text-3"). Task 10
+   zaimplementowal regule tak jak tu byla napisana i to zaflagowal, zamiast cicho ja zmienic --
+   poprawnie. Task 13 (kreator karty) jest pierwszym ekranem stawiajacym .fieldset wewnatrz
+   .panel, wiec ten blad staje sie tu widoczny naprawde, nie tylko teoretycznie. */
+.panel .fieldset__hint { color: var(--text-3); }
 ```
 
 The error element carries `role="alert"` and is referenced by the input's `aria-describedby`.

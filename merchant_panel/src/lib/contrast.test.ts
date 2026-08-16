@@ -21,6 +21,28 @@ describe('contrastRatio', () => {
   it('--text-4 (#767b84) on --bg-raised (#101113) is 4.44:1 — below AA, banned on panels', () => {
     expect(contrastRatio('#767b84', '#101113')).toBeCloseTo(4.44, 1)
   })
+
+  // Card wizard's contrast warning (task-13-design.md §4.1): white text on the merchant's chosen
+  // background_color, threshold 4.5 (the card name is normal-size text, not large text).
+  it('white on the fallback grey #34363c is 12.08:1 — first run never starts with a warning', () => {
+    expect(contrastRatio('#ffffff', '#34363c')).toBeCloseTo(12.08, 1)
+  })
+
+  it('white on a typical brand red #eb5757 is 3.48:1 — below 4.5, the warning fires', () => {
+    expect(contrastRatio('#ffffff', '#eb5757')).toBeCloseTo(3.48, 1)
+  })
+})
+
+// The card wizard's actual condition (task-13-design.md §4.1): `meetsAA(contrastRatio('#ffffff', color))`
+// decides whether the contrast warning renders. Asserted end to end, not just the ratio.
+describe('card wizard contrast warning condition', () => {
+  it('the fallback grey #34363c does not trigger the warning', () => {
+    expect(meetsAA(contrastRatio('#ffffff', '#34363c'))).toBe(true)
+  })
+
+  it('a typical brand red #eb5757 triggers the warning', () => {
+    expect(meetsAA(contrastRatio('#ffffff', '#eb5757'))).toBe(false)
+  })
 })
 
 describe('meetsAA', () => {
