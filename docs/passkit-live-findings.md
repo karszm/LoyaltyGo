@@ -141,3 +141,51 @@ w v1.** Dopóki nie zapadnie, `createProgram` nie może dokończyć swojej pracy
 - `enrolMember` i cała ścieżka wydania karty klientowi
 - `updateTemplate` — nie ma wywołującego w kodzie i nie ma potwierdzonej ścieżki
 - linki do kart pod `pub1.pskt.io` — nigdy nie otwarte na prawdziwym passie
+
+## 6. CAŁA ŚCIEŻKA DO KARTY PRZESZŁA NA ŻYWO (2026-08-16)
+
+Program `PROJECT_DRAFT` w zupełności wystarcza do wydawania kart — są tylko automatycznie
+kasowane po jakimś czasie, co dla developmentu jest bez znaczenia.
+
+```
+POST /members/program  -> 200 {"id":"0CwimwuCXqWL86RpaUeIMH"}
+POST /members/tier     -> 200 {"id":"default"}
+POST /members/member   -> 200 {"id":"6DBrBZ6Nn0nJ46lB718KFv"}
+
+https://pub1.pskt.io/6DBrBZ6Nn0nJ46lB718KFv         -> 200 (strona lądowania)
+https://pub1.pskt.io/6DBrBZ6Nn0nJ46lB718KFv.pkpass  -> 200 application/vnd.apple.pkpass
+```
+
+**To jest prawdziwy plik passa Apple Wallet.** Pierwszy w historii tego projektu.
+
+### Trzy poprawki na `POST /members/tier`, każda blokująca osobno
+
+| Problem | Ustalenie |
+|---|---|
+| `pass template id cannot be empty` | **`passTemplateId` jest wymagane** |
+| `Tier.TierIndex failed on the 'required' tag` przy `tierIndex: 0` | **zero jest traktowane jak brak wartości** (walidacja Go). Pierwszy poziom ma indeks **1** |
+| `Tier.Timezone failed on the 'required' tag` | **`timezone` wymagane także na poziomie**, nie tylko na szablonie |
+
+Potwierdzone też przewidywanie z komentarza w kodzie: **`Tier.id` jest wybierane przez
+wywołującego** i API oddaje je bez zmian (`{"id":"default"}`), w przeciwieństwie do `Program.id`,
+które generuje serwer.
+
+### Nowe zmienne środowiskowe
+
+- `PASSKIT_TEMPLATE_ID` — szablon konta, do którego podpina się poziom. Bez niego
+  `createProgram` rzuca błąd, zamiast wysyłać żądanie, o którym wiadomo, że jest niepoprawne.
+- `PASSKIT_TIMEZONE` — domyślnie `Europe/Warsaw`.
+
+### Nadal niezweryfikowane
+
+- **`enrolMember` przy prawdziwym brandingu per merchant** — dziś wszystkie programy
+  podpinają się pod jeden szablon konta. Tworzenie szablonu per merchant jest wykonalne (§5),
+  ale nie jest jeszcze wpięte w `createProgram`.
+- Aktualizacja salda punktów na wydanej karcie.
+- `updateTemplate` — nadal bez wywołującego.
+
+### Artefakty testowe do skasowania z konta
+
+Programy: `4jvgufslpdi0b7S9tYHS36`, `13JXi9IEdKt8tGNvC1El6g`, `7bx1OSUgRnDCbkSAL6jbdD`,
+`0CwimwuCXqWL86RpaUeIMH`. Szablon: `2nAHY27XZFHAZF8XWi2FCf`.
+Członek: `6DBrBZ6Nn0nJ46lB718KFv` (i tak zniknie sam — program jest roboczy).

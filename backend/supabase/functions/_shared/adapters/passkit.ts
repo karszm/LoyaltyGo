@@ -168,11 +168,34 @@ export async function createProgram(
   // minting one; requireId() still guards it either way. `passTemplateId` (the actual
   // visual template, a separate Common API resource) is deliberately omitted — see
   // updateTemplate below for why that path is still unverified.
+  // VERIFIED LIVE 2026-08-16 — three corrections, each of which alone fails the call:
+  //
+  //   `passTemplateId` is REQUIRED ("pass template id cannot be empty"). It was omitted
+  //   before on the belief that no template could be created programmatically; that belief
+  //   was wrong (see updateTemplate's comment and docs/passkit-live-findings.md §5).
+  //   Until per-merchant templates are wired up, PASSKIT_TEMPLATE_ID names the account
+  //   template every program attaches to.
+  //
+  //   `tierIndex: 0` is REJECTED — PassKit validates with a `required` tag, and in Go that
+  //   treats the zero value as absent. The first tier is index 1, not 0.
+  //
+  //   `timezone` is REQUIRED on the tier as well as on the template.
+  //
+  // Confirmed: the response echoes back the caller-chosen id (`{"id":"default"}`), unlike
+  // Program whose id is server-minted — exactly as the field table implied.
+  const passTemplateId = Deno.env.get("PASSKIT_TEMPLATE_ID");
+  if (!passTemplateId) {
+    throw new Error(
+      "passkit createProgram: brak PASSKIT_TEMPLATE_ID — poziom w programie nie powstanie bez szablonu karty.",
+    );
+  }
   const tier = await passkitRequest("POST", "/members/tier", {
     id: "default",
     programId,
-    tierIndex: 0,
+    tierIndex: 1,
     name: "default",
+    passTemplateId,
+    timezone: Deno.env.get("PASSKIT_TIMEZONE") ?? "Europe/Warsaw",
   }) as { id: string };
   const templateId = requireId(tier, "createProgram (tier)");
 
