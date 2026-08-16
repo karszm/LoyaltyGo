@@ -15,6 +15,7 @@ import { useProgram } from '../lib/program'
 import { useSession } from '../lib/session'
 import { CardPreview, deriveMonogram, FALLBACK_BACKGROUND } from '../components/CardPreview'
 import { getProgram, updateProgram, uploadLogo, LogoUploadError, type Program } from '../lib/db'
+import { prepareLogo } from '../lib/logoCanvas'
 import { publishProgram } from '../lib/api'
 import { normalizeCode, type ErrorField } from '../lib/errors'
 import { clearDraft, loadDraft, saveDraft } from '../lib/formDraft'
@@ -243,9 +244,13 @@ export default function CardWizard() {
 
     setUploading(true)
     try {
+      // PassKit rejects logos under 660x660 and only says so at publication, where the
+      // merchant never sees it. Fit the file onto a transparent square here instead — see
+      // lib/logoCanvas.ts for why refusing the file outright would be a dead end.
+      const prepared = await prepareLogo(file)
       // No optimistic preview (§6.3): logoUrl only advances after BOTH the Storage upload and the
       // `programs` update succeed, so a failure at either step leaves the previous logo showing.
-      const url = await uploadLogo(merchant.id, file)
+      const url = await uploadLogo(merchant.id, prepared.file)
       await updateProgram(program.id, { logo_url: url })
       setLogoUrl(url)
       reload()
@@ -506,7 +511,7 @@ export default function CardWizard() {
                   </label>
                 </div>
                 <p id="prog-logo-hint" className="fieldset__hint">
-                  PNG, JPG lub WEBP, do 1 MB. Najlepiej kwadratowe, z przezroczystym tłem, w kolorze kontrastującym z kolorem karty.
+                  PNG, JPG lub WEBP, do 1 MB. Najlepiej kwadratowe, z przezroczystym tłem, w kolorze kontrastującym z kolorem karty. Karta w portfelu wymaga kwadratu 660×660, więc mniejsze i podłużne logo dopasujemy za Ciebie — wyśrodkujemy je na przezroczystym kwadracie, nic nie przytniemy.
                 </p>
                 <p className="fieldset__hint">Logo zapisuje się od razu po wysłaniu.</p>
                 {!logoUrl && <p className="fieldset__hint">Bez logo na karcie pojawia się pierwsza litera nazwy.</p>}
