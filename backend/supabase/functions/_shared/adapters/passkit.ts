@@ -134,10 +134,27 @@ export async function createProgram(
   // than sent under a guessed name. Response shape `{"id": "..."}` is still UNVERIFIED
   // against a real 2xx (inferred from `.io.Id`'s single-field protobuf-JSON convention) —
   // requireId() below turns a wrong guess into a thrown error instead of a corrupted URL.
+  // VERIFIED LIVE 2026-08-16. Two corrections from the first real call:
+  //
+  //   `status` is TWO INDEPENDENT DIMENSIONS, and PassKit rejects the call unless BOTH are
+  //   present — it reports them one at a time, so the first error message is misleading:
+  //     dimension 1: PROJECT_DRAFT | PROJECT_PUBLISHED
+  //     dimension 2: PROJECT_ACTIVE_FOR_OBJECT_CREATION | PROJECT_DISABLED_FOR_OBJECT_CREATION
+  //   Sending only ["PROJECT_PUBLISHED"] (the previous code) fails with
+  //   "status needs to contain either PROJECT_ACTIVE_FOR_OBJECT_CREATION or ...".
+  //
+  //   Response shape `{"id": "..."}` is now CONFIRMED against a real 2xx (was inferred).
+  //
+  // PROJECT_PUBLISHED additionally requires the PassKit account to be approved for
+  // production; a trial account gets 500 "you cannot set the status to PROJECT_PUBLISHED;
+  // make sure your account is eligble for production use" [sic]. That is account setup,
+  // not something the code can work around — see docs/passkit-live-findings.md.
   const passTypeIdentifier = Deno.env.get("PASSKIT_PASS_TYPE_IDENTIFIER");
   const program = await passkitRequest("POST", "/members/program", {
     name: branding.displayName,
-    ...(passTypeIdentifier ? { passTypeIdentifier, status: ["PROJECT_PUBLISHED"] } : {}),
+    ...(passTypeIdentifier
+      ? { passTypeIdentifier, status: ["PROJECT_PUBLISHED", "PROJECT_ACTIVE_FOR_OBJECT_CREATION"] }
+      : {}),
   }) as { id: string };
   const programId = requireId(program, "createProgram");
 
