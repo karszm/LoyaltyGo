@@ -189,3 +189,49 @@ które generuje serwer.
 Programy: `4jvgufslpdi0b7S9tYHS36`, `13JXi9IEdKt8tGNvC1El6g`, `7bx1OSUgRnDCbkSAL6jbdD`,
 `0CwimwuCXqWL86RpaUeIMH`. Szablon: `2nAHY27XZFHAZF8XWi2FCf`.
 Członek: `6DBrBZ6Nn0nJ46lB718KFv` (i tak zniknie sam — program jest roboczy).
+
+## 7. SZABLON PER MERCHANT — DZIAŁA (2026-08-16)
+
+`createProgram` klonuje szablon-wzorzec z konta (`PASSKIT_TEMPLATE_ID`), podmienia nazwę,
+kolor tła i logo merchanta, i tworzy z tego **osobny szablon per program**. Kolor i logo
+z kreatora karty w panelu docierają na kartę w telefonie klienta.
+
+Potwierdzone przez nasz backend: publikacja przez `panel-api` → szablon `Salon Logo`
+z `bg=#008833`, `labelColor=#ffffff`, `logo=2Xbl458ssFDO5D6oSGpQmq` (własny, nie wzorcowy).
+
+### Trzy pułapki, każda dająca CICHY błąd zamiast komunikatu
+
+**1. `colors` i `imageIds` są na najwyższym poziomie, nie w `data`.** `data` zawiera wyłącznie
+`dataFields` i `dataCollectionPageSettings`. Umieszczenie kolorów w `data` daje **200 i szablon
+z kolorami wzorca** — bez błędu, bez ostrzeżenia, ze złą kartą. To najgorszy rodzaj pomyłki
+i kosztował osobną rundę diagnostyki.
+
+**2. `imageData` to OBIEKT, nie napis base64.** Kluczem w środku jest nazwa slotu:
+`{ imageData: { logo: "<base64>" } }`. Goły napis daje `proto: syntax error (line 1:14)`,
+co brzmi jak zepsuty obraz, a znaczy „zły kształt JSON-a". Jedno wgranie `logo` wypełnia
+**dwa** sloty: `logo` i `appleLogo`.
+
+**3. Zmienne środowiskowe z przedrostkiem `SUPABASE_` są ignorowane.** CLI rezerwuje ten
+przedrostek i po cichu wyrzuca takie wpisy z `--env-file`. Pierwsza wersja przepisywania
+adresu logo nazywała się `SUPABASE_PUBLIC_ORIGIN` i **nie działała bez żadnego komunikatu**.
+Nazwy bez tego przedrostka (`LOGO_PUBLIC_ORIGIN`, `LOGO_INTERNAL_ORIGIN`) działają.
+
+### Minimalny rozmiar logo: 660×660
+
+PassKit odrzuca mniejsze (`image width of [300px], is smaller than the minimum width of 660px`).
+**Nasz bucket pilnuje typu i wagi, ale NIE wymiarów** — merchant może wgrać poprawny plik
+300×300, który PassKit odrzuci. Do dopisania w kreatorze karty jako wymóg i walidacja.
+
+### Degradacja przy błędzie logo
+
+`uploadLogo` zwraca `null` przy każdym niepowodzeniu i publikacja idzie dalej — merchant
+dostaje działającą kartę w swoim kolorze, bez logo. Błąd ląduje w logu, bo inaczej byłby
+dla niego całkowicie niewidoczny. **To jest świadomy kompromis, nie przeoczenie:** wywalenie
+całej publikacji z powodu zbyt małego logo byłoby gorsze.
+
+### Lokalne środowisko
+
+Funkcje brzegowe działają w kontenerze, więc `127.0.0.1:54321` wskazuje na nie same, nie na
+hosta — pobranie logo z lokalnego magazynu kończy się `Connection refused`.
+`LOGO_PUBLIC_ORIGIN` + `LOGO_INTERNAL_ORIGIN` przepisują adres na
+`http://host.docker.internal:54321`. Na produkcji żadna z tych zmiennych nie jest ustawiona.

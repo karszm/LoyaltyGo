@@ -76,7 +76,7 @@ async function passkitAuthHeader(_method: string, _url: string, bodyText?: strin
 // it into a typed shape — the thrown Error carries the status and PassKit's raw response
 // text verbatim, which is enough for public-api/sdk-api/panel-api's catch-and-degrade
 // callers to log for debugging without us guessing at a schema.
-async function passkitRequest(method: string, path: string, body?: unknown): Promise<unknown> {
+async function passkitRequestRaw(method: string, path: string, body?: unknown): Promise<string> {
   const url = `${PASSKIT_BASE_URL}${path}`;
   const bodyText = body !== undefined ? JSON.stringify(body) : undefined;
   const headers: HeadersInit = {
@@ -86,6 +86,13 @@ async function passkitRequest(method: string, path: string, body?: unknown): Pro
   const res = await fetch(url, { method, headers, body: bodyText });
   const text = await res.text();
   if (!res.ok) throw new Error(`passkit ${method} ${path} failed: ${res.status} ${text}`);
+  return text;
+}
+
+// JSON-parsing wrapper. Note GET /templates is NOT usable through this one — it answers with
+// NDJSON (one object per line), which JSON.parse rejects; use passkitRequestRaw there.
+async function passkitRequest(method: string, path: string, body?: unknown): Promise<unknown> {
+  const text = await passkitRequestRaw(method, path, body);
   return text ? JSON.parse(text) : {};
 }
 
@@ -108,6 +115,122 @@ export type Branding = {
   backgroundColor?: string;
   description?: string;
 };
+
+// Uploads a merchant's logo to PassKit and returns the image ids it minted.
+//
+// VERIFIED LIVE 2026-08-16. Shape lessons, each of which cost a probe:
+//   - `imageData` is an OBJECT, not a base64 string. A bare string fails with
+//     `proto: syntax error (line 1:14)` — that message means "wrong JSON shape", not
+//     "bad image".
+//   - The key inside it is the SLOT name: `{ imageData: { logo: "<base64>" } }`.
+//   - PassKit derives several slots from one upload: a `logo` upload comes back with both
+//     `logo` and `appleLogo` ids filled in.
+//   - **Minimum size for `logo` is 660×660.** Smaller images are rejected outright
+//     (`image width of [300px], is smaller than the minimum width of 660px`). Our Storage
+//     bucket enforces type and byte size but NOT dimensions, so a merchant can upload a
+//     perfectly valid 300×300 PNG that PassKit will refuse.
+//
+// Returns null on any failure. That is deliberate: a logo that PassKit rejects must not
+// fail the whole publication — the merchant still gets a working card in their colour.
+// The failure is logged loudly because it is otherwise invisible to them.
+async function uploadLogo(logoUrl: string): Promise<{ logo: string; appleLogo: string } | null> {
+  try {
+    // Local dev only: Edge Functions run inside a container, where 127.0.0.1 is the container
+    // itself, not the host — fetching a locally-stored logo dies with "Connection refused".
+    // LOGO_PUBLIC_ORIGIN/LOGO_INTERNAL_ORIGIN rewrite it to something reachable from in there.
+    // In production the logo is a real public URL and neither var is set.
+    // NB: the names deliberately avoid a SUPABASE_ prefix — the CLI reserves that prefix and
+    // silently drops such vars from --env-file, which is exactly how this first failed.
+    const publicOrigin = Deno.env.get("LOGO_PUBLIC_ORIGIN");
+    const internalOrigin = Deno.env.get("LOGO_INTERNAL_ORIGIN");
+    const fetchUrl = publicOrigin && internalOrigin && logoUrl.startsWith(publicOrigin)
+      ? internalOrigin + logoUrl.slice(publicOrigin.length)
+      : logoUrl;
+    const res = await fetch(fetchUrl);
+    if (!res.ok) {
+      console.error("[passkit] logo fetch failed", res.status, logoUrl);
+      return null;
+    }
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    }
+    const ids = await passkitRequest("POST", "/images", {
+      imageData: { logo: btoa(binary) },
+    }) as Record<string, string>;
+    if (!ids.logo) {
+      console.error("[passkit] logo upload returned no id");
+      return null;
+    }
+    return { logo: ids.logo, appleLogo: ids.appleLogo || ids.logo };
+  } catch (err) {
+    console.error("[passkit] logo upload failed", err);
+    return null;
+  }
+}
+
+// Creates a pass template carrying THIS merchant's branding.
+//
+// PassKit has no "create a template from scratch with sensible defaults" call — a template
+// is a large document describing every field's placement on both Apple and Google passes.
+// Rather than hand-author that (and re-author it whenever PassKit adds a field), we treat
+// the account's own template as a blueprint: read it, clone it, and override only what
+// belongs to the merchant. PASSKIT_TEMPLATE_ID names that blueprint.
+//
+// Text colour is forced to white to match what the panel's card preview shows the merchant.
+// The preview deliberately does not derive a "smart" readable ink, because the pass itself
+// cannot — so the template must not quietly do better than the preview promised, or the
+// warning the merchant saw becomes a lie in the other direction.
+async function createTemplateFor(branding: Branding): Promise<string> {
+  const blueprintId = Deno.env.get("PASSKIT_TEMPLATE_ID");
+  if (!blueprintId) {
+    throw new Error(
+      "passkit createProgram: brak PASSKIT_TEMPLATE_ID — nie ma wzorca szablonu do sklonowania.",
+    );
+  }
+
+  // GET /templates returns NDJSON (one template object per line), not a JSON array.
+  const listed = await passkitRequestRaw("GET", "/templates");
+  const blueprint = listed.trim().split("\n")
+    .map((line) => JSON.parse(line).result?.template)
+    .find((t) => t?.id === blueprintId);
+  if (!blueprint) {
+    throw new Error(`passkit createProgram: nie znaleziono wzorca szablonu ${blueprintId}.`);
+  }
+
+  const tpl = structuredClone(blueprint) as Record<string, any>;
+  delete tpl.id;
+  delete tpl.createdAt;
+  delete tpl.updatedAt;
+  delete tpl.ownerUsername;
+  delete tpl.Name;
+  // `revision` must be non-zero — PassKit rejects the create with
+  // "protocol or version cannot be zero". There is no `version` field.
+  tpl.revision = 1;
+  tpl.name = branding.displayName;
+  if (branding.description) tpl.description = branding.description;
+  // `colors` and `imageIds` are TOP-LEVEL siblings of `data`, not inside it. This bit me:
+  // putting them under `data` produced a 200 and a template that silently kept the
+  // blueprint's colours — no error, no warning, wrong card. `data` holds only `dataFields`
+  // and `dataCollectionPageSettings`.
+  tpl.colors = {
+    ...(tpl.colors ?? {}),
+    ...(branding.backgroundColor ? { backgroundColor: branding.backgroundColor } : {}),
+    labelColor: "#ffffff",
+    textColor: "#ffffff",
+  };
+
+  if (branding.logoUrl) {
+    const ids = await uploadLogo(branding.logoUrl);
+    if (ids) {
+      tpl.imageIds = { ...(tpl.imageIds ?? {}), logo: ids.logo, appleLogo: ids.appleLogo };
+    }
+  }
+
+  const created = await passkitRequest("POST", "/template", tpl) as { id: string };
+  return requireId(created, "createTemplateFor");
+}
 
 export async function createProgram(
   branding: Branding,
@@ -188,12 +311,9 @@ export async function createProgram(
   //
   // Confirmed: the response echoes back the caller-chosen id (`{"id":"default"}`), unlike
   // Program whose id is server-minted — exactly as the field table implied.
-  const passTemplateId = Deno.env.get("PASSKIT_TEMPLATE_ID");
-  if (!passTemplateId) {
-    throw new Error(
-      "passkit createProgram: brak PASSKIT_TEMPLATE_ID — poziom w programie nie powstanie bez szablonu karty.",
-    );
-  }
+  // The merchant's OWN template, cloned from the account blueprint with their colour and
+  // logo — this is what makes the card wizard's settings reach the customer's phone.
+  const passTemplateId = await createTemplateFor(branding);
   const tier = await passkitRequest("POST", "/members/tier", {
     id: "default",
     programId,
