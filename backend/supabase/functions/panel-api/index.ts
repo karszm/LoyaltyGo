@@ -16,7 +16,7 @@
 import { hashProgramKey, resolveMerchant, serviceClient } from "../_shared/auth.ts";
 import { jsonError, validationError } from "../_shared/errors.ts";
 import { json, parseBody, preflight } from "../_shared/http.ts";
-import { createProgram } from "../_shared/adapters/passkit.ts";
+import { createProgram, updateTemplateBranding } from "../_shared/adapters/passkit.ts";
 
 const PROGRAM_COLUMNS =
   "id, status, display_name, logo_url, background_color, description, points_per_pln, invite_code";
@@ -96,6 +96,43 @@ async function fetchProgram(
 // retrying with a new code on a 23505 unique violation instead of pre-checking for
 // collisions (settled pattern, see Task 5's review). One statement per attempt keeps the
 // publish write atomic -- no separate "reserve the code" step to half-fail.
+// Pushes whatever branding currently sits in the database onto the merchant's PassKit
+// template. Needed because provisioning happens exactly once (see handlePublish's
+// `if (!passkitProgramId)`), so every later edit of the logo, name or colour used to change
+// the panel and nothing else — the card in the customer's phone kept the launch-day design.
+//
+// A draft program has no template yet and is not an error: there is simply nothing to sync,
+// and its branding will be picked up when it is published.
+async function handleBrandingSync(
+  sb: ReturnType<typeof serviceClient>,
+  programId: string,
+): Promise<Response> {
+  const { data, error } = await sb.from("programs")
+    .select("status, display_name, logo_url, background_color, description, passkit_pass_template_id")
+    .eq("id", programId).single();
+  if (error || !data) return jsonError("not_found", "Nie znaleziono programu.", 404);
+
+  const passTemplateId = data.passkit_pass_template_id as string | null;
+  if (!passTemplateId) return json({ synced: false, reason: "not_provisioned" }, 200);
+
+  try {
+    await updateTemplateBranding(passTemplateId, {
+      displayName: data.display_name as string,
+      logoUrl: (data.logo_url as string | null) ?? undefined,
+      backgroundColor: (data.background_color as string | null) ?? undefined,
+      description: (data.description as string | null) ?? undefined,
+    });
+  } catch (err) {
+    console.error("[panel-api] passkit updateTemplateBranding failed", err);
+    return jsonError(
+      "pass_provider_error",
+      "Wystawca kart chwilowo niedostępny. Zmiany zapisaliśmy, wygląd karty zaktualizujemy przy kolejnej próbie.",
+      502,
+    );
+  }
+  return json({ synced: true }, 200);
+}
+
 async function persistPublish(
   sb: ReturnType<typeof serviceClient>,
   programId: string,
@@ -116,7 +153,7 @@ async function persistPublish(
 // POST /program/publish
 async function handlePublish(sb: ReturnType<typeof serviceClient>, programId: string): Promise<Response> {
   const { data: program } = await sb.from("programs")
-    .select(`${PROGRAM_COLUMNS}, passkit_program_id, passkit_template_id`)
+    .select(`${PROGRAM_COLUMNS}, passkit_program_id, passkit_template_id, passkit_pass_template_id`)
     .eq("id", programId).single();
   if (!program) throw new Error(`program ${programId} missing for resolved merchant`);
 
@@ -145,6 +182,7 @@ async function handlePublish(sb: ReturnType<typeof serviceClient>, programId: st
   // provision a second PassKit program -- reuse what's there.
   let passkitProgramId = program.passkit_program_id as string | null;
   let passkitTemplateId = program.passkit_template_id as string | null;
+  let passkitPassTemplateId = program.passkit_pass_template_id as string | null;
   if (!passkitProgramId) {
     try {
       const provisioned = await createProgram({
@@ -155,6 +193,7 @@ async function handlePublish(sb: ReturnType<typeof serviceClient>, programId: st
       });
       passkitProgramId = provisioned.programId;
       passkitTemplateId = provisioned.templateId;
+      passkitPassTemplateId = provisioned.passTemplateId;
     } catch (err) {
       console.error("[panel-api] passkit createProgram failed", err);
       return jsonError(
@@ -175,6 +214,7 @@ async function handlePublish(sb: ReturnType<typeof serviceClient>, programId: st
       status: "published",
       passkit_program_id: passkitProgramId,
       passkit_template_id: passkitTemplateId,
+      passkit_pass_template_id: passkitPassTemplateId,
       key_hash: keyHash,
       key_created_at: new Date().toISOString(),
     }, needsInviteCode);
@@ -291,8 +331,12 @@ async function handleTransition(
   return json(toProgramResponse(updated as unknown as ProgramRow), 200);
 }
 
+// Every route must be listed here as well as dispatched below — an unlisted path 404s at the
+// gate and never reaches its handler. Adding the handler without adding the path is a silent
+// dead route: the panel's branding sync shipped that way and simply never ran.
 const KNOWN_PATHS = new Set([
   "/program/publish",
+  "/program/branding",
   "/program/key",
   "/program/suspend",
   "/program/resume",
@@ -330,6 +374,7 @@ Deno.serve(async (req) => {
     const programId = merchant.programId;
 
     if (path === "/program/publish") return await handlePublish(sb, programId);
+    if (path === "/program/branding") return await handleBrandingSync(sb, programId);
     if (path === "/program/key") {
       return req.method === "GET" ? await handleGetKey(sb, programId) : await handleRotateKey(sb, programId);
     }
