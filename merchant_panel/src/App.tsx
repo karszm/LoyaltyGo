@@ -1,8 +1,10 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 
-// Placeholder screens — the real shell (sidebar, state chip, all five screens) is task 11's
-// job (panel-shell-design.md). This only proves the route table and the / -> /karta redirect
-// the spec fixes in its "First run" section (§7): "/" and unknown paths always land on /karta.
+// Placeholder screens — the real shell (AppShell, SideNav, ProgramStateChip, DraftGate) is
+// task 12's job (panel-shell-design.md), the first screen inside a logged-in session; task 11
+// is authentication, whose login screen sits outside the shell. This only proves the route
+// table and the / -> /karta redirect the spec fixes in its "First run" section (§7): "/" and
+// unknown paths always land on /karta.
 function Screen({ label }: { label: string }) {
   return <p>{label}</p>
 }

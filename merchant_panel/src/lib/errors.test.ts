@@ -25,6 +25,15 @@ describe('normalizeCode — panel-api dialect ({ error: { code, message } })', (
     const result = normalizeCode({ error: { code: 'internal_error' } })
     expect(result.message).toBe('Wystąpił błąd serwera.')
   })
+
+  it('prefers the backend\'s own message over the lookup table — panel-api genuinely speaks Polish', () => {
+    // program_not_published has no entry in the local fallback dictionary at all, so this
+    // message can only have come from the server, not from a lookup-table coincidence.
+    const result = normalizeCode({
+      error: { code: 'program_not_published', message: 'Klucz zostanie udostępniony po publikacji programu.' },
+    })
+    expect(result.message).toBe('Klucz zostanie udostępniony po publikacji programu.')
+  })
 })
 
 describe('normalizeCode — PostgREST/SQLSTATE dialect ({ code, message })', () => {
@@ -54,10 +63,19 @@ describe('normalizeCode — PostgREST/SQLSTATE dialect ({ code, message })', () 
     expect(normalizeCode({ code: '23505', message: 'duplicate key value' }).code).toBe('constraint_violated')
   })
 
-  it('prefers the backend\'s own message over the lookup table', () => {
-    expect(normalizeCode({ code: '42501', message: 'permission denied for table members' }).message).toBe(
-      'permission denied for table members',
-    )
+  it('never surfaces raw Postgres/PostgREST driver text — that dialect is not Polish', () => {
+    const result = normalizeCode({ code: '42501', message: 'permission denied for table members' })
+    expect(result.message).not.toBe('permission denied for table members')
+    expect(result.message).toBe('Nie masz uprawnień do tej operacji.')
+  })
+
+  it('same for a check-constraint violation', () => {
+    const result = normalizeCode({
+      code: '23514',
+      message: 'new row violates check constraint "programs_status_check"',
+    })
+    expect(result.message).not.toContain('programs_status_check')
+    expect(result.message).toBe('Operacja narusza ograniczenie danych.')
   })
 
   it('leaves an unmapped Postgres code untranslated rather than inventing one', () => {
@@ -104,9 +122,9 @@ describe('setUnauthorizedHandler / toPanelError — one funnel for both call sty
     expect(handler).not.toHaveBeenCalled()
   })
 
-  it('toPanelError still returns a usable PanelError', () => {
+  it('toPanelError still returns a usable PanelError, with the Polish fallback message', () => {
     const err = toPanelError({ code: '23505', message: 'duplicate key value' })
     expect(err.code).toBe('constraint_violated')
-    expect(err.message).toBe('duplicate key value')
+    expect(err.message).toBe('Operacja narusza ograniczenie danych.')
   })
 })

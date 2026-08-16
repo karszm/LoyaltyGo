@@ -64,7 +64,10 @@ export function normalizeCode(err: unknown): AppError {
   if (isPostgrestError(err)) {
     const raw = err.code ?? 'internal_error'
     const code = PG_CODE_MAP[raw] ?? raw
-    return { code, message: err.message || fallbackMessage(code) }
+    // Postgres/PostgREST never speak Polish -- err.message is driver text ("permission denied
+    // for table members"), not something to show a salon owner. Unlike the panel-api branch
+    // above, the fallback dictionary is unconditional here, not a last resort.
+    return { code, message: fallbackMessage(code) }
   }
   if (err instanceof Error) {
     return { code: 'network_error', message: fallbackMessage('network_error') }
