@@ -17,7 +17,8 @@ const { title, description, noindex = true } = Astro.props;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#08090a" />
-    <meta name="referrer" content="no-referrer" />
+    {/* same-origin, not no-referrer — see middleware.ts's Referrer-Policy header for why */}
+    <meta name="referrer" content="same-origin" />
     {noindex && <meta name="robots" content="noindex, nofollow" />}
     <title>{title}</title>
     <meta name="description" content={description} />
