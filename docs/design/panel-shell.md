@@ -423,6 +423,7 @@ Geometry comes from `base.css` `.btn` unchanged: 44px, `--radius-lg`, 15px/590, 
 .btn[disabled]:hover { background: unset; border-color: unset; }
 .btn--full { inline-size: 100%; }
 .form-footer .btn { min-inline-size: 148px; }   /* label can swap to "Zapisywanie…" without resizing */
+.btn--publish { min-inline-size: 220px; }   /* same reason, for the one button that sits outside .form-footer (task 14) */
 ```
 
 | Variant | Where | Count |
@@ -502,7 +503,15 @@ the background and the backdrop — none of it is written by hand. Confirm butto
 consequence as its label (`Opublikuj program`, `Wygeneruj nowy klucz`), never `OK`. Cancel is
 `.btn--ghost` and is the dialog's initially focused control.
 
-This is the **only** modal in the panel. Everything else resolves inline.
+This dialog has two risk profiles, not one. When the risky action is *confirming*
+(publishing, rotating a key), focus starts on `Anuluj`. When the dialog instead **hands out** a
+one-time value whose loss is the actual cost (`KeyReveal`, task 14), focus starts on the action
+that rescues that value (`Kopiuj klucz`) instead. Rule: **initial focus sits on the way out of
+the situation, not on the safest-looking button.**
+
+This is the **only** modal **component** in the panel — one primitive, one modal layer.
+`KeyReveal` (task 14) is a second consumer of this same primitive, not a second layer: everything
+else still resolves inline.
 
 ### 5.8 ErrorSummary
 
@@ -697,8 +706,8 @@ Operate surfaces load into a task. `prefers-reduced-motion` is already handled g
 }
 ```
 
-The print sheet's own design belongs to task 17; the shell only guarantees that navigation never
-lands on paper.
+The print sheet's own design belongs to task 14, not task 17 (the plan doc's task list is stale
+on this point); the shell only guarantees that navigation never lands on paper.
 
 ---
 
@@ -717,6 +726,7 @@ lands on paper.
 | **Manifesto headlines and case-story voice** | Panel copy is imperative and short: `Zapisz`, `Opublikuj program`, `Klucz będzie dostępny po publikacji programu`. PRODUCT.md's voice rules still bind — full sentences, no exclamation marks, **no em/en dashes**. |
 | **Display weight 700** | Belongs to a hero. Top panel weight is 640, on metrics only. |
 | **Icons of any kind** | No icon library, no inline SVG in the shell. Text labels everywhere; the only graphic elements are 7px status dots and the QR that `/zaproszenie` renders as content. For a monthly visitor, an unlabelled glyph is a puzzle, and seven implementers with no icon set would produce seven icon styles. |
+| **The token palette, on paper** | Deliberately not extended to `.invite-sheet` (task 14). Paper is not a screen: the printed QR sheet is the one surface in the product where the tokens don't apply, and that exception stays closed to that one class — `white`/`black` there, nowhere else. |
 
 Kept without change: the token palette, the `.btn` family and its 44/52px geometry, the four-step
 text ramp, hairline seams over background bands, `--bg-raised` as the only elevation, the

@@ -872,3 +872,79 @@ dialog.confirm::backdrop {
   font-family: var(--font-mono);
   text-transform: uppercase;
 }
+
+/* ------------------------------------------------------------------ */
+/* Invite sheet (task-14-design.md §6, §12) -- the only surface this product prints on paper.    */
+/* Black/white are CSS keywords here, deliberately outside the token system: a token describes    */
+/* the screen world, and --bg-raised or --accent-ink used as "paper" would be a lie about what    */
+/* that token means. A QR in the panel's dark palette is a QR scanners can't read.                */
+/* All typography is in cqi: the sheet is 210mm wide edge-to-edge (padding supplies the 14mm       */
+/* margin), so cqi resolves to literal millimetres on paper and the on-screen preview is           */
+/* proportionally identical to the printout.                                                       */
+/* ------------------------------------------------------------------ */
+.invite-sheet {
+  container-type: inline-size;
+  inline-size: min(100%, 520px);
+  aspect-ratio: 210 / 297;
+  padding: 6.67cqi; /* 14mm */
+  background: white;
+  color: black;
+  border: 1px solid var(--border-strong); /* screen only: edge of the represented sheet of paper */
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3cqi;
+  text-align: center;
+}
+.invite-sheet__name {
+  font-size: 4.3cqi;
+  line-height: 1.2;
+  font-weight: 640;
+}
+.invite-sheet__claim {
+  font-size: 2.4cqi;
+  line-height: 1.4;
+}
+.invite-sheet__qr {
+  inline-size: 47.6cqi; /* 100mm at 210mm container width, incl. mandatory quiet zone */
+  block-size: auto;
+  margin-block: 2cqi;
+}
+.invite-sheet__scan {
+  font-size: 2.4cqi;
+  line-height: 1.4;
+}
+.invite-sheet__lead {
+  font-size: 1.7cqi;
+  line-height: 1.4;
+}
+.invite-sheet__url {
+  font-family: var(--font-mono);
+  font-size: 2.6cqi;
+  user-select: all;
+}
+.invite-sheet__foot {
+  font-size: 1.7cqi;
+  line-height: 1.5;
+  max-inline-size: 70cqi;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@media print {
+  .no-print {
+    display: none;
+  }
+  .invite-sheet {
+    inline-size: 100%;
+    max-inline-size: none;
+    border: 0;
+    border-radius: 0;
+    break-inside: avoid;
+  }
+}

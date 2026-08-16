@@ -5,6 +5,7 @@ import Login from './screens/Login'
 import AuthCallback from './screens/AuthCallback'
 import Onboarding from './screens/Onboarding'
 import CardWizard from './screens/CardWizard'
+import Invite from './screens/Invite'
 import { DraftGate } from './components/DraftGate'
 
 // Placeholder screen bodies for tasks 13-17 -- each real screen owns its own h1#screen-title and
@@ -72,15 +73,7 @@ function App() {
                 />
               }
             />
-            <Route
-              path="/zaproszenie"
-              element={
-                <PlaceholderScreen
-                  label="Zaproszenie"
-                  gateNote="Link zapraszający i kod QR powstają dopiero w chwili publikacji programu."
-                />
-              }
-            />
+            <Route path="/zaproszenie" element={<Invite />} />
             <Route path="*" element={<Navigate to="/karta" replace />} />
           </Route>
         </Route>
