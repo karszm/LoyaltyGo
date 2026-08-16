@@ -246,7 +246,7 @@ export default function CardWizard() {
       // No optimistic preview (§6.3): logoUrl only advances after BOTH the Storage upload and the
       // `programs` update succeed, so a failure at either step leaves the previous logo showing.
       const url = await uploadLogo(merchant.id, file)
-      await updateProgram({ logo_url: url })
+      await updateProgram(program.id, { logo_url: url })
       setLogoUrl(url)
       reload()
     } catch (err) {
@@ -267,7 +267,7 @@ export default function CardWizard() {
     setSaving(true)
     setServerError(null)
     try {
-      await updateProgram({
+      await updateProgram(program.id, {
         display_name: values.name.trim(),
         background_color: values.color,
         description: values.description,

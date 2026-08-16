@@ -50,22 +50,35 @@ export function getMerchant(): Promise<Merchant> {
   return unwrap(supabase.from('merchants').select(MERCHANT_COLUMNS).single())
 }
 
-export function updateMerchant(patch: { company_name?: string; contact_email?: string }): Promise<Merchant> {
-  return unwrap(supabase.from('merchants').update(patch).select(MERCHANT_COLUMNS).single())
+// The `id` filter is NOT redundant with RLS. PostgREST refuses an UPDATE or DELETE that
+// carries no filter at all — it answers 400 before the request ever reaches the database, so
+// RLS never gets a say. Relying on RLS alone to scope the write looks correct and fails
+// every time. (Found the hard way: the card wizard's save silently failed this way, and
+// because the browser was the only thing that ever exercised it, no test caught it.)
+export function updateMerchant(
+  merchantId: string,
+  patch: { company_name?: string; contact_email?: string },
+): Promise<Merchant> {
+  return unwrap(
+    supabase.from('merchants').update(patch).eq('id', merchantId).select(MERCHANT_COLUMNS).single(),
+  )
 }
 
 export function getProgram(): Promise<Program> {
   return unwrap(supabase.from('programs').select(PROGRAM_COLUMNS).single())
 }
 
-export function updateProgram(patch: {
+// See updateMerchant above for why the `id` filter is load-bearing rather than belt-and-braces.
+export function updateProgram(programId: string, patch: {
   display_name?: string
   logo_url?: string
   background_color?: string
   description?: string
   points_per_pln?: number
 }): Promise<Program> {
-  return unwrap(supabase.from('programs').update(patch).select(PROGRAM_COLUMNS).single())
+  return unwrap(
+    supabase.from('programs').update(patch).eq('id', programId).select(PROGRAM_COLUMNS).single(),
+  )
 }
 
 // Logo upload (task 13, card wizard) — the panel's one Storage write. `0010_program_logos.sql`'s
