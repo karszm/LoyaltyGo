@@ -372,9 +372,18 @@ działa bez JS. Szczegółowe uzasadnienie i tabela porównawcza — w opisie Ta
   więc nie da się zapisać dwa razy.
 - [ ] commit `feat(panel): passwordless auth with OTP fallback and session guards`
 
-### Task 12: Bootstrap pierwszego wejścia
+### Task 12: Bootstrap pierwszego wejścia + powłoka aplikacji
 
-**Files:** create `src/screens/Onboarding.tsx`; modify `session.tsx`
+**Files:** create `src/screens/Onboarding.tsx`, `src/components/{AppShell,SideNav,ProgramStateChip,DraftGate}.tsx`; modify `session.tsx`, `App.tsx`
+
+> **Uzupełnienie luki w planie (review Taska 10).** Powłoka aplikacji — pasek boczny, chip stanu
+> programu, blokada ekranów w stanie `draft` — **nie miała właściciela w pierwotnym planie**:
+> Task 11 to uwierzytelnianie (ekran logowania stoi POZA powłoką), a Task 17 tylko modyfikuje
+> `App.tsx` przy przejściu dostępnościowym. Powłoka pojawia się po raz pierwszy dokładnie tutaj,
+> bo Task 12 jest pierwszym ekranem wewnątrz zalogowanej sesji i to on ustala routing po
+> zalogowaniu. Specyfikacja: `panel-shell-design.md` (stały pasek 240 px, bez zwijania, bez ikon;
+> poniżej 1024 px przewijany poziomo nagłówek dwuwierszowy, bez hamburgera; `DraftGate` jest
+> TREŚCIĄ czterech ekranów w stanie `draft`, nie banerem — bo QR i klucz SDK jeszcze nie istnieją).
 
 - [ ] Panel musi utworzyć **oba** wiersze — `merchants` i `programs` — zanim ktokolwiek dotknie
   `panel-api`: `resolveMerchant` zwraca 401 bez merchanta, a `panel-api` rzuca **500**, gdy merchant
