@@ -1,7 +1,8 @@
 # LoyaltyGo — stan implementacji
 
-Stan na **2026-08-16**. Gałąź `feat/panel-and-program-page`, **41 commitów ponad `main`**,
-HEAD `97e356f`. Testy: **102 (panel) + 60 (strona klienta)**, wszystkie zielone.
+Stan na **2026-08-17**. Gałąź `feat/panel-and-program-page`, **47 commitów ponad `main`**.
+Testy: **119 (panel) + 60 (strona klienta)**, wszystkie zielone.
+**Plan zamknięty w 16 z 17 zadań** — Task 15 (Integracja) świadomie odłożony, patrz niżej.
 Migracje: `0001`–`0011`.
 
 Plan: `docs/superpowers/plans/2026-08-14-merchant-panel-and-program-page.md`
@@ -28,9 +29,16 @@ Zweryfikowane prawdziwymi wywołaniami do konta PassKita, nie zaślepką.
 | Panel: kreator karty, logo, przelicznik, podgląd | ✅ Task 13 |
 | Panel: publikacja, jednorazowy klucz, arkusz QR do druku | ✅ Task 14 |
 | **PassKit: uwierzytelnianie, program, szablon per merchant, wydanie karty** | ✅ poza planem |
-| Task 15: integracja — odcisk klucza i rotacja | ⬜ |
-| Task 16: klienci i historia transakcji | ⬜ |
-| Task 17: dostępność i runbook `VERIFY.md` | ⬜ |
+| Panel: listy klientów i transakcji, cztery stany puste | ✅ Task 16 |
+| Panel: dostępność i runbook `merchant_panel/VERIFY.md` | ✅ Task 17 |
+| Task 15: integracja — odcisk klucza i rotacja | ⬜ **odłożony świadomie** |
+
+**Dlaczego Task 15 jest ostatni:** obsługuje klucz, którym aplikacja płatnicza na terminalu
+uwierzytelnia się jako program danego merchanta. **SDK iOS nie istnieje** — jest osobnym
+podprojektem spoza tego planu — więc dziś tego klucza nie ma czym wykorzystać poza wywołaniem
+API z konsoli. Decyzja użytkownika z 2026-08-16.
+**Konsekwencja:** `merchant_panel/VERIFY.md` powstał przed tym ekranem i po Tasku 15 będzie
+wymagał dopisania jego ścieżki.
 
 ---
 
