@@ -34,16 +34,27 @@ async function sha256Hex(s: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// Builds the `PKAuth <jwt>` header value. Mirrors PassKit's own published pre-request
-// script verbatim: claims {key, exp (iat+30s), iat, url, method, signature? (sha256 hex of
-// the body, only when a body is sent)}, header {alg: HS256, typ: JWT}, HMAC-SHA256 over
-// base64url(header)+"."+base64url(body) keyed with the api secret, final token
-// base64url(sig) appended. A fresh token is signed per request — never cached, never logged.
-async function passkitAuthHeader(method: string, url: string, bodyText?: string): Promise<string> {
+// Builds the Authorization header value: a bare JWT, no scheme prefix.
+//
+// CORRECTED 2026-08-16 against the first real call ever made to a live PassKit account —
+// the previous version was written from docs alone and was wrong in three ways, each of
+// which alone produces a 401:
+//   1. the api-key claim is `uid`, not `key`;
+//   2. `exp` is iat+3600, not iat+30;
+//   3. the header carries the BARE token — a `PKAuth ` prefix makes PassKit try to
+//      base64-decode "PKAuth eyJ…" and fail with `illegal base64 data at input byte 6`,
+//      which is the space. That error is what led here, and it is worth recognising:
+//      a base64 complaint about a fixed byte offset means a prefix problem, not bad keys.
+// `url`/`method` claims were also invented; PassKit's own example carries neither, so they
+// are gone. `signature` (sha256 hex of the body) stays — it is documented as optional.
+// Source: help.passkit.com/en/articles/4138220 (PassKit's own published example).
+//
+// A fresh token is signed per request — never cached, never logged.
+async function passkitAuthHeader(_method: string, _url: string, bodyText?: string): Promise<string> {
   const apiKey = Deno.env.get("PASSKIT_API_KEY") ?? "";
   const apiSecret = Deno.env.get("PASSKIT_API_SECRET") ?? "";
   const now = Math.floor(Date.now() / 1000);
-  const claims: Record<string, unknown> = { key: apiKey, exp: now + 30, iat: now, url, method };
+  const claims: Record<string, unknown> = { uid: apiKey, exp: now + 3600, iat: now };
   if (bodyText) claims.signature = await sha256Hex(bodyText);
   const header = base64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const payload = base64url(JSON.stringify(claims));
@@ -56,7 +67,7 @@ async function passkitAuthHeader(method: string, url: string, bodyText?: string)
     ["sign"],
   );
   const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(signingInput));
-  return `PKAuth ${signingInput}.${base64url(new Uint8Array(sig))}`;
+  return `${signingInput}.${base64url(new Uint8Array(sig))}`;
 }
 
 // Shared request helper for every live call. PassKit's error shape is inconsistent across
