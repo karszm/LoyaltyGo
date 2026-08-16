@@ -24,7 +24,13 @@ const CSP = [
 
 const SECURITY_HEADERS: Record<string, string> = {
   "X-Content-Type-Options": "nosniff",
-  "Referrer-Policy": "no-referrer",
+  // task-7-brief.md asked for `no-referrer`, but Chrome zeroes the `Origin` header too (not
+  // just `Referer`) on a same-origin POST navigation under that policy — Astro's built-in
+  // origin-check middleware then sees Origin "null" vs the request's real origin and rejects
+  // every form submission with 403, on JoinForm and RecoveryForm alike (confirmed live, not
+  // assumed). `same-origin` gives the same cross-origin privacy (never leaks referrer to
+  // another site) without that side effect, because it still sends it for same-origin requests.
+  "Referrer-Policy": "same-origin",
   "X-Frame-Options": "DENY",
   "Content-Security-Policy": CSP,
 };

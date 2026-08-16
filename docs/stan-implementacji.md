@@ -1,7 +1,8 @@
 # LoyaltyGo — stan implementacji
 
-Stan na **2026-08-16**. Gałąź `feat/panel-and-program-page`, **41 commitów ponad `main`**,
-HEAD `97e356f`. Testy: **102 (panel) + 60 (strona klienta)**, wszystkie zielone.
+Stan na **2026-08-17**. Gałąź `feat/panel-and-program-page`, **47 commitów ponad `main`**.
+Testy: **119 (panel) + 60 (strona klienta)**, wszystkie zielone.
+**Plan zamknięty w 16 z 17 zadań** — Task 15 (Integracja) świadomie odłożony, patrz niżej.
 Migracje: `0001`–`0011`.
 
 Plan: `docs/superpowers/plans/2026-08-14-merchant-panel-and-program-page.md`
@@ -28,9 +29,16 @@ Zweryfikowane prawdziwymi wywołaniami do konta PassKita, nie zaślepką.
 | Panel: kreator karty, logo, przelicznik, podgląd | ✅ Task 13 |
 | Panel: publikacja, jednorazowy klucz, arkusz QR do druku | ✅ Task 14 |
 | **PassKit: uwierzytelnianie, program, szablon per merchant, wydanie karty** | ✅ poza planem |
-| Task 15: integracja — odcisk klucza i rotacja | ⬜ |
-| Task 16: klienci i historia transakcji | ⬜ |
-| Task 17: dostępność i runbook `VERIFY.md` | ⬜ |
+| Panel: listy klientów i transakcji, cztery stany puste | ✅ Task 16 |
+| Panel: dostępność i runbook `merchant_panel/VERIFY.md` | ✅ Task 17 |
+| Task 15: integracja — odcisk klucza i rotacja | ⬜ **odłożony świadomie** |
+
+**Dlaczego Task 15 jest ostatni:** obsługuje klucz, którym aplikacja płatnicza na terminalu
+uwierzytelnia się jako program danego merchanta. **SDK iOS nie istnieje** — jest osobnym
+podprojektem spoza tego planu — więc dziś tego klucza nie ma czym wykorzystać poza wywołaniem
+API z konsoli. Decyzja użytkownika z 2026-08-16.
+**Konsekwencja:** `merchant_panel/VERIFY.md` powstał przed tym ekranem i po Tasku 15 będzie
+wymagał dopisania jego ścieżki.
 
 ---
 
@@ -84,13 +92,13 @@ LOGO_PUBLIC_ORIGIN, LOGO_INTERNAL_ORIGIN — tylko lokalnie, patrz niżej
 - **Karta już dodana do telefonu a zmiana brandingu.** Potwierdzone doświadczalnie, że karta
   **pobrana ponownie** niesie nowy kolor. Czy telefon odświeży kartę już zainstalowaną, zależy
   od powiadomień wypychanych przez Apple/Google — **niezweryfikowane na urządzeniu**.
-- **Zapis brandingu bez zainicjowanego szablonu zwraca sukces po cichu**
-  (`handleBrandingSync` → `{synced:false, reason:"not_provisioned"}`), a panel tego nie pokazuje.
-  Nieosiągalne normalną drogą, ale to ta sama klasa cichej awarii co siedem znalezionych.
+- ~~Zapis brandingu bez zainicjowanego szablonu zwraca sukces po cichu~~ — **naprawione
+  w Tasku 17**: panel czyta odpowiedź i pokazuje komunikat pod tytułem „Zapisano, ale karta
+  w portfelu jeszcze się nie zaktualizowała.”
 - **Logo jest dopasowywane do kwadratu 660×660** przez panel (PassKit odrzuca mniejsze).
   Merchant jest o tym informowany, ale plik na karcie nie jest bajt w bajt tym, który wgrał.
-- **Brak ekranu integracji** (odcisk klucza, rotacja) — Task 15.
-- **Brak listy klientów i historii transakcji** — Task 16.
+- **Brak ekranu integracji** (odcisk klucza, rotacja) — Task 15, odłożony świadomie.
+  `merchant_panel/VERIFY.md` będzie wymagał dopisania jego ścieżki.
 - **Brak ścieżki usuwania danych klienta** — nikt nie ma uprawnienia `DELETE` na `members`,
   także rola serwisowa.
 
@@ -111,6 +119,10 @@ kompilacja czysta.
 | `update()` bez filtra | „nie udało się wysłać logo", choć logo poszło |
 | Logo 350×100 wobec wymogu 660×660 | cicha degradacja do cudzego znaku |
 | Trasa nieujęta w `KNOWN_PATHS` | 404, o którym nikt się nie dowiadywał |
+
+Do tego dwa błędy wdrożeniowe, znalezione dopiero przy pierwszym prawdziwym wdrożeniu na
+Cloudflare: brak `.assetsignore` (wrangler słusznie odmówił wystawienia kodu serwera jako
+plików statycznych) i niezgodna nazwa workera. Oba naprawione.
 
 **Wniosek operacyjny:** żaden task nie jest skończony, dopóki ktoś nie przejdzie go ręcznie
 w przeglądarce. Przez całą tę sesję narzędzia przeglądarkowe były niedostępne, więc jedyną
