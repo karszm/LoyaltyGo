@@ -8,7 +8,7 @@
 #   (the CLI serves every function in supabase/functions/ together -- it does not take a
 #   single function name as an argument)
 #
-# Usage: backend/supabase/tests/smoke.sh [sdk|public|panel]   (default: all sections)
+# Usage: backend/supabase/tests/smoke.sh [sdk|public|panel|cors]   (default: all sections)
 #
 # Structured as one function per surface (Task 5 = sdk; Tasks 6-7 add public/panel) so
 # new sections can be appended without touching this one.
@@ -80,7 +80,7 @@ sdk_tests() {
   body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
   check "GET /program status code" "$status" "200"
   check "GET /program .status" "$(echo "$body" | jq -r .status)" "published"
-  check "GET /program .invite_url" "$(echo "$body" | jq -r .invite_url)" "https://app.loyaltygo.pl/SEEDA1"
+  check "GET /program .invite_url" "$(echo "$body" | jq -r .invite_url)" "https://karta.loyaltygo.pl/SEEDA1"
 
   # scan known card
   r=$(req POST /scans "{\"card_token\":\"$CARD_A\"}" "$KEY_A")
@@ -394,12 +394,16 @@ public_tests() {
   code=$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_BASE/card-links/%ED%A0%80")
   check "GET /card-links malformed percent-escape status" "$code" "404"
 
-  # expired token: insert one directly, 1h in the past
+  # expired token: insert one directly, 1h in the past. The 410 body must still carry
+  # invite_code (MEMBER_A -> program A -> SEEDA1) so the page can link the customer back
+  # to the program page even though their card link itself is dead.
   psql_exec "insert into public.card_link_tokens (member_id, expires_at) values ('$MEMBER_A', now() - interval '1 hour');"
   local expired_token
   expired_token=$(psql_count "select token from public.card_link_tokens where member_id='$MEMBER_A' and expires_at < now() order by created_at desc limit 1;")
-  code=$(curl -s -o /dev/null -w '%{http_code}' "$PUBLIC_BASE/card-links/$expired_token")
-  check "GET /card-links expired token status" "$code" "410"
+  r=$(preq GET "/card-links/$expired_token")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "GET /card-links expired token status" "$status" "410"
+  check "GET /card-links expired token .invite_code" "$(echo "$body" | jq -r .invite_code)" "SEEDA1"
 
   # lazy retry: MEMBER_A's pass_status is 'pending' by default (seed never sets it) --
   # hitting the still-valid $first_token must retry issuance now and flip the DB row.
@@ -409,6 +413,10 @@ public_tests() {
   body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
   check "GET /card-links lazy retry status" "$status" "200"
   check "GET /card-links lazy retry .status" "$(echo "$body" | jq -r .status)" "ready"
+  # Branding travels on the ready response too -- this is what the card-link page renders
+  # as the merchant's brand (Seed Salon A, program A's seeded display_name).
+  check "GET /card-links lazy retry .display_name" "$(echo "$body" | jq -r .display_name)" "Seed Salon A"
+  check "GET /card-links lazy retry .invite_code" "$(echo "$body" | jq -r .invite_code)" "SEEDA1"
   check "MEMBER_A pass_status flipped to ready in DB" \
     "$(psql_count "select pass_status from public.members where id='$MEMBER_A';")" "ready"
 }
@@ -649,13 +657,82 @@ panel_tests() {
   check "A restored to published in DB" "$(psql_count "select status from public.programs where id='$PROGRAM_A';")" "published"
 }
 
+cors_tests() {
+  echo "== cors =="
+
+  local origin="http://127.0.0.1:3000"
+  local pair fn path headers status origin_header
+
+  # Preflight (OPTIONS) on one real route per function must succeed with
+  # access-control-allow-origin: * -- before this task these all fell through to the
+  # method if-chain in the function itself and came back 405 (confirmed by curling the
+  # edge-runtime container directly, bypassing Kong -- see task-1-report.md).
+  #
+  # Through BASE_URL (Kong on :54321, what a browser actually hits locally) the expected
+  # status is 200, not the function's own 204: the local `supabase start` kong.yml applies
+  # a "cors" plugin to the functions-v1 route too, so Kong answers OPTIONS itself before
+  # the request ever reaches our preflight() -- our 204 never surfaces through Kong. This
+  # check therefore asserts the observable local-browser behaviour (succeeds, not 405/count
+  # blocked), not literally which layer answered it.
+  for pair in "sdk-api:/program" "public-api:/invites/SEEDA1" "panel-api:/program/key"; do
+    fn="${pair%%:*}"
+    path="${pair#*:}"
+    headers=$(curl -s -D - -o /dev/null -X OPTIONS \
+      -H "Origin: $origin" -H "Access-Control-Request-Method: GET" \
+      "$BASE_URL/$fn$path")
+    status=$(echo "$headers" | head -1 | awk '{print $2}')
+    origin_header=$(echo "$headers" | grep -i '^access-control-allow-origin:' | tr -d '\r' | awk '{print $2}')
+    check "OPTIONS $fn$path preflight status" "$status" "200"
+    check "OPTIONS $fn$path preflight allow-origin" "$origin_header" "*"
+  done
+
+  # A real (non-preflight) 401 must carry the header too -- without it the browser hides
+  # the error body from the panel's fetch(), and the panel can't show the message it was given.
+  headers=$(curl -s -D - -o /dev/null "$BASE_URL/sdk-api/program")
+  origin_header=$(echo "$headers" | grep -i '^access-control-allow-origin:' | tr -d '\r' | awk '{print $2}')
+  check "401 GET /program (no key) carries access-control-allow-origin" "$origin_header" "*"
+
+  # -- direct-to-function checks (bypass Kong) --
+  # The two checks above go through Kong (BASE_URL), and Kong's own "cors" plugin on the
+  # functions-v1 route (see kong.yml inside the supabase_kong_backend container) answers
+  # OPTIONS itself and stamps access-control-allow-origin onto EVERY response through that
+  # route -- including the old, unpatched code's. So a through-Kong check cannot regress if
+  # _shared/http.ts or _shared/errors.ts loses its CORS headers; it stays green either way.
+  # Production has no such gateway in front of the functions, so what actually matters is
+  # whether the function itself emits the headers. These two checks curl the edge-runtime
+  # container directly (from a throwaway container on the same compose network, since its
+  # port isn't published to the host) to catch exactly that regression.
+  #
+  # Container/network names are derived, not hardcoded: they're generated by the Supabase
+  # CLI from config.toml's project_id ("backend") as supabase_edge_runtime_<project_id> /
+  # supabase_network_<project_id>. Renaming the project changes both.
+  local edge_container edge_network
+  edge_container=$(docker ps --filter "name=supabase_edge_runtime" --format '{{.Names}}' | head -1)
+  edge_network=$(docker network ls --filter "name=supabase_network" --format '{{.Name}}' | head -1)
+
+  if [ -z "$edge_container" ] || [ -z "$edge_network" ]; then
+    check "direct-to-function cors checks (edge-runtime container/network found)" "not found" "found"
+  else
+    status=$(docker run --rm --network "$edge_network" curlimages/curl:latest -s -o /dev/null -w '%{http_code}' \
+      -X OPTIONS -H "Origin: $origin" -H "Access-Control-Request-Method: GET" \
+      "http://$edge_container:8081/panel-api/program/key")
+    check "OPTIONS panel-api/program/key direct-to-function (no Kong) preflight status" "$status" "204"
+
+    headers=$(docker run --rm --network "$edge_network" curlimages/curl:latest -s -D - -o /dev/null \
+      "http://$edge_container:8081/sdk-api/program")
+    origin_header=$(echo "$headers" | grep -i '^access-control-allow-origin:' | tr -d '\r' | awk '{print $2}')
+    check "401 GET /program direct-to-function (no Kong) carries access-control-allow-origin" "$origin_header" "*"
+  fi
+}
+
 SECTION="${1:-all}"
 case "$SECTION" in
   sdk) sdk_tests ;;
   public) public_tests ;;
   panel) panel_tests ;;
-  all) sdk_tests; public_tests; panel_tests ;;
-  *) echo "usage: $0 [sdk|public|panel]"; exit 2 ;;
+  cors) cors_tests ;;
+  all) sdk_tests; public_tests; panel_tests; cors_tests ;;
+  *) echo "usage: $0 [sdk|public|panel|cors]"; exit 2 ;;
 esac
 
 echo

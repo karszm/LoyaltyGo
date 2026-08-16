@@ -1,0 +1,44 @@
+/* LoyaltyGo — Linear Dark System tokens (shared across landing, program page, merchant panel) */
+
+:root {
+  --bg: #08090a;
+  --bg-raised: #101113;
+  --text-1: #f7f8f8;
+  --text-2: #d0d6e0;
+  --text-3: #8a8f98;
+  --text-4: #767b84; /* lightened from Linear's #62666d to hold 4.5:1 on #08090a */
+  --accent: #5e6ad2;
+  --accent-ink: #ffffff; /* text-1 on accent is 4.42:1, below AA; white holds 4.70:1 */
+  --green: #27a644;
+  --red: #eb5757;
+  --border: #23252a;
+  --border-strong: #34363c;
+
+  --amber: #d97a32;
+  --amber-hover: #e28842;
+  --amber-ink: #1a120a;
+
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-pill: 9999px;
+
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-7: 20px;
+  --space-8: 24px;
+  --space-9: 32px;
+  --space-10: 48px;
+  --space-11: 128px;
+
+  --font-sans: 'Inter Variable', 'SF Pro Display', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+}

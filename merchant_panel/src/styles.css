@@ -1,0 +1,1028 @@
+@import '@loyaltygo/design-tokens/base.css';
+
+/*
+ * Panel primitives (panel-shell-design.md). Values here are verbatim from that spec — do not
+ * retune a heights/radii/size without updating the spec first, tasks 11-17 build on them as-is.
+ *
+ * Binding contrast constraints found by the design pass (panel-shell-design.md §8):
+ *   - `--text-4` on `--bg-raised` measures 4.44:1, below AA — banned on any raised (`.panel`)
+ *     surface in this app. `--text-4` stays valid directly on `--bg` (see tokens.css). Reach
+ *     for `--text-3` (5.86:1) instead wherever the surrounding surface is `.panel`.
+ *   - `--accent` as *text* measures 4.24:1, below AA — it is a fill and a focus-ring colour
+ *     only, never a text colour, anywhere in the panel.
+ */
+
+:root {
+  color-scheme: dark; /* native selects, date pickers, scrollbars render dark */
+  --panel-sidebar: 240px;
+  --panel-measure: 1080px;
+  --panel-form: 640px;
+  --panel-gutter: var(--space-9);
+  /* Same measure as ProgramCard/StatusPanel's "one thing, one decision" objects (task-11-design.md
+     §2) — a new name, not a new value. Used by the /login and /auth screens, which stand outside
+     .shell entirely. */
+  --auth-measure: 380px;
+}
+@media (max-width: 1023px) {
+  :root {
+    --panel-gutter: var(--space-7);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Shell grid (panel-shell-design.md §4.1) — AppShell/SideNav markup is the shell task's;      */
+/* the CSS lives here so it is ready when that markup arrives.                                 */
+/* ------------------------------------------------------------------ */
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--panel-sidebar) minmax(0, 1fr);
+  min-block-size: 100dvh;
+}
+.shell__nav {
+  position: sticky;
+  inset-block-start: 0;
+  block-size: 100dvh;
+  display: flex;
+  flex-direction: column;
+  border-inline-end: 1px solid var(--border);
+}
+.shell__main {
+  min-inline-size: 0; /* lets wide tables scroll instead of forcing the grid track open */
+}
+.shell__content {
+  max-inline-size: var(--panel-measure);
+  margin-inline: auto;
+  padding: var(--panel-gutter);
+}
+
+@media print {
+  .shell {
+    display: block;
+  }
+  .shell__nav,
+  .skip-link {
+    display: none;
+  }
+  .shell__content {
+    max-inline-size: none;
+    padding: 0;
+  }
+}
+
+/* Skip link (panel-shell-design.md §8) — first focusable element on the page, visually hidden
+   off-screen until it receives focus. */
+.skip-link {
+  position: absolute;
+  inset-block-start: -100%;
+  inset-inline-start: var(--space-6);
+  z-index: 100;
+  padding: var(--space-5) var(--space-6);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--text-1);
+}
+.skip-link:focus-visible {
+  inset-block-start: var(--space-6);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* SideNav internals (panel-shell-design.md §1) — geometry is verbatim: 56px brand zone, 44px    */
+/* nav rows, the sticky 96px two-row header below 1024px. One markup covers both arrangements;   */
+/* only one of .shell__nav-desktop / .shell__nav-mobile is display:block at a time.              */
+/* ------------------------------------------------------------------ */
+
+.shell__nav-desktop {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+}
+.shell__nav-mobile {
+  display: none;
+}
+
+.shell__brand {
+  block-size: 56px;
+  display: flex;
+  align-items: center;
+  padding-inline: var(--space-6);
+  border-block-end: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.shell__identity {
+  padding: var(--space-7) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4); /* 8px, "below it, 8px down, the state chip" */
+}
+.shell__program-name {
+  font-size: 13px;
+  line-height: 19.5px;
+  font-weight: 590;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shell__nav-list {
+  display: flex;
+  flex-direction: column;
+}
+.shell__nav-item {
+  display: flex;
+  align-items: center;
+  block-size: 44px;
+  padding-inline: var(--space-6);
+  font-size: 14px;
+  line-height: 21px;
+  letter-spacing: -0.13px;
+  font-weight: 400;
+  color: var(--text-3);
+}
+.shell__nav-item:hover {
+  color: var(--text-1);
+}
+/* Threefold active treatment (panel-shell-design.md §8): colour + weight + wash, not accent --
+   accent stays reserved for "action or focus" everywhere in the app. */
+.shell__nav-item--active {
+  color: var(--text-1);
+  font-weight: 590;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.shell__spacer {
+  flex: 1;
+}
+
+.shell__footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+.shell__footer-email {
+  font-size: 12px;
+  line-height: 16.8px;
+  color: var(--text-4); /* directly on --bg (4.69:1) -- allowed, see the file-level contrast note */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 1023px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+  .shell__nav {
+    position: sticky;
+    inset-block-start: 0;
+    block-size: auto;
+    border-inline-end: none;
+    border-block-end: 1px solid var(--border);
+    background: var(--bg);
+    z-index: 20;
+  }
+  .shell__nav-desktop {
+    display: none;
+  }
+  .shell__nav-mobile {
+    display: flex;
+    flex-direction: column;
+  }
+  .shell__nav-row1 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    block-size: 48px;
+    padding-inline: var(--space-6);
+  }
+  .shell__nav-row1 .shell__program-name--inline {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .shell__nav-row2 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-6);
+    block-size: 48px;
+    padding-inline: var(--space-6);
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+  }
+  .shell__nav-row2 .shell__nav-item {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    padding-inline: 0;
+  }
+  .shell__nav-row2 .shell__nav-logout {
+    margin-inline-start: auto;
+    flex-shrink: 0;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Status block (panel-shell-design.md §6.3) — shared geometry behind DraftGate now, and behind  */
+/* EmptyState/ErrorState once a later task needs them: max 380px, centred, 16px gap.             */
+/* ------------------------------------------------------------------ */
+
+.status-block {
+  max-inline-size: 380px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.status-block__headline {
+  font-size: 17px;
+  line-height: 26px;
+  font-weight: 590;
+  color: var(--text-1);
+}
+.status-block__note {
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--text-2);
+}
+
+/* ------------------------------------------------------------------ */
+/* Field — 52px form, 44px compact (panel-shell-design.md §5.1)                                */
+/* ------------------------------------------------------------------ */
+
+.field {
+  inline-size: 100%;
+  block-size: 52px;
+  padding-inline: var(--space-6); /* 16px */
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg); /* 8px */
+  color: var(--text-1);
+  font: inherit;
+  font-size: 15px;
+  transition: border-color 140ms ease;
+}
+.field::placeholder {
+  color: var(--text-3);
+}
+.field:hover {
+  border-color: var(--text-4);
+}
+.field:focus-visible {
+  outline: 2px solid var(--accent); /* ring, not text — see the contrast note above */
+  outline-offset: 2px;
+}
+
+.field[aria-invalid='true'] {
+  border-color: var(--red);
+}
+.field[aria-invalid='true']:focus-visible {
+  outline-color: var(--red);
+}
+
+.field:disabled {
+  background: var(--bg);
+  border-color: var(--border);
+  color: var(--text-3);
+  cursor: not-allowed;
+}
+
+.field--compact {
+  block-size: 44px;
+  padding-inline: var(--space-5);
+  font-size: 14px;
+}
+textarea.field {
+  block-size: auto;
+  min-block-size: 104px;
+  padding-block: var(--space-5);
+  line-height: 24px;
+}
+select.field {
+  padding-inline-end: var(--space-5); /* native select; no custom dropdown */
+}
+
+/* Field group (label + control + message) — the only way a field is used. */
+.fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4); /* 8px */
+}
+.fieldset + .fieldset {
+  margin-block-start: var(--space-7); /* 20px */
+}
+.fieldset__label {
+  font-size: 13px;
+  line-height: 19.5px;
+  color: var(--text-3);
+}
+/* --text-4 here is the spec's literal value; it only holds AA when the fieldset sits directly
+   on --bg (4.69:1). Inside a .panel (--bg-raised) it measures 4.44:1 and fails — use --text-3
+   there instead (see the file-level contrast note). */
+.fieldset__hint {
+  font-size: 13px;
+  line-height: 19.5px;
+  color: var(--text-4);
+}
+/* KOREKTA (authorised at task 13, docs/design/panel-shell.md §5.1): task 10 implemented the rule
+   above verbatim and flagged the AA failure rather than silently changing it — correct call at
+   the time, since /karta (task 13) is the first screen to actually nest a .fieldset inside a
+   .panel and make the 4.44:1 failure real rather than theoretical. */
+.panel .fieldset__hint {
+  color: var(--text-3);
+}
+.fieldset__error {
+  font-size: 13px;
+  line-height: 19.5px;
+  color: var(--red);
+}
+
+/* ------------------------------------------------------------------ */
+/* Panel — the surface everything sits on (panel-shell-design.md §5.2)                         */
+/* ------------------------------------------------------------------ */
+
+.panel {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl); /* 12px — chrome radius */
+  padding: var(--space-8); /* 24px */
+}
+.panel + .panel {
+  margin-block-start: var(--space-8);
+}
+.panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-6);
+  margin-block-end: var(--space-6);
+}
+.panel__title {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 590;
+  color: var(--text-1);
+}
+/* This surface IS --bg-raised: any text placed loose inside a .panel stops at --text-3
+   (5.86:1) — never --text-4 (4.44:1 here, AA fail). */
+.panel__note {
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--text-3);
+}
+
+/* ------------------------------------------------------------------ */
+/* Chips (panel-shell-design.md §5.3) — two chips, two jobs, no third.                         */
+/* ------------------------------------------------------------------ */
+
+/* StateChip — program state, member status, transaction status. Dot + word. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3); /* 6px */
+  block-size: 24px;
+  padding-inline: var(--space-5); /* 12px */
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+  font-size: 13px;
+  line-height: 19.5px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.chip__dot {
+  inline-size: 7px;
+  block-size: 7px;
+  border-radius: var(--radius-pill);
+  flex-shrink: 0;
+  background: var(--text-4);
+}
+.chip--ok .chip__dot {
+  background: var(--green);
+}
+.chip--warn {
+  color: var(--red);
+}
+.chip--warn .chip__dot {
+  background: var(--red);
+}
+.chip--muted {
+  color: var(--text-3);
+}
+
+/* MonoChip — machine data inline: key fragments, transaction ids, point deltas. */
+.chip-mono {
+  display: inline-block;
+  padding: 2px var(--space-4); /* 2px 8px */
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm); /* 4px — data, not a badge */
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--text-2);
+}
+
+/* ------------------------------------------------------------------ */
+/* Buttons (panel-shell-design.md §5.4) — geometry is base.css's .btn unchanged (44px,          */
+/* --radius-lg, 15px/590); .btn--primary was deliberately deleted from base.css (shared with    */
+/* the landing) and is reintroduced here, scoped to the panel.                                  */
+/* ------------------------------------------------------------------ */
+
+.btn--primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.btn--primary:hover {
+  background: color-mix(in srgb, var(--accent) 90%, var(--text-1));
+}
+.btn--primary:active {
+  transform: translateY(1px);
+}
+.btn--primary:focus-visible {
+  outline-color: var(--text-1); /* violet ring on violet fill is invisible */
+}
+
+.btn--danger {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--red);
+}
+.btn--danger:hover {
+  border-color: var(--red);
+}
+
+.btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn[disabled]:hover {
+  background: unset;
+  border-color: unset;
+}
+.btn--full {
+  inline-size: 100%;
+}
+
+/* ------------------------------------------------------------------ */
+/* Metric (panel-shell-design.md §5.6)                                                          */
+/* ------------------------------------------------------------------ */
+
+.metric__value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 640;
+  color: var(--text-1);
+}
+.metric__label {
+  font-size: 12px;
+  line-height: 16.8px;
+  color: var(--text-3);
+}
+
+/* ------------------------------------------------------------------ */
+/* ConfirmDialog — native <dialog> (panel-shell-design.md §5.7). The only modal in the panel;    */
+/* the platform supplies the focus trap, Esc handler and backdrop inertness.                    */
+/* ------------------------------------------------------------------ */
+
+dialog.confirm {
+  max-inline-size: 420px;
+  padding: var(--space-8);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong); /* a standalone object, not a stacked panel */
+  border-radius: var(--radius-xl);
+  color: var(--text-2);
+}
+dialog.confirm::backdrop {
+  background: rgba(8, 9, 10, 0.72);
+}
+.confirm__title {
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 590;
+  color: var(--text-1);
+}
+.confirm__body {
+  font-size: 15px;
+  line-height: 24px;
+  margin-block: var(--space-5) var(--space-8);
+}
+.confirm__actions {
+  display: flex;
+  gap: var(--space-5);
+  justify-content: flex-end;
+}
+
+/* ------------------------------------------------------------------ */
+/* Publish button and key reveal (task-14-design.md §12).                                       */
+/* ------------------------------------------------------------------ */
+
+/* Sits outside .form-footer, so it doesn't inherit its min-inline-size; holds its width while
+   the label swaps to "Zapisywanie…" / "Publikowanie…". */
+.btn--publish {
+  min-inline-size: 220px;
+}
+
+/* The plaintext key -- the only place in the panel where text is select-all with one click. */
+.key-plaintext {
+  display: block;
+  padding: var(--space-5) var(--space-6);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--text-1);
+  word-break: break-all;
+  user-select: all;
+}
+.key-plaintext:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* ErrorSummary (panel-shell-design.md §5.8) — publication refused shows the list of missing    */
+/* fields; role="alert", focused on render. Red is spent on the border only.                    */
+/* ------------------------------------------------------------------ */
+
+.error-summary {
+  border: 1px solid var(--red);
+  border-radius: var(--radius-xl);
+  background: var(--bg-raised);
+  padding: var(--space-6) var(--space-7);
+}
+.error-summary__title {
+  font-size: 15px;
+  line-height: 24px;
+  font-weight: 590;
+  color: var(--text-1);
+}
+.error-summary ul {
+  margin-block-start: var(--space-4);
+  padding-inline-start: var(--space-7);
+}
+.error-summary a {
+  color: var(--text-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Inline save feedback — no toast system (panel-shell-design.md §5.9).                         */
+/* ------------------------------------------------------------------ */
+
+.form-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-block-start: var(--space-8);
+}
+.form-footer .btn {
+  min-inline-size: 148px; /* label can swap to "Zapisywanie…" without resizing */
+}
+.form-status {
+  font-size: 13px;
+  line-height: 19.5px;
+  color: var(--text-3);
+  margin-inline-end: auto;
+}
+
+/* ------------------------------------------------------------------ */
+/* Data-region states (panel-shell-design.md §6) — every screen's content lives inside one      */
+/* region that owns loaded/loading/empty/error; the region reserves its height so switching     */
+/* states never moves the page.                                                                 */
+/* ------------------------------------------------------------------ */
+
+.region {
+  min-block-size: 320px;
+}
+.region--centered {
+  display: grid;
+  place-items: center;
+  padding-block: var(--space-10);
+}
+
+.skeleton {
+  block-size: 12px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--border) 25%, var(--border-strong) 37%, var(--border) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1400ms ease-in-out infinite;
+}
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background: var(--border);
+  }
+}
+
+/* Table scroll container (§5.5) — the panel's table scrolls horizontally instead of dropping   */
+/* columns below 640px like the landing's PanelTable.astro; carries tabindex="0", role="region" */
+/* and an aria-label in markup so a keyboard user can reach the scroll.                          */
+.table-scroll {
+  overflow-x: auto;
+}
+.table-scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* DataTable (docs/design/panel-shell.md §5.10, added by task 16) — the React port of           */
+/* PanelTable.astro. Container/row rhythm and cell typography mirror .panel-table exactly; the   */
+/* header colour is --text-3 (not the landing's --text-4, §5.5's AA rule), and there is no row    */
+/* hover -- no row in this panel is clickable.                                                    */
+/* ------------------------------------------------------------------ */
+
+.data-table {
+  width: 100%;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 19.5px;
+  letter-spacing: -0.13px;
+}
+.data-table__head,
+.data-table__row {
+  display: grid;
+  gap: var(--space-6);
+  align-items: center;
+  padding: var(--space-5) var(--space-6);
+}
+/* 6+ columns (task-16-design.md §4.2's 7-column /transakcje table) trade --space-6 for --space-5
+   so the widest columns still fit above 1280px; padding, row height and typography are unchanged. */
+.data-table--wide .data-table__head,
+.data-table--wide .data-table__row {
+  gap: var(--space-5);
+}
+.data-table__head {
+  font-size: 12px;
+  line-height: 16.8px;
+  color: var(--text-3);
+  border-bottom: 1px solid var(--border);
+}
+.data-table__row + .data-table__row {
+  border-top: 1px solid var(--border);
+}
+.data-table__cell--num {
+  text-align: right;
+}
+.data-table__ellipsis {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Delayed-sync date marker (task-16-design.md §6) — a dotted underline costs zero grid-track
+   width, unlike a second chip would. --text-4 is legal here because the underline is a
+   non-text decoration, not text colour (panel-shell.md §5.5 bans --text-4 as TEXT on
+   --bg-raised, not as a decoration colour). First (and so far only) consumer: the "Data" column
+   of a transaction synced with a delay. */
+.cell-note {
+  text-decoration: underline dotted var(--text-4);
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
+/* One sentence under a table truncated by the .limit(200) scale decision (task-16-design.md §9). */
+.table-note {
+  font-size: 13px;
+  line-height: 19.5px;
+  color: var(--text-3);
+  margin-block-start: var(--space-5);
+}
+
+/* Toolbar row between a screen header and its data region (panel-shell.md §4.3 already defines
+   this; task 16 is its first real consumer and adds the class here). All controls inside stay
+   the compact 44px field variant, never the 52px form field. */
+.toolbar {
+  display: flex;
+  gap: var(--space-5);
+  align-items: center;
+  margin-block-end: var(--space-6);
+}
+
+/* ------------------------------------------------------------------ */
+/* Wordmark (panel-shell-design.md §1 "Brand zone") — the landing's Violet Residue rule,        */
+/* verbatim (landing_page/src/pages/index.astro's .wordmark/.wordmark-go). Task 11's /login and  */
+/* /auth are the first consumers, ahead of task 12's sidebar brand zone; same object either way. */
+/* ------------------------------------------------------------------ */
+
+.wordmark {
+  font-size: 16px;
+  font-weight: 640;
+  letter-spacing: -0.02em;
+  color: var(--text-1);
+}
+.wordmark-go {
+  color: var(--accent);
+}
+
+/* ------------------------------------------------------------------ */
+/* Auth screens (task-11-design.md) — /login and /auth stand outside .shell; this is their whole */
+/* layout. No breakpoints: a single centered column has no layout left to break.                 */
+/* ------------------------------------------------------------------ */
+
+.auth {
+  min-block-size: 100dvh;
+  display: grid;
+  justify-items: center;
+  align-content: safe center; /* `safe`: content scrolls instead of clipping at a short viewport */
+  padding: var(--space-10) var(--space-7);
+}
+.auth__col {
+  inline-size: min(100%, var(--auth-measure));
+}
+
+/* Both fields 16px instead of the spec's 15px: below 16px iOS Safari zooms the viewport on
+   focus, and this is the one panel screen that will actually see a phone (the e-mail link).
+   Precedent: program_page/src/components/JoinForm.astro:206. */
+.auth .field {
+  font-size: 16px;
+}
+
+.field--code {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2em;
+}
+
+/* Third button weight — the same object the sidebar footer's `Wyloguj` uses (panel-shell-
+   design.md §1). Text-only, no fill, no border; 44px tall despite reading as a link. */
+.btn--text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  block-size: 44px;
+  padding-inline: var(--space-4);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-3);
+  background: none;
+  border: 0;
+}
+.btn--text:hover {
+  color: var(--text-1);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Second/third sentence of a collective error-summary message (task-11-design.md §5). */
+.error-summary__body {
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--text-2);
+  margin-block-start: var(--space-4);
+}
+
+/* Flicker suppression on /auth (task-11-design.md §6) — not an entrance animation (§8 of the
+   shell forbids those): a session that resolves faster than 400ms never shows this text at all. */
+.reveal-delayed {
+  animation: reveal 120ms ease 400ms both;
+}
+@keyframes reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Card wizard (/karta, task-13-design.md) — two-column layout (container query, not a viewport   */
+/* breakpoint, §2.2), the CardPreview port, the contrast warning and the colour input row.        */
+/* ------------------------------------------------------------------ */
+
+.card-editor {
+  container-type: inline-size;
+}
+.card-editor__grid {
+  display: grid;
+  gap: var(--space-9);
+}
+@container (min-width: 812px) {
+  .card-editor__grid {
+    grid-template-columns: minmax(0, var(--panel-form)) 380px;
+  }
+  .card-editor__form {
+    grid-area: 1 / 1;
+  }
+  .card-editor__preview {
+    grid-area: 1 / 2;
+  }
+  /* Sticky on the child, not the grid cell — and NEVER add align-items: start on the grid here,
+     it removes the row height sticky needs to travel across (task-13-design.md §2.3). */
+  .card-editor__preview > .card-preview {
+    position: sticky;
+    inset-block-start: var(--space-9);
+  }
+}
+
+/* CardPreview.tsx — geometry ported verbatim from program_page/src/components/ProgramCard.astro
+   (width min(100%, 380px), aspect-ratio 8/5, --radius-2xl, the edge ring + two indigo-tinted
+   shadow layers). No card-enter animation, fixed white ink — see that file's own header comment.
+   This is the one shadowed object in the whole panel (§5.2) and it must sit directly on --bg,
+   never inside a .panel: the edge ring's alpha is solved against #08090a specifically (brand.ts's
+   CARD_EDGE_COLOR), and a --bg-raised surface underneath breaks that (task-13-design.md §3.2). */
+.card-preview {
+  width: min(100%, 380px);
+  aspect-ratio: 8 / 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--space-8);
+  border-radius: var(--radius-2xl);
+  background: var(--card-bg);
+  box-shadow:
+    0 0 0 1px var(--card-edge),
+    0 2px 5px rgba(10, 8, 24, 0.5),
+    0 18px 36px -14px rgba(18, 14, 40, 0.6);
+}
+.card-preview__logo {
+  position: relative;
+  width: 48px;
+  height: 48px;
+}
+.card-preview__logo-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: var(--card-bg); /* opaque: covers the monogram, matches the real Wallet pass */
+}
+.card-preview__monogram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 26px;
+  font-weight: 590;
+  color: var(--card-ink);
+}
+.card-preview__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.card-preview__name {
+  font-size: 17px;
+  font-weight: 590;
+  letter-spacing: -0.01em;
+  color: var(--card-ink);
+}
+.card-preview__balance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.card-preview__balance-label {
+  font-size: 12px;
+  font-weight: 590;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--card-ink-2);
+}
+.card-preview__balance-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 28px;
+  font-weight: 590;
+  color: var(--card-ink);
+}
+.card-preview__balance-unit {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* Contrast warning — .error-summary's grammar (§5.8) at a smaller scale (task-13-design.md §4.3):
+   red spent on the border only, no background, no icon, no radius. It is not an error: it never
+   blocks saving, and it stands beside .form-status rather than replacing it. */
+.card-warning {
+  border-inline-start: 2px solid var(--red);
+  padding-inline-start: var(--space-5);
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--text-2);
+  margin-block-start: var(--space-6);
+}
+
+/* Colour swatch + HEX field, one row, both controls 52px to match .field. */
+.color-input {
+  display: flex;
+  gap: var(--space-5);
+  align-items: center;
+}
+.color-input__swatch {
+  inline-size: 52px;
+  block-size: 52px;
+  padding: var(--space-2);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+}
+.color-input__hex {
+  flex: 1;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------------ */
+/* Invite sheet (task-14-design.md §6, §12) -- the only surface this product prints on paper.    */
+/* Black/white are CSS keywords here, deliberately outside the token system: a token describes    */
+/* the screen world, and --bg-raised or --accent-ink used as "paper" would be a lie about what    */
+/* that token means. A QR in the panel's dark palette is a QR scanners can't read.                */
+/* All typography is in cqi: the sheet is 210mm wide edge-to-edge (padding supplies the 14mm       */
+/* margin), so cqi resolves to literal millimetres on paper and the on-screen preview is           */
+/* proportionally identical to the printout.                                                       */
+/* ------------------------------------------------------------------ */
+.invite-sheet {
+  container-type: inline-size;
+  inline-size: min(100%, 520px);
+  aspect-ratio: 210 / 297;
+  padding: 6.67cqi; /* 14mm */
+  background: white;
+  color: black;
+  border: 1px solid var(--border-strong); /* screen only: edge of the represented sheet of paper */
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3cqi;
+  text-align: center;
+}
+.invite-sheet__name {
+  font-size: 4.3cqi;
+  line-height: 1.2;
+  font-weight: 640;
+}
+.invite-sheet__claim {
+  font-size: 2.4cqi;
+  line-height: 1.4;
+}
+.invite-sheet__qr {
+  inline-size: 47.6cqi; /* 100mm at 210mm container width, incl. mandatory quiet zone */
+  block-size: auto;
+  margin-block: 2cqi;
+}
+.invite-sheet__scan {
+  font-size: 2.4cqi;
+  line-height: 1.4;
+}
+.invite-sheet__lead {
+  font-size: 1.7cqi;
+  line-height: 1.4;
+}
+.invite-sheet__url {
+  font-family: var(--font-mono);
+  font-size: 2.6cqi;
+  user-select: all;
+}
+.invite-sheet__foot {
+  font-size: 1.7cqi;
+  line-height: 1.5;
+  max-inline-size: 70cqi;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@media print {
+  .no-print {
+    display: none;
+  }
+  .invite-sheet {
+    inline-size: 100%;
+    max-inline-size: none;
+    border: 0;
+    border-radius: 0;
+    break-inside: avoid;
+  }
+}

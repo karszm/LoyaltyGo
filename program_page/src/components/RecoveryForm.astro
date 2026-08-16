@@ -1,0 +1,136 @@
+---
+// RecoveryForm.astro — "Odzyskaj kartę", a native <details> under JoinForm (task-9-brief.md).
+// Zero JS: <details> opens/closes with no script, and the form posts back to this same page
+// (with a `?recovery` marker on the action URL so [inviteCode].astro's frontmatter can tell
+// this POST apart from a join submission) — same no-JS pattern JoinForm's own form already uses.
+//
+// The confirmation reuses JoinForm OUTRIGHT (same component, same badge, same <h1>) instead of
+// a second copy of that markup: task-9-brief.md points out no recovery panel existed yet to
+// cross-check against, so JoinForm's 202 block is the reference implementation, and importing
+// it here is the only way this can't drift from it.
+import JoinForm from "./JoinForm.astro";
+import type { JoinOutcome } from "../lib/invite-outcome.ts";
+import { EMAIL_MAX_LENGTH, EMAIL_PATTERN } from "../lib/validate.ts";
+
+interface Props {
+  // Repopulated on a 422, same reasoning as JoinForm's `values` (task-8-brief.md). Empty on a
+  // fresh GET or after a successful (202) submission.
+  email: string;
+  // `panel` outcomes (409/404/503 race) are rendered by the page itself via StatusPanel, same
+  // as JoinForm's own `result` prop. `kind: "joined"` is part of the type only because this
+  // reuses mapRecoveryResult's JoinOutcome return type — card-recovery's contract has no 201,
+  // so it's never actually produced here; if it somehow were, the form below (not the
+  // confirmation) would render, same as any other non-"maybe"/"invalid" kind.
+  result?: Exclude<JoinOutcome, { kind: "panel" }>;
+}
+
+const { email, result } = Astro.props;
+const isConfirmation = result?.kind === "maybe";
+const hasError = result?.kind === "invalid";
+---
+
+<details class="recovery" open={isConfirmation || hasError}>
+  <summary class="recovery__summary">Odzyskaj kartę</summary>
+  <div class="recovery__body">
+    {
+      isConfirmation ? (
+        <JoinForm values={{ first_name: "", last_name: "", email: "", consent: false }} result={result} />
+      ) : (
+        <form class="recovery-form" method="post" action={`${Astro.url.pathname}?recovery`} novalidate>
+          {hasError && (
+            <p class="recovery-form__error" role="alert">
+              {result!.message}
+            </p>
+          )}
+          <div class="recovery-form__field">
+            <label for="recovery-email">Adres e-mail</label>
+            <input
+              id="recovery-email"
+              name="email"
+              type="email"
+              required
+              maxlength={EMAIL_MAX_LENGTH}
+              pattern={EMAIL_PATTERN}
+              autocomplete="email"
+              inputmode="email"
+              enterkeyhint="done"
+              value={email}
+            />
+          </div>
+          <button type="submit" class="btn btn--ghost btn--lg recovery-form__submit">
+            Wyślij link do karty
+          </button>
+        </form>
+      )
+    }
+  </div>
+</details>
+
+<style>
+  .recovery {
+    width: 100%;
+  }
+
+  .recovery__summary {
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 590;
+    color: var(--text-3);
+    list-style: none; /* Firefox's default marker */
+  }
+
+  .recovery__summary::-webkit-details-marker {
+    display: none; /* Safari/Chrome's default marker */
+  }
+
+  .recovery__summary:hover {
+    color: var(--text-1);
+  }
+
+  .recovery__body {
+    margin-top: var(--space-6);
+  }
+
+  .recovery-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+
+  .recovery-form__error {
+    font-size: 14px;
+    color: var(--red);
+  }
+
+  .recovery-form__field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .recovery-form__field label {
+    font-size: 13px;
+    font-weight: 590;
+    color: var(--text-3);
+  }
+
+  .recovery-form__field input {
+    height: 48px;
+    padding-inline: var(--space-6);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-strong);
+    background: var(--bg);
+    color: var(--text-1);
+    font-family: inherit;
+    font-size: 16px; /* iOS Safari zoom threshold, same reasoning as JoinForm's field */
+  }
+
+  .recovery-form__field input:focus-visible {
+    border-color: var(--accent);
+  }
+
+  .recovery-form__submit {
+    width: 100%;
+  }
+</style>

@@ -964,6 +964,6 @@ git commit -m "feat(passkit): live REST adapter"
 ## Poza tym planem (osobne plany implementacji)
 
 1. **Panel SPA** — supabase-js + RLS dla CRUD, wywołania `panel-api` dla publish/klucza/stanów; konsumuje sekcję `/panel` kontraktu jako specyfikację semantyki.
-2. **Landing programu** (`app.loyaltygo.pl/{inviteCode}`) — publiczna trasa w aplikacji panelu; konsumuje `public-api` 1:1.
+2. **Landing programu** (`karta.loyaltygo.pl/{inviteCode}`) — osobny projekt na własnej domenie, osobno od panelu merchanta; konsumuje `public-api` 1:1.
 3. **SDK iOS** — konsumuje `sdk-api` 1:1; kolejka offline (500 wpisów / 7 dni) po stronie SDK.
 4. **Operator/ops** — poza PoC (Supabase Studio ręcznie).

@@ -1,0 +1,122 @@
+---
+// [inviteCode].astro — the page a customer lands on after scanning a merchant's printed QR
+// code. GET /invites/:code has five customer-visible outcomes (task-7-brief.md); the pure
+// mapInviteResult() does the branching so it's unit-tested without a browser, and this file
+// only wires the result to a status code and a component.
+//
+// `active` renders ProgramCard (Task 6) inside the shared shell below; the join form and
+// "Odzyskaj kartę" that also belong on that screen are Task 8's work, not this one's.
+import Base from "../layouts/Base.astro";
+import StatusShell from "../layouts/StatusShell.astro";
+import ProgramCard from "../components/ProgramCard.astro";
+import StatusPanel from "../components/StatusPanel.astro";
+import JoinForm from "../components/JoinForm.astro";
+import RecoveryForm from "../components/RecoveryForm.astro";
+import { getInvite, joinProgram, recoverCard } from "../lib/api.ts";
+import { deriveBrand } from "../lib/brand.ts";
+import { mapInviteResult, mapJoinResult, mapRecoveryResult } from "../lib/invite-outcome.ts";
+import type { JoinOutcome } from "../lib/invite-outcome.ts";
+
+const { inviteCode } = Astro.params;
+const result = await getInvite(inviteCode as string);
+const outcome = mapInviteResult(result);
+
+// Fields the customer typed, echoed back on a 422 — "nobody retypes a surname at a till"
+// (task-8-brief.md). Consent is part of this too: a customer who mistypes their e-mail
+// shouldn't have to re-tick a checkbox that had nothing to do with the mistake (task-8 review).
+// Empty/unchecked on a fresh GET.
+let formValues = { first_name: "", last_name: "", email: "", consent: false };
+let joinOutcome: JoinOutcome | null = null;
+
+// Task 8's join POST renders DIRECTLY from this same request — no redirect. A redirect to
+// `?joined=1` would need a 200 GET to show the confirmation, and middleware.ts's cache rule
+// grants s-maxage=60 to ANY 200 GET on this route regardless of query string: the next
+// customer to scan the same QR code within that minute would get the shared CDN's cached copy
+// of a DIFFERENT customer's confirmation. Rendering the POST's own response (whatever status
+// it carries) never enters that cache at all, because middleware.ts's rule only ever applies
+// to GET.
+//
+// POST only ever reaches the join call when the page's own GET-equivalent check above already
+// says `active` — a POST against a closed/suspended/unknown program renders the exact same
+// StatusPanel a GET would, and never calls joinProgram; public-api's own 409/404 checks are
+// the second line of defense for the race where status changes between that check and this
+// request landing (mapJoinResult's `panel` case, just below).
+//
+// Excludes `?recovery` so a recovery submission (below) doesn't ALSO run this block: a request
+// body can only be read once (`Astro.request.formData()`), and both forms post to this same
+// URL, so without this guard a recovery POST would consume the body here first and the
+// recovery block's own `.formData()` call would throw.
+const isRecoveryPost = Astro.url.searchParams.has("recovery");
+if (Astro.request.method === "POST" && outcome.kind === "active" && !isRecoveryPost) {
+  const form = await Astro.request.formData();
+  formValues = {
+    first_name: String(form.get("first_name") ?? ""),
+    last_name: String(form.get("last_name") ?? ""),
+    email: String(form.get("email") ?? ""),
+    consent: form.get("consent") === "true",
+  };
+  const joinResult = await joinProgram(inviteCode as string, {
+    first_name: formValues.first_name,
+    last_name: formValues.last_name,
+    email: formValues.email,
+    consent: formValues.consent,
+  });
+  joinOutcome = mapJoinResult(joinResult);
+}
+
+// Recovery values/outcome, same repopulate-on-422 reasoning as formValues/joinOutcome above.
+// Empty/null on a fresh GET, on a join POST, or once a recovery submission succeeds.
+let recoveryValues = { email: "" };
+let recoveryOutcome: JoinOutcome | null = null;
+
+// The `?recovery` marker on RecoveryForm's own <form action> is what tells this POST apart
+// from a join submission — both post to this same page, and Astro sees one `POST` either way.
+//
+// ANTI-ENUMERATION INVARIANT — see the longer version on mapRecoveryResult (lib/invite-
+// outcome.ts): recoverCard's 202 is byte-identical whether or not `email` belongs to a member
+// of this program, and whether or not the send was throttled. Nothing on THIS page may narrow
+// that back down — no branch here may read differently depending on membership, no timing
+// difference, no separate log line per case. The only branching this handler is allowed to add
+// is passing whatever mapRecoveryResult already decided (202 vs 409/422/503) straight through.
+if (Astro.request.method === "POST" && outcome.kind === "active" && isRecoveryPost) {
+  const form = await Astro.request.formData();
+  recoveryValues = { email: String(form.get("email") ?? "") };
+  const recoveryResult = await recoverCard(inviteCode as string, recoveryValues.email);
+  recoveryOutcome = mapRecoveryResult(recoveryResult);
+}
+
+// Whichever POST actually landed on this request (join xor recovery — RecoveryForm's `?recovery`
+// marker keeps them from ever both firing) carries its own real status and overrides the
+// GET-derived one, same reasoning as Task 8's joinOutcome-only version of this line.
+const postOutcome = joinOutcome ?? recoveryOutcome;
+Astro.response.status = postOutcome ? postOutcome.status : outcome.status;
+const panelOutcome =
+  (joinOutcome?.kind === "panel" && joinOutcome) || (recoveryOutcome?.kind === "panel" && recoveryOutcome) || null;
+
+// <title> carries the merchant's name ONLY in the active state (task-7-brief.md) — every other
+// outcome gets the same fixed string, so `unpublished`/`suspended` stay indistinguishable down
+// to the rendered <title> (task-7-design.md §8's audit).
+const title = outcome.kind === "active" ? outcome.program.display_name : "LoyaltyGo";
+const description = "Karta lojalnościowa LoyaltyGo.";
+---
+
+<Base title={title} description={description}>
+  <StatusShell>
+    {
+      panelOutcome ? (
+        <StatusPanel state={panelOutcome.state} />
+      ) : outcome.kind === "active" ? (
+        <>
+          <ProgramCard brand={deriveBrand(outcome.program)} />
+          <JoinForm values={formValues} result={joinOutcome && joinOutcome.kind !== "panel" ? joinOutcome : undefined} />
+          <RecoveryForm
+            email={recoveryValues.email}
+            result={recoveryOutcome && recoveryOutcome.kind !== "panel" ? recoveryOutcome : undefined}
+          />
+        </>
+      ) : (
+        <StatusPanel state={outcome.state} />
+      )
+    }
+  </StatusShell>
+</Base>

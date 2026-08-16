@@ -1,0 +1,61 @@
+---
+// card-links/[token].astro — the page a customer lands on from a card-recovery e-mail
+// (task-9-brief.md, task-9-design.md). GET /card-links/:token has three states this page
+// distinguishes (ready/preparing/expired) plus the two generic ones any route can hit
+// (404 unknown token, network/5xx offline) — mapCardLinkResult does the branching so it's
+// unit-tested without a browser, this file only wires the result to a status code and markup.
+//
+// Zero JS, same as JoinForm/RecoveryForm's no-script requirement: WalletButtons renders both
+// wallet links unconditionally, and "Sprawdź ponownie" is a plain <a> to this same URL — every
+// GET here retries pass issuance server-side (handleGetCardLink's lazy-retry branch,
+// public-api/index.ts), so a link is the retry mechanism itself, not a polling affordance.
+import Base from "../../layouts/Base.astro";
+import StatusShell from "../../layouts/StatusShell.astro";
+import ProgramCard from "../../components/ProgramCard.astro";
+import StatusPanel from "../../components/StatusPanel.astro";
+import WalletButtons from "../../components/WalletButtons.astro";
+import { getCardLink } from "../../lib/api.ts";
+import { mapCardLinkResult } from "../../lib/card-link-outcome.ts";
+
+const { token } = Astro.params;
+const result = await getCardLink(token as string);
+const outcome = mapCardLinkResult(result);
+
+Astro.response.status = outcome.status;
+
+// <title> carries the merchant's name in ready/preparing only — the token already authenticates
+// access to that brand, same reasoning as [inviteCode].astro's `active`-only title (task-7-
+// brief.md). Every other outcome (expired/unknown/offline) gets the fixed fallback, so a 410's
+// title can't leak a display_name the response body itself no longer carries (task-9-design.md
+// §8: the 410 must not keep leaking the merchant's brand).
+const title = outcome.kind === "ready" || outcome.kind === "preparing" ? outcome.brand.displayName : "LoyaltyGo";
+const description = "Karta lojalnościowa LoyaltyGo.";
+---
+
+<Base title={title} description={description}>
+  <StatusShell>
+    {
+      outcome.kind === "ready" ? (
+        <>
+          <ProgramCard brand={outcome.brand} balance={null} />
+          <StatusPanel state="card_ready">
+            <WalletButtons appleUrl={outcome.appleUrl} googleUrl={outcome.googleUrl} />
+          </StatusPanel>
+        </>
+      ) : outcome.kind === "preparing" ? (
+        <>
+          <ProgramCard brand={outcome.brand} balance={null} />
+          <StatusPanel state="card_preparing" />
+        </>
+      ) : outcome.kind === "expired" ? (
+        outcome.inviteCode ? (
+          <StatusPanel state="link_expired" href={`/${outcome.inviteCode}`} />
+        ) : (
+          <StatusPanel state="link_expired" />
+        )
+      ) : (
+        <StatusPanel state={outcome.state} />
+      )
+    }
+  </StatusShell>
+</Base>

@@ -8,7 +8,7 @@ Aktorzy powtarzający się na diagramach:
 | Aktor | Opis |
 |---|---|
 | **Klient** | telefon klienta (aparat + Apple/Google Wallet, bez aplikacji) |
-| **Landing programu** | dedykowany, publiczny landing page programu hostowany w aplikacji panelu merchanta (`app.loyaltygo.pl/{inviteCode}`) — cel przekierowania z QR; branding merchanta, formularz dołączenia, przycisk "Dodaj do Apple/Google Wallet" |
+| **Landing programu** | dedykowany, publiczny landing page programu jako osobny projekt na własnej domenie (`karta.loyaltygo.pl/{inviteCode}`, osobno od panelu merchanta pod `app.loyaltygo.pl`) — cel przekierowania z QR; branding merchanta, formularz dołączenia, przycisk "Dodaj do Apple/Google Wallet" |
 | **SoftPOS/SDK** | aplikacja SoftPOS z wbudowanym SDK iOS LoyaltyGo |
 | **Panel** | SPA panelu merchanta |
 | **API** | backend LoyaltyGo (Supabase Edge Functions / PostgREST) |
@@ -66,12 +66,12 @@ idzie linkiem na skrzynkę właściciela, a strona pokazuje komunikat „być mo
 sequenceDiagram
     autonumber
     actor K as Klient
-    participant S as Landing programu (panel)
+    participant S as Landing programu (karta.loyaltygo.pl)
     participant API as API LoyaltyGo
     participant PK as PassKit
     participant M as E-mail
 
-    K->>S: skan QR → przekierowanie na app.loyaltygo.pl/{inviteCode}
+    K->>S: skan QR → przekierowanie na karta.loyaltygo.pl/{inviteCode}
     S->>API: GET /public/invites/{inviteCode}
     API-->>S: 200 PublicProgram (status=active, branding)
     Note over S: status inny niż active → komunikat,<br/>formularz nie zbiera danych
@@ -115,7 +115,7 @@ sequenceDiagram
     autonumber
     actor K as Klient
     participant POS as SoftPOS/SDK
-    participant S as Landing programu (panel)
+    participant S as Landing programu (karta.loyaltygo.pl)
     participant API as API LoyaltyGo
 
     POS->>POS: akcja "Pokaż zaproszenie" (QR z invite_url)
@@ -145,7 +145,7 @@ niezależnie czy członkostwo istnieje (brak enumeracji kont). Link ważny 24 h.
 sequenceDiagram
     autonumber
     actor K as Klient
-    participant S as Landing programu (panel)
+    participant S as Landing programu (karta.loyaltygo.pl)
     participant API as API LoyaltyGo
     participant M as E-mail
 
@@ -451,7 +451,7 @@ sequenceDiagram
     participant P as Panel
     participant API as API LoyaltyGo
     actor K as Klient
-    participant S as Landing programu (panel)
+    participant S as Landing programu (karta.loyaltygo.pl)
     participant POS as SoftPOS/SDK
 
     P->>API: POST /panel/program/suspend

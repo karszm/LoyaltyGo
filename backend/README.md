@@ -37,8 +37,16 @@ SUPABASE_URL=http://127.0.0.1:54321
 SUPABASE_SERVICE_ROLE_KEY=<from `supabase status`, anon/service_role keys section>
 PROGRAM_KEY_PEPPER=local-dev-pepper
 PASSKIT_MODE=stub
+PROGRAM_PAGE_BASE_URL=https://karta.loyaltygo.pl
 EOF
 ```
+
+`PROGRAM_PAGE_BASE_URL` (default `https://karta.loyaltygo.pl` if unset) is the base URL of the
+**customer-facing program page** — NOT the merchant panel (`app.loyaltygo.pl`). `public-api`
+uses it to build the card-link URL it e-mails to customers; `panel-api` uses it to build
+`invite_url` (the QR the merchant prints). Confusing the two sends a customer into the
+merchant panel, a dead end — the printed QR especially can't be recalled once it's out.
+There is no local program-page server yet, so the local value is a placeholder.
 
 Serve all three functions locally (`--no-verify-jwt` because `panel-api` does its own
 Supabase-JWT check and `sdk-api`/`public-api` don't use Supabase auth at all):
@@ -47,7 +55,7 @@ Supabase-JWT check and `sdk-api`/`public-api` don't use Supabase auth at all):
 supabase functions serve --env-file supabase/functions/.env.local --no-verify-jwt
 ```
 
-Run the smoke suite against it (141 checks across sdk-api/public-api/panel-api):
+Run the smoke suite against it (153 checks across sdk-api/public-api/panel-api):
 
 ```bash
 ./supabase/tests/smoke.sh              # all sections
@@ -136,9 +144,9 @@ With the stack up (`supabase start`, seeded, `functions serve` as above, but wit
 PASSKIT_MODE=live ./supabase/tests/smoke.sh
 ```
 
-This re-runs the full 141-check suite, but now `panel-api`'s publish step calls PassKit's
+This re-runs the full 153-check suite, but now `panel-api`'s publish step calls PassKit's
 real `createProgram`/`createTier`, and `public-api`'s join step calls the real
-`enrolMember` — so a healthy result is: same `PASS=141 FAIL=0` as the stub run, **plus** a
+`enrolMember` — so a healthy result is: same `PASS=153 FAIL=0` as the stub run, **plus** a
 real, resolvable `.pkpass`/`.gpay` URL in the join responses (check
 `docker exec -i supabase_db_backend psql -U postgres -d postgres -c "select apple_wallet_url from members limit 5;"`
 for real `https://pub1.pskt.io/...` links instead of `https://stub.passkit.io/...`).
