@@ -522,6 +522,35 @@ dialog.confirm::backdrop {
 }
 
 /* ------------------------------------------------------------------ */
+/* Publish button and key reveal (task-14-design.md §12).                                       */
+/* ------------------------------------------------------------------ */
+
+/* Sits outside .form-footer, so it doesn't inherit its min-inline-size; holds its width while
+   the label swaps to "Zapisywanie…" / "Publikowanie…". */
+.btn--publish {
+  min-inline-size: 220px;
+}
+
+/* The plaintext key -- the only place in the panel where text is select-all with one click. */
+.key-plaintext {
+  display: block;
+  padding: var(--space-5) var(--space-6);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--text-1);
+  word-break: break-all;
+  user-select: all;
+}
+.key-plaintext:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
 /* ErrorSummary (panel-shell-design.md §5.8) — publication refused shows the list of missing    */
 /* fields; role="alert", focused on render. Red is spent on the border only.                    */
 /* ------------------------------------------------------------------ */

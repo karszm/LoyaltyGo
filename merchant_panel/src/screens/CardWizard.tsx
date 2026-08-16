@@ -10,15 +10,18 @@
 // `logo_url` is saved immediately, and only after Storage confirms the upload (§6.2) — the UI
 // says so (`Logo zapisuje się od razu po wysłaniu.`).
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { useProgram } from '../lib/program'
 import { useSession } from '../lib/session'
 import { CardPreview, deriveMonogram, FALLBACK_BACKGROUND } from '../components/CardPreview'
-import { updateProgram, uploadLogo, LogoUploadError, type Program } from '../lib/db'
-import { normalizeCode } from '../lib/errors'
+import { getProgram, updateProgram, uploadLogo, LogoUploadError, type Program } from '../lib/db'
+import { publishProgram } from '../lib/api'
+import { normalizeCode, type ErrorField } from '../lib/errors'
 import { clearDraft, loadDraft, saveDraft } from '../lib/formDraft'
 import { pointsForAmount, pointsPerPlnToRatePer100, ratePer100ToPointsPerPln, formatMoney } from '../lib/format'
 import { contrastRatio, meetsAA } from '../lib/contrast'
 import { isValidHexColor } from '../lib/validate'
+import { copyToClipboard, mapPublishFieldErrors } from '../lib/publish'
 
 const DRAFT_KEY = 'karta'
 const NAME_MAX = 60
@@ -74,6 +77,17 @@ const FIELD_IDS: Record<keyof FieldErrors, string> = {
   description: 'prog-description',
 }
 
+// panel-api's publish response (backend/supabase/functions/panel-api/index.ts:194): the full
+// Program shape plus `program_key_plaintext`, present exactly once -- on the very publish call
+// that flips draft -> published, never on the idempotent replay of an already-published program.
+// Only the fields this screen actually reads are declared; api.ts's `publishProgram<T>()` is
+// generic exactly so a caller can narrow it like this instead of that file guessing a shape
+// nothing there consumes.
+interface PublishResponse {
+  status: 'draft' | 'published' | 'suspended' | 'closed'
+  program_key_plaintext?: string
+}
+
 function validate(values: FieldValues): FieldErrors {
   const errors: FieldErrors = {}
 
@@ -124,6 +138,26 @@ export default function CardWizard() {
   const [serverError, setServerError] = useState<string | null>(null)
   const [focusSummaryNonce, setFocusSummaryNonce] = useState(0)
 
+  // --- Publish flow (task-14-design.md §3-5). ---
+  const [publishing, setPublishing] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null) // 502/500/409-edge/network, rendered at the button
+  const [publishFieldErrors, setPublishFieldErrors] = useState<ErrorField[]>([]) // 422, rendered in the form's ErrorSummary
+  // After a 502/500/network failure, a retry click goes straight to the POST, no second
+  // confirmation (§5.2: "przycisk publikacji JEST przyciskiem ponowienia"). Cleared the moment
+  // the merchant edits a field again, because that field is no longer the version this session
+  // already confirmed publishing.
+  const [confirmedRetry, setConfirmedRetry] = useState(false)
+  // The plaintext key, in memory only -- never localStorage/sessionStorage/a URL/a log (§4.3).
+  // null both before publication and once "shown once" has genuinely elapsed (reload/nav away).
+  const [keyPlaintext, setKeyPlaintext] = useState<string | null>(null)
+  // Session state, not row state (§4.5): driven by "a publish just happened in this tab", not by
+  // `program.status === 'published'`, so it doesn't linger across a real navigation or reload.
+  const [justPublished, setJustPublished] = useState(false)
+  // Only the 409 branch sets this -- an extra sentence explaining why the handoff panel appeared
+  // without a click (§5.3), on top of the always-shown variant B copy.
+  const [publishConflictNote, setPublishConflictNote] = useState(false)
+  const [keyCopyStatus, setKeyCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
+
   const nameInputRef = useRef<HTMLInputElement>(null)
   const colorInputRef = useRef<HTMLInputElement>(null)
   const rateInputRef = useRef<HTMLInputElement>(null)
@@ -136,12 +170,42 @@ export default function CardWizard() {
     description: descriptionInputRef,
   } as const
 
+  const publishButtonRef = useRef<HTMLButtonElement>(null)
+  const confirmDialogRef = useRef<HTMLDialogElement>(null)
+  const confirmCancelRef = useRef<HTMLButtonElement>(null)
+  const keyDialogRef = useRef<HTMLDialogElement>(null)
+  const keyCopyButtonRef = useRef<HTMLButtonElement>(null)
+  // Focus target once the amber button that opened KeyReveal no longer exists (§9: the panel it
+  // sat in unmounts the moment `program.status` leaves 'draft'), so the native "return focus to
+  // opener" has nowhere to land.
+  const handoffHeadingRef = useRef<HTMLHeadingElement>(null)
+
   useEffect(() => {
     if (focusSummaryNonce > 0) errorSummaryRef.current?.focus()
   }, [focusSummaryNonce])
 
+  // The native <dialog> restores focus to its opener on close -- fine for ConfirmDialog, whose
+  // opener (the amber button) survives a cancel. KeyReveal's opener does not: the "Publikacja"
+  // panel it sat in unmounts the moment `program.status` leaves 'draft', so the native restore
+  // has nowhere to land and focus falls back to <body> (task-14-design.md §9). Move it explicitly
+  // to the handoff panel's own heading instead, on every close regardless of how it happened
+  // (Zamknij click or Esc).
+  useEffect(() => {
+    const dialog = keyDialogRef.current
+    if (!dialog) return
+    function handleClose() {
+      handoffHeadingRef.current?.focus()
+    }
+    dialog.addEventListener('close', handleClose)
+    return () => dialog.removeEventListener('close', handleClose)
+  }, [])
+
   function updateValue<K extends keyof FieldValues>(key: K, value: FieldValues[K]) {
     setSaved(false)
+    // A field edited after a 502/500/network retry-armed state means the next publish click has
+    // to go through validate+save+confirm again -- confirmedRetry belongs to the version that was
+    // already confirmed, not to whatever the merchant is about to type next.
+    setConfirmedRetry(false)
     setValues((prev) => {
       const next = { ...prev, [key]: value }
       if (userId) saveDraft(userId, DRAFT_KEY, next)
@@ -152,6 +216,15 @@ export default function CardWizard() {
   const previewColor = isValidHexColor(values.color) ? values.color : FALLBACK_BACKGROUND
   const contrastWarning = !meetsAA(contrastRatio('#ffffff', previewColor))
   const ratePerPln = ratePer100ToPointsPerPln(Number(values.ratePer100) || 0)
+
+  // task-13-design.md §10 point 2's isDirty, computed inline rather than exposed (see the
+  // retirement note above handleSubmit): four fields, one comparison each -- logo_url is excluded
+  // on purpose, it saves immediately on upload (§6.2) and never sits in this form's dirty set.
+  const isDirty =
+    values.name !== serverBaseline.name ||
+    values.color !== serverBaseline.color ||
+    values.ratePer100 !== serverBaseline.ratePer100 ||
+    values.description !== serverBaseline.description
 
   async function handleLogoChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -186,7 +259,11 @@ export default function CardWizard() {
     }
   }
 
-  async function runSave() {
+  /** Returns whether the save succeeded, so the publish flow (runPublish's caller) can stop
+   * before ever opening the confirmation dialog on a failed save (task-14-design.md §3.1: "błąd
+   * zapisu -> ErrorSummary + fokus, KONIEC"). The "Zapisz zmiany" button ignores the return value
+   * -- it already ends the interaction either way. */
+  async function runSave(): Promise<boolean> {
     setSaving(true)
     setServerError(null)
     try {
@@ -199,16 +276,21 @@ export default function CardWizard() {
       if (userId) clearDraft(userId, DRAFT_KEY)
       setSaved(true)
       reload()
+      return true
     } catch (err) {
       setServerError(normalizeCode(err).message)
       setFocusSummaryNonce((n) => n + 1)
+      return false
     } finally {
       setSaving(false)
     }
   }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
+  /** Client-side field validation, shared by the save submit and the publish click (task-14-
+   * design.md §3.1's first step is the same `validate(values)` this form already had). Returns
+   * whether the values passed; a failure has already moved focus/opened ErrorSummary by the time
+   * it returns, so the caller only has to stop. */
+  function runValidation(): boolean {
     const fieldErrors = validate(values)
     setErrors(fieldErrors)
     setServerError(null)
@@ -216,14 +298,106 @@ export default function CardWizard() {
 
     if (invalidKeys.length === 1) {
       fieldRefs[invalidKeys[0]].current?.focus()
-      return
+      return false
     }
     if (invalidKeys.length > 1) {
       setFocusSummaryNonce((n) => n + 1)
-      return
+      return false
     }
+    return true
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (!runValidation()) return
     await runSave()
   }
+
+  // --- Publish (task-14-design.md §3, §5). ---
+
+  /** The amber button's click handler. A retry after 502/500/network skips straight back to
+   * `runPublish()` -- no re-validation, no re-save (nothing changed), no second confirmation
+   * (§5.2: the publish button IS the retry button). Otherwise this is step 1-2 of §3.1: validate,
+   * then save if dirty, each ending the click on its own failure -- only then does the
+   * confirmation dialog, the one truly fallible-feeling step, get to open. */
+  async function handlePublishClick() {
+    if (confirmedRetry) {
+      await runPublish()
+      return
+    }
+    if (!runValidation()) return
+    if (isDirty && !(await runSave())) return
+    setPublishError(null)
+    confirmDialogRef.current?.showModal()
+    confirmCancelRef.current?.focus()
+  }
+
+  function handleConfirmDialogSubmit() {
+    confirmDialogRef.current?.close()
+    void runPublish()
+  }
+
+  async function runPublish() {
+    setPublishing(true)
+    setPublishError(null)
+    setPublishFieldErrors([])
+    try {
+      const result = await publishProgram<PublishResponse>()
+      reload() // the program row (invite_code) so /zaproszenie has it once the merchant gets there
+      if (result.program_key_plaintext) {
+        setKeyPlaintext(result.program_key_plaintext)
+        setJustPublished(true)
+        keyDialogRef.current?.showModal()
+        keyCopyButtonRef.current?.focus()
+      } else {
+        // Idempotent 200 without a key (double click, or another tab published it first) --
+        // P2/§5.3: KeyReveal must not open on an empty value, the handoff panel goes straight to
+        // variant B.
+        setKeyPlaintext(null)
+        setJustPublished(true)
+      }
+    } catch (err) {
+      const appError = normalizeCode(err)
+      if (appError.fields && appError.fields.length > 0) {
+        // 422 (P4): rendered in the form's own ErrorSummary, anchored to the offending fields --
+        // not a retry-armed failure, the next click re-validates and re-confirms from scratch.
+        setPublishFieldErrors(appError.fields)
+        setFocusSummaryNonce((n) => n + 1)
+      } else if (appError.code === 'invalid_state_transition') {
+        // 409: reload and see whether another tab already published it (§5.3).
+        setConfirmedRetry(true)
+        const fresh = await getProgram().catch(() => null)
+        reload()
+        if (fresh?.status === 'published') {
+          setKeyPlaintext(null)
+          setJustPublished(true)
+          setPublishConflictNote(true)
+        } else {
+          setPublishError(appError.message)
+        }
+      } else {
+        // 502/500/network: stays in draft, safe to retry without re-confirming (§5.2/§5.3).
+        setConfirmedRetry(true)
+        setPublishError(appError.message)
+      }
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  async function handleCopyKey() {
+    if (!keyPlaintext) return
+    const ok = await copyToClipboard(keyPlaintext)
+    setKeyCopyStatus(ok ? 'copied' : 'failed')
+  }
+
+  function handleShowKeyAgain() {
+    keyDialogRef.current?.showModal()
+    keyCopyButtonRef.current?.focus()
+  }
+
+  const publishBusy = saving || publishing
+  const publishLabel = saving ? 'Zapisywanie…' : publishing ? 'Publikowanie…' : 'Opublikuj program'
 
   return (
     <>
@@ -256,10 +430,23 @@ export default function CardWizard() {
           </section>
 
           <form className="card-editor__form" onSubmit={handleSubmit} noValidate>
+            {/* One error region on screen, never two (task-14-design.md §5.1) -- save's own
+               failure, then publish's 422 field list, then the client-side multi-field case,
+               mutually exclusive in that order. */}
             {serverError ? (
               <div className="error-summary" role="alert" tabIndex={-1} ref={errorSummaryRef} style={{ marginBlockEnd: 'var(--space-8)' }}>
                 <p className="error-summary__title">Nie udało się zapisać karty.</p>
                 <p className="error-summary__body">{serverError} Spróbuj ponownie za chwilę.</p>
+              </div>
+            ) : publishFieldErrors.length > 0 ? (
+              <div className="error-summary" role="alert" tabIndex={-1} ref={errorSummaryRef} style={{ marginBlockEnd: 'var(--space-8)' }}>
+                <p className="error-summary__title">Nie opublikowaliśmy programu.</p>
+                <p className="error-summary__body">Uzupełnij poniższe pola i opublikuj ponownie.</p>
+                <ul>
+                  {mapPublishFieldErrors(publishFieldErrors).map((item, i) => (
+                    <li key={i}>{item.id ? <a href={`#${item.id}`}>{item.message}</a> : item.message}</li>
+                  ))}
+                </ul>
               </div>
             ) : (
               Object.keys(errors).length > 1 && (
@@ -489,11 +676,132 @@ export default function CardWizard() {
                   Program nie jest jeszcze opublikowany, więc kod QR dla klientów jeszcze nie istnieje. Do publikacji potrzebne są
                   nazwa na karcie i logo.
                 </p>
+                {publishError && (
+                  <div className="error-summary" style={{ marginBlockStart: 'var(--space-6)' }}>
+                    <p className="error-summary__title">Nie udało się opublikować programu.</p>
+                    <p className="error-summary__body">{publishError}</p>
+                    <p className="error-summary__body">
+                      Program został w wersji roboczej. Ponowna publikacja jest bezpieczna.
+                    </p>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  ref={publishButtonRef}
+                  className="btn btn--amber btn--lg btn--publish"
+                  style={{ marginBlockStart: 'var(--space-6)' }}
+                  disabled={publishBusy}
+                  aria-busy={publishBusy || undefined}
+                  onClick={handlePublishClick}
+                >
+                  {publishLabel}
+                </button>
+              </div>
+            )}
+
+            {/* Session-state handoff panel (task-14-design.md §2.3, §4.5) -- driven by
+               `justPublished`, not `program.status`, so it appears exactly once per publish and
+               never lingers as chrome across a later visit or reload. */}
+            {justPublished && (
+              <div className="panel">
+                <div className="panel__head">
+                  <h2 ref={handoffHeadingRef} tabIndex={-1} className="panel__title">
+                    Program jest opublikowany.
+                  </h2>
+                </div>
+                <p className="panel__note">Kod QR dla klientów jest już gotowy. Wydrukuj go i powieś przy kasie.</p>
+                {publishConflictNote && (
+                  <p className="panel__note">Ten program został już opublikowany. Odświeżyliśmy jego stan w panelu.</p>
+                )}
+                {keyPlaintext ? (
+                  <p className="panel__note">Klucz do terminala jest widoczny do czasu odświeżenia strony.</p>
+                ) : (
+                  <p className="panel__note">
+                    Klucza do terminala już nie pokażemy. Jeśli go nie masz, wygeneruj nowy w zakładce Integracja.
+                  </p>
+                )}
+                <div style={{ display: 'flex', gap: 'var(--space-5)', flexWrap: 'wrap', marginBlockStart: 'var(--space-6)' }}>
+                  {keyPlaintext ? (
+                    <button type="button" className="btn btn--ghost" onClick={handleShowKeyAgain}>
+                      Pokaż klucz ponownie
+                    </button>
+                  ) : (
+                    <Link to="/integracja" className="btn btn--ghost">
+                      Przejdź do integracji
+                    </Link>
+                  )}
+                  <Link to="/zaproszenie" className="btn btn--primary">
+                    Przejdź do kodu QR
+                  </Link>
+                </div>
               </div>
             )}
           </form>
         </div>
       </div>
+
+      {/* ConfirmDialog (task-14-design.md §3.3, panel-shell.md §5.7) -- native <dialog>, platform
+         supplies the focus trap, Esc and backdrop inertness. Cancel is the initially focused
+         control (§9: the risky action here is confirming). */}
+      <dialog ref={confirmDialogRef} className="confirm" aria-labelledby="confirm-title" aria-describedby="confirm-desc">
+        <h2 id="confirm-title" className="confirm__title">
+          Opublikować program?
+        </h2>
+        <p id="confirm-desc" className="confirm__body">
+          Publikacji nie da się cofnąć. Od tej chwili klienci mogą dołączać do programu, a kod QR zaproszenia zaczyna
+          działać.
+        </p>
+        <p className="confirm__body">Nazwę, logo, kolor i przelicznik możesz zmieniać także po publikacji.</p>
+        <div className="confirm__actions">
+          <button type="button" ref={confirmCancelRef} className="btn btn--ghost" onClick={() => confirmDialogRef.current?.close()}>
+            Anuluj
+          </button>
+          <button type="button" className="btn btn--amber" onClick={handleConfirmDialogSubmit}>
+            Opublikuj program
+          </button>
+        </div>
+      </dialog>
+
+      {/* KeyReveal (task-14-design.md §4.4, panel-shell.md §5.7) -- same dialog primitive, but the
+         risky action here is closing, so "Kopiuj klucz" carries the initial focus instead of the
+         cancel-equivalent control. */}
+      <dialog ref={keyDialogRef} className="confirm" aria-labelledby="key-title" aria-describedby="key-desc">
+        <h2 id="key-title" className="confirm__title">
+          Klucz do terminala
+        </h2>
+        <p id="key-desc" className="confirm__body">
+          Pokazujemy go tylko teraz. Po odświeżeniu strony zobaczysz już wyłącznie jego końcówkę.
+        </p>
+        {keyPlaintext && (
+          <p className="key-plaintext" tabIndex={0} aria-label="Klucz do terminala">
+            {keyPlaintext}
+          </p>
+        )}
+        <p className="confirm__body">
+          Tym kluczem aplikacja płatnicza na terminalu łączy się z Twoim programem. Przekaż go osobie, która
+          konfiguruje terminal.
+        </p>
+        <p className="confirm__body">
+          Jeśli go nie zapiszesz, wygeneruj nowy w zakładce Integracja. Dopóki terminal nie jest skonfigurowany, nic
+          to nie psuje.
+        </p>
+        <div className="confirm__actions">
+          <span role="status" style={{ fontSize: 13, lineHeight: '19.5px', color: 'var(--text-3)', marginInlineEnd: 'auto' }}>
+            {keyCopyStatus === 'copied' ? 'Skopiowano' : ''}
+          </span>
+          <button type="button" className="btn btn--ghost" onClick={() => keyDialogRef.current?.close()}>
+            Zamknij
+          </button>
+          <button type="button" ref={keyCopyButtonRef} className="btn btn--primary" onClick={handleCopyKey}>
+            {keyCopyStatus === 'copied' ? 'Skopiowano' : 'Kopiuj klucz'}
+          </button>
+        </div>
+        {keyCopyStatus === 'failed' && (
+          <p className="fieldset__error" role="alert" style={{ marginBlockStart: 'var(--space-5)' }}>
+            Nie udało się skopiować. Zaznacz klucz i skopiuj ręcznie.
+          </p>
+        )}
+      </dialog>
     </>
   )
 }
