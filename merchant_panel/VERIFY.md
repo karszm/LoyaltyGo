@@ -64,16 +64,18 @@ invite code `SEEDA1`) is what Path B logs into.
 | 12 | Click "Zapisz zmiany". | Button reads "Zapisywanie…" then reverts; "Zapisano" appears beside it. |
 | 13 | Click "Opublikuj program". | `ConfirmDialog` opens, native `<dialog>`, focus starts on "Anuluj". Click "Opublikuj program" inside it. |
 | 14 | (continuing from #13) | Dialog closes; `KeyReveal` opens immediately with the plaintext key, focus on "Kopiuj klucz". |
-| 15 | Click "Kopiuj klucz" (or "Zamknij"). | Key dialog closes; focus lands on the "Program jest opublikowany." heading — confirm via keyboard (the next Tab should move within the handoff panel, not jump to browser chrome or `<body>`). This is task 17's fix for the *other* way this screen reaches the same panel (step 18 below) — both must land here, not just this one. |
+| 15 | Click "Kopiuj klucz" (or "Zamknij"). | Key dialog closes; focus lands on the "Program jest opublikowany." heading — confirm via keyboard (the next Tab should move within the handoff panel, not jump to browser chrome or `<body>`). This is task 17's fix for the *other* way this screen reaches the same panel (see the two-tab variant below) — both must land here, not just this one. |
 | 16 | Click "Przejdź do kodu QR". | Lands on `/zaproszenie`; a QR renders inside the printable sheet, with the invite address as plain text beneath it. |
 | 17 | Click "Drukuj arkusz" (or Ctrl/Cmd+P). | Print preview shows *only* the sheet — no sidebar, no toolbar, no "Drukuj arkusz" button itself (`.no-print`). |
 | 18 | Return to any of `/klienci`, `/transakcje`, `/integracja`. | `DraftGate` is gone; each screen shows its real (now genuinely empty) content instead. |
 
-Separately (not part of the numbered path above, but the same handoff panel): reload `/karta`,
-click "Opublikuj program" again on the already-published program (or open two tabs and publish
-from both). Because the program is already published, this returns 200 with no key — `KeyReveal`
-never opens, so verify focus still lands on the "Program jest opublikowany." heading rather than
-falling to `<body>` (task 17's fix to the direct-to-handoff path).
+Separately (not part of the numbered path above, but reaching the same handoff panel a second
+way): before either tab has published, open `/karta` for the **same draft program** in two tabs.
+Publish from tab 1 (as in steps 13-15 above) — it gets the key. Without reloading tab 2, click its
+still-visible "Opublikuj program" too. Tab 2's request lands on an already-published program, so
+the backend answers 200 with no key (idempotent) — `KeyReveal` never opens in tab 2. Expected
+result: focus in tab 2 still lands on its own "Program jest opublikowany." heading, not `<body>` —
+this is the direct-to-handoff path task 17 fixed, reached without ever opening the dialog.
 
 ---
 

@@ -531,6 +531,16 @@ Required by `:159–164` — publication refused must show *the list of missing 
 it focuses that field. Red is spent on the border only — turning the whole list red makes a
 five-item checklist look like a system failure.
 
+**GAP-FILL (task 17, authorised explicitly on review — not a unilateral implementer call):** the
+title is chosen per case, not a single fixed string. `/karta`'s save flow surfaces two genuinely
+different failures through this one component: the row update itself failing (nothing saved), and
+the row saving fine while the follow-up PassKit branding push lags or fails outright (data saved,
+only the card's look is behind). A single fixed title cannot honestly cover both — "Nie udało się
+zapisać karty." directly above a body saying the data saved reads as a self-contradiction, not a
+status update. `CardWizard.tsx` now carries two title constants (`SAVE_FAILED_TITLE`,
+`BRANDING_LAG_TITLE`) and picks the one matching what actually happened; the CSS above is
+unchanged; `.error-summary__title`'s text is what varies, not its geometry.
+
 ### 5.9 Inline save feedback — no toast system
 
 ```css

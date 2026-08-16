@@ -48,9 +48,11 @@ export async function copyToClipboard(text: string): Promise<boolean> {
  * plain 200 -- not a thrown error -- when the program has no PassKit template yet. A caller that
  * only awaits the call and never reads the result treats that exactly like success: the data IS
  * saved, but the merchant is never told the card itself didn't get the update. Returns the
- * sentence to show in that case, or null when there is nothing to say.
+ * sentence to show in that case, or null when there is nothing to say. The "saved" fact itself
+ * belongs to the caller's error-summary title (BRANDING_LAG_TITLE in CardWizard.tsx), not here --
+ * this is body text, shown underneath that title, so it doesn't repeat it.
  */
 export function brandingSyncMessage(result: { synced: boolean }): string | null {
   if (result.synced) return null
-  return 'Zapisaliśmy zmiany, ale nie udało się zaktualizować wyglądu karty w portfelu. Spróbuj zapisać ponownie za chwilę.'
+  return 'Wygląd karty w portfelu nie zaktualizował się. Spróbuj zapisać ponownie za chwilę.'
 }

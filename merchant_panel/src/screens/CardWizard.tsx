@@ -45,6 +45,20 @@ const UPLOAD_FAILED_MESSAGE = 'Nie udało się wysłać logo. Spróbuj ponownie.
 const CONTRAST_WARNING =
   'Na tym kolorze biały tekst będzie trudny do odczytania, a jasne logo może zniknąć. Możesz zapisać ten kolor. Karta Twoich klientów będzie wyglądać dokładnie tak jak na podglądzie.'
 
+// Two different failure shapes share this one error-summary slot, and docs/design/panel-shell.md
+// §5.8's title was fixed text until this task's review -- a single title cannot honestly cover
+// both: one means "the row update itself failed, nothing saved", the other means "the row saved
+// fine, only the PassKit push lagged". Reusing SAVE_FAILED_TITLE for the second case reads as a
+// contradiction (a title claiming failure directly above a body saying the data saved). Gap-fill
+// authorised in panel-shell.md §5.8: the title is now chosen per case instead of fixed.
+const SAVE_FAILED_TITLE = 'Nie udało się zapisać karty.'
+const BRANDING_LAG_TITLE = 'Zapisano, ale karta w portfelu jeszcze się nie zaktualizowała.'
+
+interface ServerErrorState {
+  title: string
+  body: string
+}
+
 interface FieldValues {
   name: string
   color: string
@@ -140,7 +154,7 @@ export default function CardWizard() {
   const [errors, setErrors] = useState<FieldErrors>({})
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [serverError, setServerError] = useState<string | null>(null)
+  const [serverError, setServerError] = useState<ServerErrorState | null>(null)
   const [focusSummaryNonce, setFocusSummaryNonce] = useState(0)
 
   // --- Publish flow (task-14-design.md §3-5). ---
@@ -306,18 +320,19 @@ export default function CardWizard() {
           // A 200 with synced:false (no PassKit template provisioned yet) is not a thrown error --
           // it's the same silent-failure shape this project has been bitten by before. The data IS
           // saved either way; brandingSyncMessage is what tells the merchant the card itself didn't
-          // get the update, instead of the panel simply saying nothing.
+          // get the update, instead of the panel simply saying nothing. BRANDING_LAG_TITLE, not
+          // SAVE_FAILED_TITLE, because the row update above already succeeded.
           const message = brandingSyncMessage(result)
-          if (message) setServerError(message)
+          if (message) setServerError({ title: BRANDING_LAG_TITLE, body: message })
         } catch (err) {
-          setServerError(normalizeCode(err).message)
+          setServerError({ title: BRANDING_LAG_TITLE, body: normalizeCode(err).message })
         }
       }
       setSaved(true)
       reload()
       return true
     } catch (err) {
-      setServerError(normalizeCode(err).message)
+      setServerError({ title: SAVE_FAILED_TITLE, body: `${normalizeCode(err).message} Spróbuj ponownie za chwilę.` })
       setFocusSummaryNonce((n) => n + 1)
       return false
     } finally {
@@ -474,8 +489,8 @@ export default function CardWizard() {
                mutually exclusive in that order. */}
             {serverError ? (
               <div className="error-summary" role="alert" tabIndex={-1} ref={errorSummaryRef} style={{ marginBlockEnd: 'var(--space-8)' }}>
-                <p className="error-summary__title">Nie udało się zapisać karty.</p>
-                <p className="error-summary__body">{serverError} Spróbuj ponownie za chwilę.</p>
+                <p className="error-summary__title">{serverError.title}</p>
+                <p className="error-summary__body">{serverError.body}</p>
               </div>
             ) : publishFieldErrors.length > 0 ? (
               <div className="error-summary" role="alert" tabIndex={-1} ref={errorSummaryRef} style={{ marginBlockEnd: 'var(--space-8)' }}>
