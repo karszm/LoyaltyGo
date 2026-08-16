@@ -1,0 +1,238 @@
+@import '@loyaltygo/design-tokens/base.css';
+
+/*
+ * Panel primitives (panel-shell-design.md). Values here are verbatim from that spec — do not
+ * retune a heights/radii/size without updating the spec first, tasks 11-17 build on them as-is.
+ *
+ * Binding contrast constraints found by the design pass (panel-shell-design.md §8):
+ *   - `--text-4` on `--bg-raised` measures 4.44:1, below AA — banned on any raised (`.panel`)
+ *     surface in this app. `--text-4` stays valid directly on `--bg` (see tokens.css). Reach
+ *     for `--text-3` (5.86:1) instead wherever the surrounding surface is `.panel`.
+ *   - `--accent` as *text* measures 4.24:1, below AA — it is a fill and a focus-ring colour
+ *     only, never a text colour, anywhere in the panel.
+ */
+
+:root {
+  color-scheme: dark; /* native selects, date pickers, scrollbars render dark */
+  --panel-sidebar: 240px;
+  --panel-measure: 1080px;
+  --panel-form: 640px;
+  --panel-gutter: var(--space-9);
+}
+@media (max-width: 1023px) {
+  :root {
+    --panel-gutter: var(--space-7);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Shell grid (panel-shell-design.md §4.1) — AppShell/SideNav markup is the shell task's;      */
+/* the CSS lives here so it is ready when that markup arrives.                                 */
+/* ------------------------------------------------------------------ */
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--panel-sidebar) minmax(0, 1fr);
+  min-block-size: 100dvh;
+}
+.shell__nav {
+  position: sticky;
+  inset-block-start: 0;
+  block-size: 100dvh;
+  display: flex;
+  flex-direction: column;
+  border-inline-end: 1px solid var(--border);
+}
+.shell__main {
+  min-inline-size: 0; /* lets wide tables scroll instead of forcing the grid track open */
+}
+.shell__content {
+  max-inline-size: var(--panel-measure);
+  margin-inline: auto;
+  padding: var(--panel-gutter);
+}
+
+@media print {
+  .shell {
+    display: block;
+  }
+  .shell__nav,
+  .skip-link {
+    display: none;
+  }
+  .shell__content {
+    max-inline-size: none;
+    padding: 0;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Field — 52px form, 44px compact (panel-shell-design.md §5.1)                                */
+/* ------------------------------------------------------------------ */
+
+.field {
+  inline-size: 100%;
+  block-size: 52px;
+  padding-inline: var(--space-6); /* 16px */
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg); /* 8px */
+  color: var(--text-1);
+  font: inherit;
+  font-size: 15px;
+  transition: border-color 140ms ease;
+}
+.field::placeholder {
+  color: var(--text-3);
+}
+.field:hover {
+  border-color: var(--text-4);
+}
+.field:focus-visible {
+  outline: 2px solid var(--accent); /* ring, not text — see the contrast note above */
+  outline-offset: 2px;
+}
+
+.field[aria-invalid='true'] {
+  border-color: var(--red);
+}
+.field[aria-invalid='true']:focus-visible {
+  outline-color: var(--red);
+}
+
+.field:disabled {
+  background: var(--bg);
+  border-color: var(--border);
+  color: var(--text-3);
+  cursor: not-allowed;
+}
+
+.field--compact {
+  block-size: 44px;
+  padding-inline: var(--space-5);
+  font-size: 14px;
+}
+textarea.field {
+  block-size: auto;
+  min-block-size: 104px;
+  padding-block: var(--space-5);
+  line-height: 24px;
+}
+select.field {
+  padding-inline-end: var(--space-5); /* native select; no custom dropdown */
+}
+
+/* Field group (label + control + message) — the only way a field is used. */
+.fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4); /* 8px */
+}
+.fieldset + .fieldset {
+  margin-block-start: var(--space-7); /* 20px */
+}
+.fieldset__label {
+  font-size: 13px;
+  line-height: 19.5px;
+  color: var(--text-3);
+}
+/* --text-4 here is the spec's literal value; it only holds AA when the fieldset sits directly
+   on --bg (4.69:1). Inside a .panel (--bg-raised) it measures 4.44:1 and fails — use --text-3
+   there instead (see the file-level contrast note). */
+.fieldset__hint {
+  font-size: 13px;
+  line-height: 19.5px;
+  color: var(--text-4);
+}
+.fieldset__error {
+  font-size: 13px;
+  line-height: 19.5px;
+  color: var(--red);
+}
+
+/* ------------------------------------------------------------------ */
+/* Panel — the surface everything sits on (panel-shell-design.md §5.2)                         */
+/* ------------------------------------------------------------------ */
+
+.panel {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl); /* 12px — chrome radius */
+  padding: var(--space-8); /* 24px */
+}
+.panel + .panel {
+  margin-block-start: var(--space-8);
+}
+.panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-6);
+  margin-block-end: var(--space-6);
+}
+.panel__title {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 590;
+  color: var(--text-1);
+}
+/* This surface IS --bg-raised: any text placed loose inside a .panel stops at --text-3
+   (5.86:1) — never --text-4 (4.44:1 here, AA fail). */
+.panel__note {
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--text-3);
+}
+
+/* ------------------------------------------------------------------ */
+/* Chips (panel-shell-design.md §5.3) — two chips, two jobs, no third.                         */
+/* ------------------------------------------------------------------ */
+
+/* StateChip — program state, member status, transaction status. Dot + word. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3); /* 6px */
+  block-size: 24px;
+  padding-inline: var(--space-5); /* 12px */
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+  font-size: 13px;
+  line-height: 19.5px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.chip__dot {
+  inline-size: 7px;
+  block-size: 7px;
+  border-radius: var(--radius-pill);
+  flex-shrink: 0;
+  background: var(--text-4);
+}
+.chip--ok .chip__dot {
+  background: var(--green);
+}
+.chip--warn {
+  color: var(--red);
+}
+.chip--warn .chip__dot {
+  background: var(--red);
+}
+.chip--muted {
+  color: var(--text-3);
+}
+
+/* MonoChip — machine data inline: key fragments, transaction ids, point deltas. */
+.chip-mono {
+  display: inline-block;
+  padding: 2px var(--space-4); /* 2px 8px */
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm); /* 4px — data, not a badge */
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--text-2);
+}

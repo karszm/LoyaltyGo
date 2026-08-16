@@ -8,6 +8,7 @@
   --text-3: #8a8f98;
   --text-4: #767b84; /* lightened from Linear's #62666d to hold 4.5:1 on #08090a */
   --accent: #5e6ad2;
+  --accent-ink: #ffffff; /* text-1 on accent is 4.42:1, below AA; white holds 4.70:1 */
   --green: #27a644;
   --red: #eb5757;
   --border: #23252a;
