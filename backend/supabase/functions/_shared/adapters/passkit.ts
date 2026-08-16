@@ -208,6 +208,15 @@ async function createTemplateFor(branding: Branding): Promise<string> {
   // `revision` must be non-zero — PassKit rejects the create with
   // "protocol or version cannot be zero". There is no `version` field.
   tpl.revision = 1;
+  await applyBranding(tpl, branding);
+  const created = await passkitRequest("POST", "/template", tpl) as { id: string };
+  return requireId(created, "createTemplateFor");
+}
+
+// One place where a merchant's branding is written onto a template object, shared by creation
+// and by later updates. Keeping it in one function is the point: when these drifted apart, a
+// merchant's colour reached the card at publication and never again.
+async function applyBranding(tpl: Record<string, any>, branding: Branding): Promise<void> {
   tpl.name = branding.displayName;
   if (branding.description) tpl.description = branding.description;
   // `colors` and `imageIds` are TOP-LEVEL siblings of `data`, not inside it. This bit me:
@@ -228,16 +237,38 @@ async function createTemplateFor(branding: Branding): Promise<string> {
     }
   }
 
-  const created = await passkitRequest("POST", "/template", tpl) as { id: string };
-  return requireId(created, "createTemplateFor");
+}
+
+// Re-applies branding to an EXISTING template. PUT /template verified live 2026-08-16:
+// it takes the whole template object (id included) and answers 200 with the updated document.
+// This is what makes a post-publication logo or name change actually reach the card — without
+// it the panel saves happily and the pass never changes, which is how it behaved until now.
+export async function updateTemplateBranding(
+  passTemplateId: string,
+  branding: Branding,
+): Promise<void> {
+  if (Deno.env.get("PASSKIT_MODE") === "stub") {
+    console.log("[passkit:stub] updateTemplateBranding", { passTemplateId, branding });
+    return;
+  }
+  const listed = await passkitRequestRaw("GET", "/templates");
+  const current = listed.trim().split("\n")
+    .map((line) => JSON.parse(line).result?.template)
+    .find((t) => t?.id === passTemplateId);
+  if (!current) {
+    throw new Error(`passkit updateTemplateBranding: nie znaleziono szablonu ${passTemplateId}.`);
+  }
+  const tpl = structuredClone(current) as Record<string, any>;
+  await applyBranding(tpl, branding);
+  await passkitRequest("PUT", "/template", tpl);
 }
 
 export async function createProgram(
   branding: Branding,
-): Promise<{ programId: string; templateId: string }> {
+): Promise<{ programId: string; templateId: string; passTemplateId: string }> {
   if (Deno.env.get("PASSKIT_MODE") === "stub") {
     console.log("[passkit:stub] createProgram", branding);
-    return { programId: "stub-program-id", templateId: "stub-template-id" };
+    return { programId: "stub-program-id", templateId: "stub-template-id", passTemplateId: "stub-pass-template-id" };
   }
 
   // POST /members/program — route confirmed live (401 "no jwt token provided" without
@@ -324,7 +355,7 @@ export async function createProgram(
   }) as { id: string };
   const templateId = requireId(tier, "createProgram (tier)");
 
-  return { programId, templateId };
+  return { programId, templateId, passTemplateId };
 }
 
 export type Member = {

@@ -60,3 +60,10 @@ export function resumeProgram<T = unknown>(): Promise<T> {
 export function closeProgram<T = unknown>(confirm = false): Promise<T> {
   return invoke<T>('/program/close', { body: { confirm } })
 }
+
+// Pushes the branding currently saved in the database onto the merchant's PassKit template.
+// Provisioning happens once, at publication, so without this call every later edit of the
+// logo, name or colour would change the panel and leave the customer's card untouched.
+export function syncBranding(): Promise<{ synced: boolean }> {
+  return invoke<{ synced: boolean }>('/program/branding')
+}

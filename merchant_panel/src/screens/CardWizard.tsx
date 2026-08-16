@@ -16,7 +16,7 @@ import { useSession } from '../lib/session'
 import { CardPreview, deriveMonogram, FALLBACK_BACKGROUND } from '../components/CardPreview'
 import { getProgram, updateProgram, uploadLogo, LogoUploadError, type Program } from '../lib/db'
 import { prepareLogo } from '../lib/logoCanvas'
-import { publishProgram } from '../lib/api'
+import { publishProgram, syncBranding } from '../lib/api'
 import { normalizeCode, type ErrorField } from '../lib/errors'
 import { clearDraft, loadDraft, saveDraft } from '../lib/formDraft'
 import { pointsForAmount, pointsPerPlnToRatePer100, ratePer100ToPointsPerPln, formatMoney } from '../lib/format'
@@ -279,6 +279,16 @@ export default function CardWizard() {
         points_per_pln: ratePer100ToPointsPerPln(Number(values.ratePer100)),
       })
       if (userId) clearDraft(userId, DRAFT_KEY)
+      // Provisioning runs once, at publication — so for an already-published program the save
+      // above changes the panel and nothing else unless we push it to the pass issuer too.
+      // A failure here must not read as a failed save: the data IS saved, only the card lags.
+      if (program.status === 'published') {
+        try {
+          await syncBranding()
+        } catch (err) {
+          setServerError(normalizeCode(err).message)
+        }
+      }
       setSaved(true)
       reload()
       return true
