@@ -1,5 +1,5 @@
 {
-  "name": "loyaltygo-program-page",
+  "name": "loyaltygo-karta",
   "main": "./dist/_worker.js/index.js",
   "compatibility_date": "2025-08-12",
   "compatibility_flags": ["nodejs_compat"],
