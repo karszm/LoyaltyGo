@@ -2,11 +2,12 @@
 // .shell entirely (§1 of the design doc: panel-shell-design.md's layout doesn't apply here, only
 // its primitive vocabulary does).
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { normalizeCode } from '../lib/errors'
 import { isValidCode, isValidEmail, sanitizeCode } from '../lib/validate'
 import { safeReturnTo } from '../lib/returnTo'
+import { useSession } from '../lib/session'
 
 type Phase = 'ask' | 'sent'
 
@@ -81,6 +82,7 @@ export default function Login() {
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
+  const { session } = useSession()
   const returnTo = safeReturnTo(searchParams.get('returnTo'))
 
   const initialBanner = (() => {
@@ -204,6 +206,10 @@ export default function Login() {
     setCodeError(null)
     setCooldown(0)
   }
+
+  // A bookmark, back button, or stale tab can land an already-authenticated merchant here --
+  // send them into the app instead of showing the form again.
+  if (session) return <Navigate to={returnTo} replace />
 
   return (
     <main>

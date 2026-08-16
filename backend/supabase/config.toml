@@ -252,6 +252,16 @@ otp_expiry = 3600
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
+# merchant_panel's /login (task 11) sends one signInWithOtp and shows a code field next to the
+# link as the answer to "the link opened on my phone, I'm on my laptop" -- no cross-device
+# channel, just a second way to finish the same message. GoTrue's BUILT-IN magic_link template
+# renders only {{ .ConfirmationURL }}; without the {{ .Token }} clause below, the six-digit code
+# never reaches the mailbox, the code field is unfillable, and nothing surfaces the failure --
+# `/otp` still returns 200 either way. This is why the clause is load-bearing, not decorative.
+[auth.email.template.magic_link]
+subject = "Twój link i kod logowania do LoyaltyGo"
+content_path = "./supabase/templates/magic_link.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true
