@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { copyToClipboard, mapPublishFieldErrors } from './publish'
+import { brandingSyncMessage, copyToClipboard, mapPublishFieldErrors } from './publish'
 
 describe('mapPublishFieldErrors', () => {
   it('maps display_name to the screen sentence, anchored to #prog-name', () => {
@@ -44,5 +44,15 @@ describe('copyToClipboard', () => {
     vi.stubGlobal('navigator', { clipboard: { writeText } })
     await expect(copyToClipboard('lgo_pk_abc')).resolves.toBe(false)
     vi.unstubAllGlobals()
+  })
+})
+
+describe('brandingSyncMessage', () => {
+  it('returns null when the sync succeeded', () => {
+    expect(brandingSyncMessage({ synced: true })).toBeNull()
+  })
+
+  it('returns a sentence, not null, when the sync silently failed (synced: false)', () => {
+    expect(brandingSyncMessage({ synced: false })).toEqual(expect.any(String))
   })
 })

@@ -6,7 +6,7 @@
 // scales it to the page. The QR itself is generated client-side (`invite_qr_url` is always null
 // server-side) and rendered as an `<img>` with a data-URI PNG, never a CSS background-image,
 // so the sheet does not depend on the browser's "print background graphics" toggle (§6.3).
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import QRCode from 'qrcode'
 import { useProgram } from '../lib/program'
 import { useAsync } from '../lib/useAsync'
@@ -34,6 +34,10 @@ const descStyle = {
 
 export default function Invite() {
   const { program } = useProgram()
+
+  useEffect(() => {
+    document.title = 'Zaproszenie · LoyaltyGo'
+  }, [])
 
   if (program.status !== 'published') {
     return (
@@ -128,6 +132,14 @@ function PublishedInvite({ displayName, inviteCode }: { displayName: string; inv
           {copyStatus === 'copied' ? 'Skopiowano' : ''}
         </span>
       </div>
+      {/* Unlike the key dialog's clipboard failure, this one isn't a lost secret -- the address
+         is right there as selectable text on the sheet above, so the bar is "say something", not
+         "solve it" (same fieldset__error + role="alert" pattern the key dialog uses). */}
+      {copyStatus === 'failed' && (
+        <p className="no-print fieldset__error" role="alert" style={{ marginBlockStart: 'var(--space-5)' }}>
+          Nie udało się skopiować. Zaznacz adres na arkuszu powyżej i skopiuj ręcznie.
+        </p>
+      )}
       <p className="no-print" style={{ marginBlockStart: 'var(--space-6)', fontSize: 14, lineHeight: '21px', color: 'var(--text-3)' }}>
         Klient skanuje kod aparatem telefonu, podaje imię, nazwisko i adres e-mail i dostaje kartę w portfelu.
       </p>

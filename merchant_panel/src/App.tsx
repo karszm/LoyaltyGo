@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { RequireAuth, SessionProvider } from './lib/session'
 import { RequireProgram, RootRedirect, useProgram } from './lib/program'
@@ -17,6 +18,11 @@ import { DraftGate } from './components/DraftGate'
 function PlaceholderScreen({ label, gateNote }: { label: string; gateNote?: string }) {
   const { program } = useProgram()
   const gated = gateNote !== undefined && program.status !== 'published'
+
+  useEffect(() => {
+    document.title = `${label} · LoyaltyGo`
+  }, [label])
+
   return (
     <>
       <h1

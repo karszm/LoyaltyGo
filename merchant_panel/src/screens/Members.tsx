@@ -91,6 +91,10 @@ const COLUMNS: DataTableColumn<Member>[] = [
 export default function Members() {
   const { program } = useProgram()
 
+  useEffect(() => {
+    document.title = 'Klienci · LoyaltyGo'
+  }, [])
+
   if (program.status !== 'published') {
     return (
       <>
@@ -118,6 +122,19 @@ function PublishedMembers() {
   }, [inputValue])
 
   const { data, error, loading, reload } = useAsync(() => listMembers(debouncedSearch), [debouncedSearch])
+
+  // debouncedSearch updates a render before `data` does (useAsync's refetch effect only commits
+  // after this one), so reading debouncedSearch + data.count directly would announce the NEW
+  // search term against the OLD query's count for one tick before self-correcting -- a
+  // screen-reader user hears a wrong number, then a correction. Track the (term, count) pair the
+  // last real fetch actually resolved instead: the effect below only fires when `data` itself
+  // changes, so by the time it runs, debouncedSearch is guaranteed to be the term that produced
+  // it (useAsync cancels any earlier in-flight fetch, so a stale response can never land here).
+  const [announcedCount, setAnnouncedCount] = useState<{ search: string; count: number } | null>(null)
+  useEffect(() => {
+    if (data) setAnnouncedCount({ search: debouncedSearch, count: data.count })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data])
 
   function handleClearSearch() {
     setInputValue('')
@@ -161,7 +178,7 @@ function PublishedMembers() {
     content = <DataTable columns={COLUMNS} rows={data.rows} rowKey={(m) => m.id} scrollLabel="Lista klientów" />
   }
 
-  const counterLabel = data === null ? '' : debouncedSearch ? `Wyników: ${data.count}` : `Klientów: ${data.count}`
+  const counterLabel = !announcedCount ? '' : announcedCount.search ? `Wyników: ${announcedCount.count}` : `Klientów: ${announcedCount.count}`
 
   return (
     <>

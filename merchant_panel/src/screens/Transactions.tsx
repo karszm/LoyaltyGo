@@ -8,7 +8,7 @@
 // when the transaction list itself comes back empty (db.ts's countMembers()). Collapsing these
 // into one "no data" message would send an already-connected merchant back to the printer for
 // nothing, and a not-yet-connected one to a settings screen with nothing to configure yet.
-import { type ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { useProgram } from '../lib/program'
 import { useAsync } from '../lib/useAsync'
 import { countMembers, listTransactions, type TransactionRow } from '../lib/db'
@@ -169,6 +169,10 @@ const COLUMNS: DataTableColumn<TransactionRow>[] = [
 
 export default function Transactions() {
   const { program } = useProgram()
+
+  useEffect(() => {
+    document.title = 'Transakcje · LoyaltyGo'
+  }, [])
 
   if (program.status !== 'published') {
     return (

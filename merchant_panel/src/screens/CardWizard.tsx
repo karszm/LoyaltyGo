@@ -22,7 +22,7 @@ import { clearDraft, loadDraft, saveDraft } from '../lib/formDraft'
 import { pointsForAmount, pointsPerPlnToRatePer100, ratePer100ToPointsPerPln, formatMoney } from '../lib/format'
 import { contrastRatio, meetsAA } from '../lib/contrast'
 import { isValidHexColor } from '../lib/validate'
-import { copyToClipboard, mapPublishFieldErrors } from '../lib/publish'
+import { copyToClipboard, mapPublishFieldErrors, brandingSyncMessage } from '../lib/publish'
 
 const DRAFT_KEY = 'karta'
 const NAME_MAX = 60
@@ -119,6 +119,10 @@ export default function CardWizard() {
   const { session } = useSession()
   const userId = session?.user.id ?? null
 
+  useEffect(() => {
+    document.title = 'Karta programu · LoyaltyGo'
+  }, [])
+
   const serverBaseline = useMemo(() => baselineValues(program), [program])
   const [values, setValues] = useState<FieldValues>(() => {
     const draft = userId ? loadDraft<FieldValues>(userId, DRAFT_KEY) : null
@@ -200,6 +204,20 @@ export default function CardWizard() {
     dialog.addEventListener('close', handleClose)
     return () => dialog.removeEventListener('close', handleClose)
   }, [])
+
+  // Two publish outcomes land on the handoff panel WITHOUT ever opening KeyReveal: an idempotent
+  // 200 with no key (double click, or another tab published first) and a 409 that resolves to
+  // "already published elsewhere" -- both set justPublished with keyPlaintext still null. Neither
+  // triggers the dialog's own 'close' listener above, so without this, focus falls to <body> on
+  // exactly the render where the amber button's "Publikacja" panel has just unmounted. Runs once
+  // per publish (justPublished only ever flips false -> true), and only takes over when no dialog
+  // is going to hand off focus itself.
+  useEffect(() => {
+    if (justPublished && keyPlaintext === null) {
+      handoffHeadingRef.current?.focus()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [justPublished])
 
   function updateValue<K extends keyof FieldValues>(key: K, value: FieldValues[K]) {
     setSaved(false)
@@ -284,7 +302,13 @@ export default function CardWizard() {
       // A failure here must not read as a failed save: the data IS saved, only the card lags.
       if (program.status === 'published') {
         try {
-          await syncBranding()
+          const result = await syncBranding()
+          // A 200 with synced:false (no PassKit template provisioned yet) is not a thrown error --
+          // it's the same silent-failure shape this project has been bitten by before. The data IS
+          // saved either way; brandingSyncMessage is what tells the merchant the card itself didn't
+          // get the update, instead of the panel simply saying nothing.
+          const message = brandingSyncMessage(result)
+          if (message) setServerError(message)
         } catch (err) {
           setServerError(normalizeCode(err).message)
         }
@@ -820,11 +844,3 @@ export default function CardWizard() {
     </>
   )
 }
-
-// task-13-design.md §10 point 2 asks this screen to expose `isDirty` and `save(): Promise<void>`
-// for the publish handler (task 14) to await before validating the row. Not wired up here on
-// purpose: task 14 owns the amber button (rendered inside the "Publikacja" panel above) and,
-// being the actual consumer, is what decides HOW it reads these -- a ref via useImperativeHandle,
-// a lifted hook, or a prop callback -- rather than this task guessing at an API shape nothing
-// calls yet. `runSave()` above is already that save() function in substance; only the exposure
-// mechanism is left for task 14.

@@ -42,3 +42,15 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     return false
   }
 }
+
+/**
+ * `POST /program/branding` (panel-api's handleBrandingSync) answers `{ synced: false }` with a
+ * plain 200 -- not a thrown error -- when the program has no PassKit template yet. A caller that
+ * only awaits the call and never reads the result treats that exactly like success: the data IS
+ * saved, but the merchant is never told the card itself didn't get the update. Returns the
+ * sentence to show in that case, or null when there is nothing to say.
+ */
+export function brandingSyncMessage(result: { synced: boolean }): string | null {
+  if (result.synced) return null
+  return 'Zapisaliśmy zmiany, ale nie udało się zaktualizować wyglądu karty w portfelu. Spróbuj zapisać ponownie za chwilę.'
+}
