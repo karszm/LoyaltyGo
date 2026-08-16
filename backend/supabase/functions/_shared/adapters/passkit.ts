@@ -149,11 +149,16 @@ export async function createProgram(
   // production; a trial account gets 500 "you cannot set the status to PROJECT_PUBLISHED;
   // make sure your account is eligble for production use" [sic]. That is account setup,
   // not something the code can work around — see docs/passkit-live-findings.md.
+  // PASSKIT_PROJECT_STATUS picks the first dimension. Default PROJECT_PUBLISHED — that is the
+  // correct production value. A PassKit account not yet approved for production rejects it,
+  // so local/dev sets PROJECT_DRAFT: a draft program still issues real, working passes, they
+  // are just garbage-collected after a while, which is exactly right for development.
+  const projectStatus = Deno.env.get("PASSKIT_PROJECT_STATUS") ?? "PROJECT_PUBLISHED";
   const passTypeIdentifier = Deno.env.get("PASSKIT_PASS_TYPE_IDENTIFIER");
   const program = await passkitRequest("POST", "/members/program", {
     name: branding.displayName,
     ...(passTypeIdentifier
-      ? { passTypeIdentifier, status: ["PROJECT_PUBLISHED", "PROJECT_ACTIVE_FOR_OBJECT_CREATION"] }
+      ? { passTypeIdentifier, status: [projectStatus, "PROJECT_ACTIVE_FOR_OBJECT_CREATION"] }
       : {}),
   }) as { id: string };
   const programId = requireId(program, "createProgram");
