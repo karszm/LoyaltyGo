@@ -53,7 +53,62 @@ wyłącznie jako `PROJECT_DRAFT`.
 **Do załatwienia po stronie konta PassKita, nie w kodzie.** Kod wysyła `PROJECT_PUBLISHED`,
 bo to jest poprawne zachowanie produkcyjne.
 
-## 5. BLOKADA ARCHITEKTONICZNA — poziom wymaga szablonu, którego nie da się utworzyć przez REST
+## 5. ROZSTRZYGNIĘTE: szablon **DA SIĘ** utworzyć przez API (2026-08-16, po dodatkowym śledztwie)
+
+**Wcześniejsze ustalenie w tym dokumencie i w `passkit.ts:262` było BŁĘDNE.** Powód pomyłki jest
+prosty i wart zapamiętania: sondowano ścieżki **`/templates/*` w liczbie mnogiej**, które służą
+wyłącznie do odczytu. Ścieżka zapisu to **`/template` w liczbie POJEDYNCZEJ**.
+
+Potwierdzone wykonaniem:
+
+```
+POST https://api.pub1.passkit.io/template   →  200 {"id":"2nAHY27XZFHAZF8XWi2FCf"}
+```
+
+### Wymagane pola (ustalone iteracyjnie po komunikatach walidacji)
+
+| Pole | Uwaga |
+|---|---|
+| `name` | wymagane |
+| `protocol` | **`MEMBERSHIP`** dla kart lojalnościowych |
+| `description` | wymagane |
+| `timezone` | np. `Europe/Warsaw` |
+| `revision` | **musi być ustawione (np. `1`)** — bez niego `protocol or version cannot be zero`; pole `version` NIE działa |
+| `data.dataFields[]` | bez nich: `template is nil or does not contain any data fields` |
+
+### Kształt `data`
+
+`data.dataFields[]` — każde pole ma `uniqueName` (np. `members.program.name`,
+`members.member.points`, `person.displayName`, `members.tier.name`, `universal.info`),
+`fieldType`, `dataType`, `usage[]`, oraz osobne opcje renderowania dla Apple
+(`appleWalletFieldRenderOptions.positionSettings.section`) i Google
+(`googlePayFieldRenderOptions.googlePayPosition`).
+
+Obok tego w `data`: **`colors`** (`backgroundColor`, `labelColor`, `textColor`),
+**`imageIds`** (`icon`, `logo`, `appleLogo`, `thumbnail`, …), `barcode`, `appleWalletSettings`,
+`googlePaySettings`, `expirySettings`, `landingPageSettings`.
+
+### Logo per merchant też jest osiągalne
+
+`POST /images` istnieje i odpowiada `imageData cannot be nil`, czyli przyjmuje wgranie obrazu
+i zwraca id, którym wypełnia się `data.imageIds.logo`. Czyli **oba filary brandingu per merchant
+— kolor i logo — są dostępne programowo.**
+
+### Wniosek dla projektu
+
+**Wariant 1 (jeden wspólny szablon) nie jest potrzebny jako rozwiązanie docelowe.** Model
+z planu — publikacja merchanta tworzy własny szablon z jego kolorem i logo — jest wykonalny.
+Praktyczna droga: wziąć istniejący szablon konta jako wzorzec, sklonować, podmienić `name`,
+`data.colors` i `data.imageIds.logo`, ustawić `revision: 1`, wysłać `POST /template`.
+
+### Uwagi operacyjne
+
+- `GET /templates` zwraca **NDJSON** (jeden obiekt JSON na linię), nie jedną tablicę.
+  `JSON.parse` na całości się wywala — to nie błąd API.
+- `GET /template/{id}` **nie istnieje** (501 Method Not Allowed). Pojedynczy szablon czyta się
+  z listy.
+
+## 5b. Poprzednia (błędna) diagnoza — zachowana dla porządku
 
 `POST /members/tier` z ciałem, które wysyła nasz kod, zwraca
 `500 {"error":"pass template id cannot be empty"}`. Czyli **poziom wymaga `passTemplateId`**,

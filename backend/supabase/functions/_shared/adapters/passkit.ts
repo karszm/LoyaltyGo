@@ -274,12 +274,17 @@ export async function syncPassBalance(
 // zero references outside this file), so this is a best-effort placeholder, not something
 // any test or smoke run exercises. `templateId` is the Tier id createProgram returns (see
 // its comment above). PUT /members/tier is confirmed live as a route (401 without auth),
-// but the field names for changing a tier's branding are NOT confirmed. The actual visual
-// Pass Template (colors/logo/field layout — a separate PassKit Common API resource
-// referenced by tier.passTemplateId) has NO confirmed REST path at all: every /templates/*
-// create/update shape we probed live 404'd (only GET /templates and POST /templates/list
-// exist, i.e. read/list, not write) — see task-8-report.md. Re-verify against
-// docs.passkit.io (or a real authenticated call) before wiring a real caller to this.
+// but the field names for changing a tier's branding are NOT confirmed.
+//
+// CORRECTION 2026-08-16: the earlier claim here — that the visual Pass Template has "NO
+// confirmed REST path at all" — was WRONG, and the reason is worth remembering: the probing
+// used `/templates/*` (PLURAL), which is read-only. The write path is `/template` (SINGULAR).
+// Verified live: POST /template -> 200 {"id":"..."}. Required fields: name, protocol
+// ("MEMBERSHIP"), description, timezone, revision (must be non-zero — `version` is not a
+// field), and a non-empty data.dataFields[]. Colors live at data.colors and the logo at
+// data.imageIds.logo, with POST /images accepting the upload — so per-merchant branding
+// (the whole point of the card wizard) IS achievable programmatically.
+// Full shape and the iteration that established it: docs/passkit-live-findings.md §5.
 export async function updateTemplate(templateId: string, branding: Branding): Promise<void> {
   if (Deno.env.get("PASSKIT_MODE") === "stub") {
     console.log("[passkit:stub] updateTemplate", { templateId, branding });
