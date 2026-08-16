@@ -26,12 +26,27 @@ Uruchamianie, seed i sekrety: `backend/README.md`. Kontrakt: `docs/api/openapi.y
    Dla członka wykonuje się więcej pracy niż dla nie-członka, co przy dostatecznej liczbie
    prób na adres pozwala odtworzyć różnicę i sprawdzić, kto należy do programu.
 
-   Zmierzone 2026-08-15 na trasie dołączania, po 20 próbek na ścieżkę, lokalnie:
+   Zmierzone lokalnie na **obu** trasach publicznych, niezależnie, przez dwie różne osoby-agenty:
+
+   **Dołączanie** (`POST /invites/:code/join`), 2026-08-15, 20 próbek na ścieżkę:
 
    | Ścieżka | Średnia | Min | Max |
    |---|---|---|---|
    | 202 (adres już w programie) | 13,0 ms | 10,97 ms | 25,9 ms |
    | 201 (nowy adres) | 10,9 ms | 10,05 ms | 11,8 ms |
+
+   **Odzyskiwanie karty** (`POST /invites/:code/card-recovery`), 2026-08-16, 12 próbek
+   przeplatanych, za każdym razem świeży niedławiony członek, żeby wymusić prawdziwą pracę:
+
+   | Ścieżka | Średnia | Wynik |
+   |---|---|---|
+   | członek | 14,3 ms | **wolniejsza w 12/12 prób** |
+   | obcy adres | 11,8 ms | — |
+
+   Na trasie odzyskiwania różnica bierze się stąd, że `handleCardRecovery` czeka na
+   `issueCardLinkEmail` (zapis tokenu + wysyłka) wyłącznie w gałęzi członka. Komentarz
+   w tym samym pliku deklaruje niezmiennik obejmujący **czas** — więc kod łamie własną
+   deklarację, nie tylko dobrą praktykę.
 
    Rozkłady mają różny kształt, nie tylko różną średnią: ścieżka 202 ma długi prawy ogon,
    201 jest wąska. Źródło jest strukturalne — 202 robi nieudany insert, `select` istniejącego
