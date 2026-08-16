@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { pointsForAmount, pointsPerPlnToRatePer100, ratePer100ToPointsPerPln } from './format'
+import {
+  formatCancelledPointsNote,
+  formatDateTime,
+  formatPointsDelta,
+  pointsForAmount,
+  pointsPerPlnToRatePer100,
+  ratePer100ToPointsPerPln,
+} from './format'
 
 // Table straight from task-10-brief.md — assert the literal numbers, not a rearrangement of
 // the formula under test.
@@ -56,5 +63,55 @@ describe('ratePer100ToPointsPerPln', () => {
 
   it('10000 -> 100', () => {
     expect(ratePer100ToPointsPerPln(10000)).toBe(100)
+  })
+})
+
+// task-16-design.md §12's own copy example, literal: "15 sie 2026, 14:32". 12:32 UTC is 14:32 in
+// Europe/Warsaw (CEST, +2) on that date.
+describe('formatDateTime', () => {
+  it('renders the spec\'s literal example string', () => {
+    expect(formatDateTime('2026-08-15T12:32:00.000Z')).toBe('15 sie 2026, 14:32')
+  })
+
+  it('renders the delayed-sync copy example (§12): "16 sie 2026, 08:12"', () => {
+    expect(formatDateTime('2026-08-16T06:12:00.000Z')).toBe('16 sie 2026, 08:12')
+  })
+})
+
+describe('formatPointsDelta', () => {
+  it('positive value: no leading plus (task-16-design.md §5 point 1)', () => {
+    expect(formatPointsDelta(40)).toBe('40')
+  })
+
+  it('zero: no sign', () => {
+    expect(formatPointsDelta(0)).toBe('0')
+  })
+
+  it('negative value: U+2212, not a hyphen-minus', () => {
+    expect(formatPointsDelta(-40)).toBe('−40')
+    expect(formatPointsDelta(-40)).not.toBe('-40')
+  })
+})
+
+// task-16-design.md §12's two literal example strings, verbatim.
+describe('formatCancelledPointsNote', () => {
+  it('no correction: one sentence', () => {
+    expect(formatCancelledPointsNote(40, 40, null)).toBe('Naliczono 40 punktów, cofnięto 40 punktów.')
+  })
+
+  it('correction present and non-zero: second sentence appended', () => {
+    expect(formatCancelledPointsNote(40, 25, 15)).toBe(
+      'Naliczono 40 punktów, cofnięto 40 punktów. Saldo klienta nie pokryło pełnego cofnięcia, odjęliśmy 25 z 40 punktów.',
+    )
+  })
+
+  it('correction present but zero (balance covered the full reversal): no second sentence', () => {
+    expect(formatCancelledPointsNote(40, 40, 0)).toBe('Naliczono 40 punktów, cofnięto 40 punktów.')
+  })
+
+  it('points_reverted null: falls back to points_awarded in the second sentence', () => {
+    expect(formatCancelledPointsNote(40, null, 15)).toBe(
+      'Naliczono 40 punktów, cofnięto 40 punktów. Saldo klienta nie pokryło pełnego cofnięcia, odjęliśmy 40 z 40 punktów.',
+    )
   })
 })

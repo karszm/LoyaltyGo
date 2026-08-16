@@ -255,6 +255,9 @@ never live here.
 All toolbar controls are the **compact** 44px variant (§5.1), not the 52px form field. A 52px
 search box in a toolbar reads as a form and out-weighs the table it filters.
 
+`styles.css` did not actually carry a `.toolbar` rule until task 16 (`/klienci`'s search field) —
+its first real consumer adds the class in exactly the form specified above.
+
 ---
 
 ## 5. Primitives
@@ -539,6 +542,82 @@ five-item checklist look like a system failure.
 No toast layer, no portal, no timers, no stacking rules. The confirmation appears where the user
 is already looking — beside the button they just pressed.
 
+### 5.10 DataTable — the React port, `.cell-note`, `.table-note` (added by task 16)
+
+Task 16 (`/klienci`, `/transakcje`) is the first screen task to actually need the React port of
+`PanelTable.astro` this section's Appendix already anticipated, and adds it as
+`merchant_panel/src/components/DataTable.tsx`. The values below were not decided anywhere in this
+document before task 16; they fill that gap, they do not revise §5.5 above.
+
+```css
+.data-table {
+  width: 100%;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 19.5px;
+  letter-spacing: -0.13px;
+}
+.data-table__head,
+.data-table__row {
+  display: grid;
+  gap: var(--space-6);
+  align-items: center;
+  padding: var(--space-5) var(--space-6);
+}
+.data-table--wide .data-table__head,
+.data-table--wide .data-table__row { gap: var(--space-5); }   /* 6+ columns */
+.data-table__head {
+  font-size: 12px;
+  line-height: 16.8px;
+  color: var(--text-3);           /* not the landing's --text-4 -- §5.5's AA rule */
+  border-bottom: 1px solid var(--border);
+}
+.data-table__row + .data-table__row { border-top: 1px solid var(--border); }
+.data-table__cell--num { text-align: right; }
+```
+
+Each column owns a literal CSS grid track (`'84px'`, `'minmax(150px, 1.4fr)'`) applied via inline
+`gridTemplateColumns` on both the header row and every data row, so one component serves any
+column count without a second table implementation. Roles are plain divs/spans
+(`role="table"/"row"/"columnheader"/"cell"`) exactly as §5.5 already specifies. No row hover: no
+row in this panel is clickable, on `/klienci`/`/transakcje` or anywhere else.
+
+**`.cell-note`** — a footnote carried by a cell's *value* rather than by a second column, so an
+exceptional fact about one cell costs zero grid-track width:
+
+```css
+.cell-note { text-decoration: underline dotted var(--text-4); text-underline-offset: 3px; cursor: help; }
+```
+
+`--text-4` is legal here even though §5.5 bans it as *text* colour on `--bg-raised`: this is a
+decoration colour, not text. Always paired with a `title` attribute and a `.visually-hidden` twin
+holding the same sentence, because `title` doesn't exist for touch and is sometimes skipped by a
+screen reader. First consumer: the "Data" column of a transaction synced with a delay
+(task-16-design.md §6).
+
+**`.table-note`** — one sentence under a table truncated by a `.limit()` scale decision:
+
+```css
+.table-note { font-size: 13px; line-height: 19.5px; color: var(--text-3); margin-block-start: var(--space-5); }
+```
+
+**Row exception grammar.** A data row carries at most **two** visual carriers of an exception (a
+value rendered differently, plus a chip) — never a coloured row background, a strikethrough or a
+dimmed row. When two different exceptions land on the same row (task 16's own case: a transaction
+both cancelled and delayed-sync), the row's one chip slot shows whichever exception is more
+consequential to the merchant, and the other exception's full sentence stays available on the
+*cell it actually concerns*, via `title` + `.visually-hidden` — it does not vanish for lack of a
+second chip slot.
+
+**New `lib/format.ts` functions** (task 16, tested in the existing `format.test.ts`):
+`formatDateTime(iso)` (`pl-PL`, `Europe/Warsaw`, `15 sie 2026, 14:32`) and `formatPointsDelta(n)`
+(U+2212 for negative, plain digits otherwise, never a leading plus on a positive value). **New
+`lib/db.ts` functions**: `listMembers(search)`, `listTransactions()`, `countMembers()` — all
+through the existing `unwrap()`/`unwrapCounted()` error-translation path, no second pattern.
+
 ---
 
 ## 6. Data-region states
@@ -589,6 +668,15 @@ action    one .btn (ghost or primary)  — optional
 Copy is the screen task's, shape is not. `:282–285` fixes one of them already: an empty client
 list after publication must tell the merchant *where to put the QR*, and its action goes to
 `/zaproszenie`.
+
+**General rule, named explicitly by task 16 because that task is the first to hit it twice on one
+screen:** every empty state carries exactly one action, and that action leads to the *real* fix
+for *that specific* situation. Two different reasons a list is empty are two different messages
+and two different actions — never one shared "brak danych" covering both. (Task 16's own case:
+`/transakcje` empty because nobody has joined routes to `/zaproszenie`; `/transakcje` empty while
+members already exist routes to `/integracja` instead — the first fix is a printed QR, the second
+is a till connection, and sending a merchant with the second problem back to the printer wastes
+their day for nothing.)
 
 ### 6.4 DraftGate — the empty state's draft variant
 

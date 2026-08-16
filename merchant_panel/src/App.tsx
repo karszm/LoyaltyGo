@@ -5,13 +5,15 @@ import Login from './screens/Login'
 import AuthCallback from './screens/AuthCallback'
 import Onboarding from './screens/Onboarding'
 import CardWizard from './screens/CardWizard'
+import Members from './screens/Members'
+import Transactions from './screens/Transactions'
 import Invite from './screens/Invite'
 import { DraftGate } from './components/DraftGate'
 
-// Placeholder screen bodies for tasks 13-17 -- each real screen owns its own h1#screen-title and
-// (for the four gated ones) its own DraftGate note in that screen's terms (panel-shell-design.md
-// §2(b)); until those tasks land, this is enough to prove the shell/gate/routing wiring task 12
-// owns actually works end to end.
+// Placeholder screen body for task 17 (/integracja) -- each real screen owns its own
+// h1#screen-title and (for the gated ones) its own DraftGate note in that screen's terms
+// (panel-shell-design.md §2(b)); until that task lands, this is enough to prove the
+// shell/gate/routing wiring task 12 owns actually works end to end.
 function PlaceholderScreen({ label, gateNote }: { label: string; gateNote?: string }) {
   const { program } = useProgram()
   const gated = gateNote !== undefined && program.status !== 'published'
@@ -46,24 +48,8 @@ function App() {
           <Route element={<RequireProgram />}>
             <Route path="/" element={<RootRedirect />} />
             <Route path="/karta" element={<CardWizard />} />
-            <Route
-              path="/klienci"
-              element={
-                <PlaceholderScreen
-                  label="Klienci"
-                  gateNote="Link zapraszający i kod QR nie istnieją, dopóki program nie zostanie opublikowany, więc nikt nie może jeszcze dołączyć."
-                />
-              }
-            />
-            <Route
-              path="/transakcje"
-              element={
-                <PlaceholderScreen
-                  label="Transakcje"
-                  gateNote="Transakcje pojawią się dopiero, gdy klienci zaczną korzystać z karty, a to wymaga opublikowania programu."
-                />
-              }
-            />
+            <Route path="/klienci" element={<Members />} />
+            <Route path="/transakcje" element={<Transactions />} />
             <Route
               path="/integracja"
               element={

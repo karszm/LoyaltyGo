@@ -646,6 +646,84 @@ dialog.confirm::backdrop {
 }
 
 /* ------------------------------------------------------------------ */
+/* DataTable (docs/design/panel-shell.md §5.10, added by task 16) — the React port of           */
+/* PanelTable.astro. Container/row rhythm and cell typography mirror .panel-table exactly; the   */
+/* header colour is --text-3 (not the landing's --text-4, §5.5's AA rule), and there is no row    */
+/* hover -- no row in this panel is clickable.                                                    */
+/* ------------------------------------------------------------------ */
+
+.data-table {
+  width: 100%;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 19.5px;
+  letter-spacing: -0.13px;
+}
+.data-table__head,
+.data-table__row {
+  display: grid;
+  gap: var(--space-6);
+  align-items: center;
+  padding: var(--space-5) var(--space-6);
+}
+/* 6+ columns (task-16-design.md §4.2's 7-column /transakcje table) trade --space-6 for --space-5
+   so the widest columns still fit above 1280px; padding, row height and typography are unchanged. */
+.data-table--wide .data-table__head,
+.data-table--wide .data-table__row {
+  gap: var(--space-5);
+}
+.data-table__head {
+  font-size: 12px;
+  line-height: 16.8px;
+  color: var(--text-3);
+  border-bottom: 1px solid var(--border);
+}
+.data-table__row + .data-table__row {
+  border-top: 1px solid var(--border);
+}
+.data-table__cell--num {
+  text-align: right;
+}
+.data-table__ellipsis {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Delayed-sync date marker (task-16-design.md §6) — a dotted underline costs zero grid-track
+   width, unlike a second chip would. --text-4 is legal here because the underline is a
+   non-text decoration, not text colour (panel-shell.md §5.5 bans --text-4 as TEXT on
+   --bg-raised, not as a decoration colour). First (and so far only) consumer: the "Data" column
+   of a transaction synced with a delay. */
+.cell-note {
+  text-decoration: underline dotted var(--text-4);
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
+/* One sentence under a table truncated by the .limit(200) scale decision (task-16-design.md §9). */
+.table-note {
+  font-size: 13px;
+  line-height: 19.5px;
+  color: var(--text-3);
+  margin-block-start: var(--space-5);
+}
+
+/* Toolbar row between a screen header and its data region (panel-shell.md §4.3 already defines
+   this; task 16 is its first real consumer and adds the class here). All controls inside stay
+   the compact 44px field variant, never the 52px form field. */
+.toolbar {
+  display: flex;
+  gap: var(--space-5);
+  align-items: center;
+  margin-block-end: var(--space-6);
+}
+
+/* ------------------------------------------------------------------ */
 /* Wordmark (panel-shell-design.md §1 "Brand zone") — the landing's Violet Residue rule,        */
 /* verbatim (landing_page/src/pages/index.astro's .wordmark/.wordmark-go). Task 11's /login and  */
 /* /auth are the first consumers, ahead of task 12's sidebar brand zone; same object either way. */

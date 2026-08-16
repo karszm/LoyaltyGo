@@ -20,6 +20,25 @@ export async function unwrap<T>(
   return data as T
 }
 
+/**
+ * Same translator as unwrap(), for the handful of list queries (task 16) that ask PostgREST for
+ * `{ count: 'exact' }` alongside the rows. The count travels on the very same response
+ * (PostgREST's Content-Range header, surfaced by supabase-js as `count`) -- no second request,
+ * and no second error-handling path: a refusal here still goes through the one toPanelError()
+ * every other query in this file uses.
+ */
+// `data` is typed `unknown` here (not `T | null`) so the caller's explicit `unwrapCounted<X>(...)`
+// doesn't force a contravariant check against supabase-js's own inferred response type -- that
+// inference breaks down for embedded selects (`members(...)`, `coupon_redemptions(...)`) the same
+// way untyped raw SQL always has to be cast at the boundary. The cast happens once, right here.
+async function unwrapCounted<T>(
+  result: PromiseLike<{ data: unknown; error: PostgrestError | null; count: number | null }>,
+): Promise<{ data: T; count: number }> {
+  const { data, error, count } = await result
+  if (error) throw toPanelError(error)
+  return { data: data as T, count: count ?? 0 }
+}
+
 export interface Merchant {
   id: string
   email: string
@@ -170,6 +189,97 @@ export function createProgram(merchantId: string): Promise<Program> {
   )
 }
 
-// Members / offers / transactions / sync-rejections are screen-specific (search, pagination,
-// the member_name/offer_title joins each list needs) — their own tasks (11-17) add functions
-// here following the same unwrap() pattern rather than inventing a second one.
+// --- /klienci and /transakcje (task 16) ------------------------------------------------------
+// task-16-design.md D1: there is no `member_name` column. A transaction's customer name comes
+// from the `members(...)` embed, its coupon from `coupon_redemptions(...offers(title))`.
+// `transactions.member_id` is `not null` with an FK, so that embed is never empty; the coupon
+// embed is a to-many relation in practice holding zero or one row.
+
+export interface Member {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  points_balance: number
+  status: 'active' | 'blocked'
+  last_transaction_at: string | null
+  joined_at: string
+}
+
+const MEMBER_LIST_COLUMNS = 'id, first_name, last_name, email, points_balance, status, last_transaction_at, joined_at'
+const MEMBERS_LIMIT = 200
+
+/**
+ * /klienci's list (task-16-design.md §3, §8, §9). Sorted newest-joined-first (S1: "trzy osoby w
+ * tym tygodniu"), server-side search over surname and e-mail only (Gherkin :280), capped at 200
+ * rows with an exact total count so the screen can tell the merchant when the list was truncated.
+ * `search` must already be sanitized (lib/search.ts's sanitizeSearchTerm) -- this function does
+ * not sanitize its input a second time, and passes it through unfiltered when empty.
+ */
+export async function listMembers(search: string): Promise<{ rows: Member[]; count: number }> {
+  let query = supabase
+    .from('members')
+    .select(MEMBER_LIST_COLUMNS, { count: 'exact' })
+    .order('joined_at', { ascending: false })
+    .limit(MEMBERS_LIMIT)
+  if (search) query = query.or(`last_name.ilike.*${search}*,email.ilike.*${search}*`)
+  const { data, count } = await unwrapCounted<Member[]>(query)
+  return { rows: data, count }
+}
+
+/**
+ * The one extra query task-16-design.md §7 asks for, fired only when /transakcje's own list comes
+ * back empty: it is what tells apart "nobody has joined yet" (the QR fix) from "customers exist,
+ * the till isn't sending transactions" (the integration fix) -- two different empty states with
+ * two different real remedies, never collapsed into one "brak danych".
+ */
+export async function countMembers(): Promise<number> {
+  const { count } = await unwrapCounted<null>(supabase.from('members').select('id', { count: 'exact', head: true }))
+  return count
+}
+
+export interface TransactionMember {
+  first_name: string
+  last_name: string
+}
+export interface TransactionCouponRedemption {
+  status: 'redeemed' | 'reverted'
+  offers: { title: string } | null
+}
+export interface TransactionRow {
+  id: string
+  performed_at: string
+  synced_at: string
+  delayed_sync: boolean
+  amount: number
+  points_awarded: number
+  points_reverted: number | null
+  correction: number | null
+  status: 'registered' | 'cancelled'
+  softpos_transaction_id: string
+  members: TransactionMember
+  coupon_redemptions: TransactionCouponRedemption[]
+}
+
+const TRANSACTION_LIST_COLUMNS =
+  'id, performed_at, synced_at, delayed_sync, amount, points_awarded, points_reverted, correction, status, ' +
+  'softpos_transaction_id, members(first_name, last_name), coupon_redemptions(status, offers(title))'
+const TRANSACTIONS_LIMIT = 200
+
+/**
+ * /transakcje's list (task-16-design.md §4). Sorted by `performed_at` -- the till's own clock --
+ * tie-broken by `id`, and NEVER by `synced_at`: a transaction an offline till queued yesterday and
+ * only synced just now must land where it actually happened, not jump to the top of today's list.
+ * NEVER filtered by `status`: a cancelled row is exactly what a merchant reconciling their day
+ * needs to see, not its absence.
+ */
+export async function listTransactions(): Promise<{ rows: TransactionRow[]; count: number }> {
+  const query = supabase
+    .from('transactions')
+    .select(TRANSACTION_LIST_COLUMNS, { count: 'exact' })
+    .order('performed_at', { ascending: false })
+    .order('id', { ascending: true })
+    .limit(TRANSACTIONS_LIMIT)
+  const { data, count } = await unwrapCounted<TransactionRow[]>(query)
+  return { rows: data, count }
+}
