@@ -4,8 +4,7 @@
 // land" decision live in ../lib/program.tsx (RequireProgram) and ../lib/session.tsx (RequireAuth)
 // — this component never fetches anything, so it doubles as the loading fallback for both of
 // those gates as well as the real shell around <Outlet/>.
-import { useEffect, type ReactNode } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useEffect, useRef, type ReactNode } from 'react'
 
 interface AppShellProps {
   sideNav: ReactNode
@@ -13,15 +12,26 @@ interface AppShellProps {
 }
 
 export function AppShell({ sideNav, children }: AppShellProps) {
-  const location = useLocation()
-
+  // Keyed on the heading DOM node's own identity, not on the route (review of task 12):
+  // RequireProgram renders this same <AppShell> instance across its loading/error/success
+  // branches, so a plain `[location.pathname]` dependency fires once during the loading
+  // skeleton -- before any <h1> exists -- and never again once the real heading appears under
+  // that same path. Comparing against the last node actually focused fires exactly once per
+  // heading that shows up (whether that's a genuine navigation or the skeleton finally
+  // resolving to real content), and skips re-focusing a heading that's already been focused --
+  // no double announcement on an unrelated re-render.
+  const lastFocusedRef = useRef<Element | null>(null)
   useEffect(() => {
     // panel-shell-design.md §8: focus moving to the screen's own <h1 id="screen-title"> IS the
     // navigation announcement -- it gets the title read and leaves the next Tab inside the new
     // screen. A separate aria-live region for the same event makes most screen readers say the
     // title twice, so there isn't one here.
-    document.getElementById('screen-title')?.focus()
-  }, [location.pathname])
+    const heading = document.getElementById('screen-title')
+    if (heading && heading !== lastFocusedRef.current) {
+      heading.focus()
+      lastFocusedRef.current = heading
+    }
+  })
 
   return (
     <>

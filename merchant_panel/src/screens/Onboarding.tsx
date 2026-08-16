@@ -20,14 +20,27 @@ const DRAFT_KEY = 'onboarding.companyName'
 export default function Onboarding() {
   const navigate = useNavigate()
   const { session } = useSession()
+  // Onboarding only ever mounts inside RequireAuth's Outlet, so a session always exists by the
+  // time this renders -- this is just what keeps the draft/submit calls below from needing a
+  // `session.user.id` non-null assertion.
+  const userId = session?.user.id ?? null
 
-  const [companyName, setCompanyName] = useState(() => loadDraft<string>(DRAFT_KEY) ?? '')
+  const [companyName, setCompanyName] = useState(() => (userId ? loadDraft<string>(userId, DRAFT_KEY) ?? '' : ''))
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const headingRef = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => {
     document.title = 'Nazwa firmy · LoyaltyGo'
+  }, [])
+
+  useEffect(() => {
+    // This screen stands outside AppShell (no program/merchant identity to put a sidebar on
+    // yet), so AppShell's own focus-on-navigate effect never sees it -- reachable both by a
+    // fresh page load AND by an in-app redirect from RequireProgram's not_found branch, so a
+    // screen-reader user landing here from an existing shell context still gets an announcement.
+    headingRef.current?.focus()
   }, [])
 
   function handleChange(value: string) {
@@ -35,12 +48,12 @@ export default function Onboarding() {
     // Saved on every keystroke, not just on submit: a session expiring mid-typing is exactly the
     // case this exists for (panel-shell-design.md §6.5), and there's no separate "submit" moment
     // before the redirect that a save-on-blur would still miss.
-    saveDraft(DRAFT_KEY, value)
+    if (userId) saveDraft(userId, DRAFT_KEY, value)
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!session) return
+    if (!session || !userId) return
     const trimmed = companyName.trim()
     if (!trimmed) {
       setError('Podaj nazwę firmy.')
@@ -50,9 +63,9 @@ export default function Onboarding() {
     setError(null)
     setSaving(true)
     try {
-      const merchant = await createMerchant(session.user.id, session.user.email ?? '', trimmed)
+      const merchant = await createMerchant(userId, session.user.email ?? '', trimmed)
       await createProgram(merchant.id)
-      clearDraft(DRAFT_KEY)
+      clearDraft(userId, DRAFT_KEY)
       // RequireProgram (lib/program.tsx) re-fetches on mount and sends a fresh draft program to
       // /karta -- no need to duplicate that decision here.
       navigate('/', { replace: true })
@@ -70,7 +83,12 @@ export default function Onboarding() {
           <p className="wordmark">
             Loyalty<span className="wordmark-go">Go</span>
           </p>
-          <h1 style={{ marginBlockStart: 'var(--space-9)', fontSize: 20, lineHeight: '28px' }}>
+          <h1
+            id="screen-title"
+            tabIndex={-1}
+            ref={headingRef}
+            style={{ marginBlockStart: 'var(--space-9)', fontSize: 20, lineHeight: '28px' }}
+          >
             Jak nazywa się Twoja firma?
           </h1>
           <p style={{ marginBlockStart: 'var(--space-5)', fontSize: 15, lineHeight: '24px', color: 'var(--text-2)' }}>
@@ -105,6 +123,7 @@ export default function Onboarding() {
               type="submit"
               className="btn btn--primary btn--full"
               disabled={saving}
+              aria-busy={saving || undefined}
               style={{ marginBlockStart: 'var(--space-6)' }}
             >
               {saving ? 'Zapisywanie…' : 'Dalej'}

@@ -83,6 +83,16 @@ async function insertOrExisting<T>(
 ): Promise<T> {
   const { data, error } = await insert
   if (!error) return data as T
+  // Safe by coincidence of today's call sites, not by construction (flagged in review): this
+  // treats ANY 23505 on the statement as "the row I meant to insert already exists", without
+  // checking which constraint fired. That's correct right now only because createMerchant's
+  // insert touches merely auth_user_id/email/company_name (auth_user_id is the sole unique
+  // column among them) and createProgram's touches merely merchant_id (invite_code/key_hash are
+  // also unique, but nullable and untouched here, so they can't collide). Widening either
+  // insert's payload -- or a migration adding a unique constraint on a column one of them does
+  // touch -- would let a real, different collision through as a silent "success" via
+  // getExisting(). No constraint-name check added on purpose: it would need updating on every
+  // such migration, for a case this codebase does not have yet.
   if (error.code !== '23505') throw toPanelError(error)
   return getExisting()
 }

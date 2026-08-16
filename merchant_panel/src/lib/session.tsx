@@ -10,6 +10,7 @@ import { setUnauthorizedHandler } from './errors'
 import { safeReturnTo } from './returnTo'
 import { AppShell, ShellSkeleton } from '../components/AppShell'
 import { SideNav } from '../components/SideNav'
+import { clearAllDrafts } from './formDraft'
 
 interface SessionContextValue {
   session: Session | null
@@ -74,6 +75,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   async function logout() {
     await supabase.auth.signOut()
+    // sessionStorage is scoped to origin+tab, not to whoever is signed in, and it survives the
+    // replace() below (a navigation, not a tab close) -- without this, a later sign-in on the
+    // same shared back-office tab would still find whatever the previous merchant was drafting
+    // (review of task 12).
+    clearAllDrafts()
     // Hard navigation, not `navigate('/login')`: a router transition keeps the React tree (and
     // whatever data it holds in state) alive, it only swaps what's rendered on top of it.
     // `replace` also means the logged-in page is gone from history before bfcache is even a
