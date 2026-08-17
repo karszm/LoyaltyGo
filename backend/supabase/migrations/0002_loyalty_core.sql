@@ -1,5 +1,11 @@
 -- 0002_loyalty_core.sql — rdzeń domeny LoyaltyGo (kontrakt: docs/api/openapi.yaml)
 create extension if not exists citext;
+-- gen_random_bytes (card_token default below) lives in pgcrypto. Supabase installs it into
+-- the "extensions" schema, which isn't on a plain psql session's search_path (only on
+-- PostgREST's, via config.toml's extra_search_path) — without this line the function
+-- resolves locally by accident but 404s on a fresh Supabase Cloud project.
+create extension if not exists pgcrypto;
+set search_path = public, extensions;
 
 create table public.merchants (
   id uuid primary key default gen_random_uuid(),
