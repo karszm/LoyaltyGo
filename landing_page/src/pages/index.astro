@@ -1,2207 +1,481 @@
 ---
-import Base from '../layouts/Base.astro';
-import WalletCard from '../components/WalletCard.astro';
-import LockToast from '../components/LockToast.astro';
-import PanelTable from '../components/PanelTable.astro';
+import BaseLayout from "../layouts/BaseLayout.astro";
 
-// The merchant panel does not exist yet; its footer entry is a "(wkrótce)" placeholder.
-// Waitlist submissions go to Supabase — configure landing_page/.env (see .env.example).
+const pageTitle = "LoyaltyGo | Klienci, którzy chcą do Ciebie wracać";
+const pageDescription =
+  "Program lojalnościowy w Apple Wallet i Google Wallet dla małych firm. Bez dodatkowej aplikacji, sprzętu i wdrożenia IT.";
 
-// TODO(launch): flip to true (and restore src/pages/_platnosci-stacjonarne.astro to
-// platnosci-stacjonarne.astro) once the Tpay partnership may be public.
-const SHOW_TPAYGO = false;
+const merchantAppUrl = "/panel";
 
-const faq = [
+const benefits = [
   {
-    q: 'Czy moi klienci muszą instalować aplikację?',
-    a: 'Nie. Karta lojalnościowa działa w Apple Wallet i Google Wallet, czyli w aplikacjach, które Twoi klienci mają już na telefonie.',
+    title: "Klient nie potrzebuje aplikacji",
+    text: "Karta trafia do aplikacji portfel(Wallet), obok biletów i kart, których już używa.",
   },
   {
-    q: 'Czy potrzebuję nowego sprzętu?',
-    a: 'Nie. Lojalność działa na terminalu, na którym już przyjmujesz płatności.',
+    title: "Nie potrzebujesz sprzętu",
+    text: "Lojalność zintegrowana jest z aplikacją oraz rozwiązaniem SoftPos od Tpay.",
   },
   {
-    q: 'Ile trwa uruchomienie?',
-    a: 'Kilka minut: rejestracja, kreator karty, gotowe. Kod QR do druku dostajesz od razu.',
+    title: "Uruchamiasz po swojemu, szybciej niż myślisz",
+    text: "Twój program może być gotowy w zaledwie kilka kliknięć.",
+  },
+];
+
+const steps = [
+  {
+    action: "Zaproś",
+    title: "Jeden QR przy kasie",
+    text: "Klient skanuje kod aparatem, podaje imię i e-mail, a karta trafia prosto do jego Wallet.",
+    detail: "Bez pobierania aplikacji",
+    tone: "light",
   },
   {
-    q: 'Co z RODO?',
-    // TODO(legal): treść odpowiedzi do potwierdzenia z obsługą prawną przed publikacją.
-    a: 'Zbieramy tylko imię, nazwisko i adres e-mail, wyłącznie na potrzeby Twojego programu.',
+    action: "Rozpoznaj",
+    title: "Karta przy płatności",
+    text: "Przy kolejnej wizycie skanujesz kartę w SoftPOS. Transakcja i klient od razu łączą się w jedną historię.",
+    detail: "Bez zmiany procesu na kasie",
+    tone: "accent",
   },
   {
-    q: 'Co widzi klient na karcie?',
-    a: 'Twoją markę, saldo punktów i aktualne oferty.',
+    action: "Daj powód",
+    title: "Punkty rosną. Klient wraca.",
+    text: "Saldo aktualizuje się na karcie, a dostępna oferta czeka tam, gdzie klient naprawdę ją znajdzie.",
+    detail: "Twoja marka zostaje w telefonie",
+    tone: "dark",
   },
-  {
-    q: 'Czy mogę wysłać ofertę jednemu, konkretnemu klientowi?',
-    a: 'Tak. Widzisz jego historię wizyt i tworzysz kupon imienny, który trafia tylko na jego kartę.',
-  },
-  {
-    q: 'Czy klienci z iPhone’em i Androidem są obsługiwani tak samo?',
-    a: 'Tak. Obsługujemy oba systemy: Apple Wallet i Google Wallet.',
-  },
+];
+
+const customerBenefits = [
+  ["Bez haseł", "Jeden skan, imię i e-mail. To cały onboarding."],
+  ["Saldo zawsze pod ręką", "Punkty aktualizują się po każdej zarejestrowanej wizycie."],
+  ["Oferta bez szukania", "Kupon jest widoczny bezpośrednio na karcie w Wallet."],
+  ["Jedna firma, jedna karta", "Dane i punkty pozostają w programie konkretnego miejsca."],
+];
+
+const audiences = [
+  ["Beauty i fryzjerstwo", "Rytm wizyt, który łatwo zamienić w stałą relację."],
+  ["Gabinety", "Regularne przeglądy i zabiegi, o których klient powinien pamiętać."],
+  ["Kawiarnie i gastro", "Częste, małe transakcje, które szybko budują przyzwyczajenie."],
+  ["Usługi lokalne", "Warsztat, groomer czy studio. Powrót klienta oznacza stabilniejszy miesiąc."],
+];
+
+const faqs = [
+  [
+    "Czy klient musi instalować aplikację?",
+    "Nie. Karta działa w Apple Wallet i Google Wallet. Klient dodaje ją po zeskanowaniu kodu QR.",
+  ],
+  [
+    "Czy potrzebuję nowego sprzętu?",
+    "Nie. LoyaltyGo integruje się z aplikacją SoftPOS przez SDK. Korzystasz z terminala, który już masz.",
+  ],
+  [
+    "Co widzi klient na karcie?",
+    "Twoją markę, aktualne saldo punktów i dostępne oferty w programie Twojej firmy.",
+  ],
+  [
+    "Jak naliczane są punkty?",
+    "Ustalasz własny przelicznik. Po rejestracji transakcji saldo klienta aktualizuje się na karcie.",
+  ],
+  [
+    "Jakie dane podaje klient?",
+    "W pierwszej wersji tylko imię, nazwisko i e-mail. Szczegóły prawne programu ustalasz zgodnie z rolą administratora danych.",
+  ],
+  [
+    "Czy działa na iPhone i Androidzie?",
+    "Tak. Karty są przygotowane dla Apple Wallet i Google Wallet. Integracja z SoftPOS w pierwszej wersji korzysta z SDK iOS.",
+  ],
 ];
 ---
 
-<Base
-  title="LoyaltyGo | Program lojalnościowy w Apple Wallet i Google Wallet"
-  description="Zamień jednorazowe wizyty w trwałe relacje. Karta lojalnościowa w Wallecie klienta, punkty z każdej transakcji i kupony imienne. Bez aplikacji, nowego sprzętu i wdrożenia IT."
->
-  <header class="nav">
-    <div class="container nav-inner">
-      <a href="#" class="wordmark" aria-label="LoyaltyGo, strona główna">
-        Loyalty<span class="wordmark-go">Go</span>
+<BaseLayout title={pageTitle} description={pageDescription}>
+  <a class="skip-link" href="#main">Przejdź do treści</a>
+
+  <header class="site-header" data-header>
+    <div class="nav-shell">
+      <a class="wordmark" href="#top" aria-label="LoyaltyGo, strona główna">
+        <span class="wordmark-mark" aria-hidden="true"><i></i><i></i></span>
+        <span>LoyaltyGo</span>
       </a>
-      <nav class="nav-links" aria-label="Nawigacja">
-        <a href="#jak-to-dziala">Trzy kroki</a>
-        <a href="#kalkulator">Policz zysk</a>
-        <a href="#panel">Twoje klientki</a>
-        {SHOW_TPAYGO && <a href="#platnosci">Płatności</a>}
+
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-nav">
+        Menu
+      </button>
+
+      <nav id="main-nav" class="main-nav" aria-label="Główna nawigacja">
+        <a href="#jak-dziala">Jak działa</a>
+        <a href="#korzysci">Korzyści</a>
+        <a href="#kalkulator">Kalkulator</a>
         <a href="#faq">FAQ</a>
       </nav>
+
+      <a class="button button--small header-cta" href="#start">Uruchom program</a>
     </div>
   </header>
 
-  <main>
-    <!-- 1 · Hero -->
-    <section class="hero">
-      <div class="container hero-grid">
-        <div class="hero-copy">
-          <h1 class="hero-h1">Zamień jednorazowe wizyty w&nbsp;trwałe relacje.</h1>
-          <p class="hero-sub">
-            LoyaltyGo to program lojalnościowy działający w Apple Wallet i Google Wallet.
-            Nie wymaga aplikacji, nowego sprzętu ani wdrożenia IT. Konfiguracja zajmuje
-            kilka minut.
+  <main id="main">
+    <section id="top" class="hero section-shell">
+      <div class="hero-copy">
+        <h1 data-hero-item>Klienci, którzy chcą do Ciebie wracać.</h1>
+        <p class="hero-lead" data-hero-item>
+          Zamień każdą płatność w początek relacji, która nie wymaga dodatkowego wysiłku.
+        </p>
+        <div class="hero-actions" data-hero-item>
+          <a class="button" href="#start">Uruchom program</a>
+          <a class="text-link" href="#jak-dziala">Zobacz jak działa</a>
+        </div>
+      </div>
+
+      <figure class="hero-media" data-hero-media>
+        <img
+          src="/images/loyaltygo-hero.webp"
+          srcset="/images/loyaltygo-hero-768.webp 768w, /images/loyaltygo-hero-1200.webp 1200w, /images/loyaltygo-hero.webp 1536w"
+          sizes="(max-width: 56rem) calc(100vw - 2rem), 50vw"
+          width="1536"
+          height="1024"
+          alt="Telefon z kartą lojalnościową obok terminala SoftPOS w salonie"
+          fetchpriority="high"
+          decoding="async"
+        />
+      </figure>
+    </section>
+
+    <section class="value-rail section-shell" aria-label="Najważniejsze korzyści">
+      {benefits.map((benefit) => (
+        <article>
+          <h2>{benefit.title}</h2>
+          <p>{benefit.text}</p>
+        </article>
+      ))}
+    </section>
+
+    <section class="story section-shell section-space" data-reveal-section>
+      <div class="story-copy reveal">
+        <p class="kicker">Codzienność małego biznesu</p>
+        <h2>Klient płaci. Wychodzi.<br />I znika.</h2>
+        <p class="large-copy">
+          Kasia zna twarze swoich klientek, ale nie widzi, kto był pierwszy raz i kto nie wrócił od miesięcy.
+        </p>
+        <p>
+          Papierowa karta milczy, a kolejna aplikacja zostaje zapomniana. Bez prostego sposobu na rozpoznanie klienta każda wizyta zaczyna się od zera.
+        </p>
+      </div>
+
+      <figure class="story-media reveal reveal--late">
+        <img
+          src="/images/salon-owner.webp"
+          width="1098"
+          height="1408"
+          alt="Właścicielka salonu przy recepcji między wizytami"
+          loading="lazy"
+          decoding="async"
+        />
+      </figure>
+    </section>
+
+    <section id="korzysci" class="shift-section section-space" data-reveal-section>
+      <div class="section-shell">
+        <div class="shift-heading reveal">
+          <h2>Lojalność nie musi mieszkać w kolejnej aplikacji.</h2>
+          <p>
+            Jeden kod QR zmienia anonimową transakcję w relację, którą możesz rozwijać przy każdej wizycie.
           </p>
-          <div class="hero-actions">
-            <a class="btn btn--amber" href="#zapisz-sie">Dołącz do listy startowej</a>
-            <a class="btn btn--ghost" href="#jak-to-dziala">Zobacz, jak to działa</a>
-          </div>
-          <p class="hero-fineprint">Karta nosi markę Twojej firmy, nie naszą.</p>
         </div>
-        <div class="hero-stage" aria-label="Ilustracja: karta lojalnościowa salonu w Apple Wallet i powiadomienie na ekranie blokady">
-          <WalletCard state="points" class="hero-card" />
-          <LockToast
-            class="hero-toast"
-            text="Punkty za ostatnią wizytę zostały dodane. Twoje saldo: 240 pkt."
-          />
-        </div>
-      </div>
-    </section>
 
-    <!-- 2 · Act I — the invisible customer -->
-    <section class="act problem">
-      <div class="container">
-        <h2 class="act-h2">Pani Kasia zna swoje klientki tylko z&nbsp;widzenia.</h2>
-        <div class="problem-grid">
-          <div class="problem-story">
-            <p class="story-lead">
-              Pani Kasia prowadzi salon fryzjerski. Codziennie obsługuje kilkanaście osób, ale nie
-              wie, kto był u niej pierwszy raz ani kto nie wrócił od trzech miesięcy. Każda
-              klientka, która nie wraca, oznacza pustą godzinę w&nbsp;kalendarzu.
-            </p>
-            <ul class="pain-list">
-              <li>
-                <strong>Nie wiesz, kim są Twoi klienci.</strong> Płacą i znikają. Nie zostawiają
-                danych, kontaktu ani możliwości zaproszenia ich ponownie.
-              </li>
-              <li>
-                <strong>Aplikacji nikt nie zainstaluje.</strong> Własna aplikacja kosztuje
-                dziesiątki tysięcy złotych, a klienci nie chcą kolejnej ikony na telefonie.
-              </li>
-              <li>
-                <strong>Pieczątki nie budują biznesu.</strong> Papierowa karta ginie w portfelu
-                i nie dostarcza żadnej wiedzy o tym, kto, kiedy i za ile kupuje.
-              </li>
+        <div class="comparison reveal reveal--late">
+          <article class="comparison-old">
+            <h3>Kolejna aplikacja</h3>
+            <ul>
+              <li>Najpierw instalacja</li>
+              <li>Potem konto i hasło</li>
+              <li>Na końcu ikona, o której łatwo zapomnieć</li>
             </ul>
-          </div>
-          <figure class="problem-figure">
-            <PanelTable variant="anonymous" />
-            <figcaption>Cała wiedza pani Kasi o dzisiejszych klientkach. Widok ilustracyjny.</figcaption>
-          </figure>
+          </article>
+          <article class="comparison-new">
+            <h3>LoyaltyGo w Wallet</h3>
+            <ul>
+              <li>Skan aparatem</li>
+              <li>Karta od razu w telefonie</li>
+              <li>Punkty i oferty zawsze w jednym miejscu</li>
+            </ul>
+          </article>
         </div>
       </div>
     </section>
 
-    <!-- 3 · Act II — the turn -->
-    <section class="act turn">
-      <div class="container">
-        <p class="turn-bridge">
-          Karta lojalnościowa czeka już w telefonie każdej klientki.
-          <span class="turn-bridge-answer">W Apple Wallet i Google Wallet.</span>
-        </p>
-
-        <div class="pillars">
-          <div class="pillar">
-            <h3>Klientka nie instaluje niczego</h3>
-            <p>
-              Karta trafia do Walleta, z którego korzysta na co dzień, obok kart pokładowych
-              i&nbsp;biletów.
-            </p>
-          </div>
-          <div class="pillar">
-            <h3>Ty nie kupujesz sprzętu</h3>
-            <p>Lojalność działa na terminalu, na którym już przyjmujesz płatności.</p>
-          </div>
-          <div class="pillar">
-            <h3>Zero wdrożenia IT</h3>
-            <p>
-              Kreator karty w panelu webowym: nazwa, logo, kolory, przelicznik punktów. Program
-              rusza w kilka minut.
-            </p>
-          </div>
-        </div>
-
-        <div class="versus">
-          <h3 class="versus-h3">To nie są kolejne e-pieczątki</h3>
-          <div class="versus-table" role="table" aria-label="Porównanie: e-pieczątki a LoyaltyGo">
-            <div class="versus-row versus-row--head" role="row">
-              <span role="columnheader" class="versus-dim"></span>
-              <span role="columnheader">E-pieczątki <span class="versus-note">(aplikacja / strona)</span></span>
-              <span role="columnheader">LoyaltyGo <span class="versus-note">(karta w Wallecie)</span></span>
-            </div>
-            <div class="versus-row" role="row">
-              <span role="rowheader" class="versus-dim">Gdzie mieszka lojalność</span>
-              <span role="cell">W cudzej aplikacji, którą trzeba zainstalować i pamiętać</span>
-              <span role="cell" class="versus-us">W Apple Wallet i Google Wallet, obok kart płatniczych i biletów</span>
-            </div>
-            <div class="versus-row" role="row">
-              <span role="rowheader" class="versus-dim">Kontakt z klientką</span>
-              <span role="cell">Żaden albo mailing, który ginie w spamie</span>
-              <span role="cell" class="versus-us">Push z Walleta: nowy kupon i saldo na ekranie blokady</span>
-            </div>
-            <div class="versus-row" role="row">
-              <span role="rowheader" class="versus-dim">Kiedy klientka o Tobie myśli</span>
-              <span role="cell">Kiedy sama sobie przypomni o aplikacji</span>
-              <span role="cell" class="versus-us">Kiedy telefon sam jej o Tobie przypomni</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 4 · How it works -->
-    <section class="how" id="jak-to-dziala">
-      <div class="container">
-        <h2 class="section-h2">Program w trzech krokach</h2>
-        <ol class="steps">
-          <li class="step">
-            <div class="step-visual step-visual--photo">
-              <img
-                src="/images/recepcja-qr.jpg"
-                alt="Klientka z telefonem przy recepcji salonu, obok stojak z kodem QR programu lojalnościowego"
-                loading="lazy"
-                width="1600"
-                height="900"
-              />
-            </div>
-            <h3>Klientka skanuje kod QR przy kasie</h3>
-            <p>Podaje imię i adres e-mail. Karta z Twoim logo trafia do jej Walleta.</p>
-          </li>
-          <li class="step">
-            <div class="step-visual" aria-label="Ilustracja: SoftPOS skanuje kartę i nalicza punkty">
-              <div class="scan-frame">
-                <span class="scan-corner scan-corner--tl" aria-hidden="true"></span>
-                <span class="scan-corner scan-corner--tr" aria-hidden="true"></span>
-                <span class="scan-corner scan-corner--bl" aria-hidden="true"></span>
-                <span class="scan-corner scan-corner--br" aria-hidden="true"></span>
-                <svg class="scan-qr" width="64" height="64" viewBox="0 0 21 21" aria-hidden="true">
-                  <rect width="21" height="21" fill="#fff" rx="1" />
-                  <path
-                    fill="#1c0d13"
-                    d="M2 2h5v5H2zM3 3v3h3V3zM14 2h5v5h-5zM15 3v3h3V3zM2 14h5v5H2zM3 15v3h3V15zM9 2h1v1H9zM11 2h1v2h-1zM9 4h2v1H9zM12 5h1v1h-1zM9 6h1v2H9zM11 7h2v1h-1v1h-1zM2 9h1v1H2zM4 9h2v1H4zM7 9h1v2H7zM9 9h1v1H9zM12 9h2v1h1v1h-2v1h-1zM16 9h1v1h-1zM18 9h1v2h-1zM3 11h1v1H3zM5 11h1v2H5zM9 11h1v2H9zM11 12h1v1h-1zM15 12h1v2h-1zM17 12h1v1h-1zM2 12h1v1H2zM13 13h1v1h-1zM9 14h2v1h-1v2h-1zM12 15h2v1h-2zM16 15h3v1h-1v1h-2zM11 16h1v1h-1zM13 17h2v1h-2zM9 18h1v1H9zM11 18h1v1h-1zM16 18h3v1h-3z"
-                  />
-                </svg>
-              </div>
-              <div class="scan-result">
-                <span class="scan-dot" aria-hidden="true"></span>
-                <span class="mono">+15 pkt</span>
-                <span class="scan-who">· Marta W.</span>
-              </div>
-            </div>
-            <h3>Ty skanujesz kartę przy płatności</h3>
-            <p>Punkty naliczają się automatycznie, a saldo aktualizuje się natychmiast.</p>
-          </li>
-          <li class="step">
-            <div class="step-visual" aria-label="Ilustracja: kupon −25% na strzyżenie na karcie lojalnościowej">
-              <div class="coupon-slip">
-                <span class="coupon-slip-badge">Kupon</span>
-                <span class="coupon-slip-value mono">−25%</span>
-                <span class="coupon-slip-what">na strzyżenie</span>
-              </div>
-            </div>
-            <h3>Klientka wraca po nagrodę</h3>
-            <p>Kupon na karcie przypomina o Tobie przy każdym otwarciu Walleta.</p>
-          </li>
-        </ol>
-        <p class="how-micro">
-          Po stronie klientki cała konfiguracja to jeden skan aparatem.
+    <section id="jak-dziala" class="steps-section section-shell section-space" data-reveal-section>
+      <div class="steps-intro reveal">
+        <p class="eyebrow">Jak to działa</p>
+        <h2>Trzy naturalne momenty. Żadnej nowej rutyny.</h2>
+        <p>
+          LoyaltyGo dokłada lojalność do procesu płatności, zamiast budować obok niego osobny świat.
         </p>
       </div>
+
+      <div class="step-stack">
+        {steps.map((step) => (
+          <article class:list={["step-card", `step-card--${step.tone}`]}>
+            <p class="step-action">{step.action}</p>
+            <h3>{step.title}</h3>
+            <p>{step.text}</p>
+            <span>{step.detail}</span>
+          </article>
+        ))}
+      </div>
     </section>
 
-    <!-- 5 · LTV + calculator -->
-    <section class="ltv" id="kalkulator">
-      <div class="container">
-        <h2 class="section-h2">
-          Nie zgaduj, czy klientki wrócą. Policz, ile jest warta ta, która wraca.
-        </h2>
-        <p class="story-lead ltv-lead">
-          Klientka, która przychodzi raz i znika, zostawia u Ciebie 150 zł. Ta sama klientka,
-          wracająca co 6 tygodni przez dwa lata, zostawia ponad 2&nbsp;500 zł. Ta różnica to
-          relacja, którą możesz zbudować.
-        </p>
-
-        <dl class="levers">
-          <div class="lever">
-            <dt>Częstsze powroty</dt>
-            <dd>
-              Punkty dają klientce powód, aby wrócić właśnie do Ciebie.
-              <em>Więcej wizyt rocznie.</em>
-            </dd>
-          </div>
-          <div class="lever">
-            <dt>Wyższy koszyk</dt>
-            <dd>
-              Klientka, która zbiera punkty, chętniej dobiera dodatkową usługę.
-              <em>Wyższa średnia transakcja.</em>
-            </dd>
-          </div>
-          <div class="lever">
-            <dt>Dłuższa relacja</dt>
-            <dd>
-              Twoja marka mieszka w telefonie klientki między wizytami.
-              <em>Klientka zostaje na lata.</em>
-            </dd>
-          </div>
-          <div class="lever">
-            <dt>Tańszy marketing</dt>
-            <dd>
-              Oferta na karcie trafia do osób, które już Ci zaufały.
-              <em>Przychód bez budżetu reklamowego.</em>
-            </dd>
-          </div>
-          <div class="lever">
-            <dt>Trafiona oferta zamiast spamu</dt>
-            <dd>
-              Znasz historię wizyt, więc proponujesz to, czego klientka potrzebuje.
-              <em>Wyższa konwersja, bez wypisów z newslettera.</em>
-            </dd>
-          </div>
-        </dl>
-
-        <div class="calc">
-          <div class="calc-inputs">
-            <h3 class="calc-h3">Oblicz na własnych liczbach</h3>
-            <div class="calc-field">
-              <label for="calc-avg">Średnia wartość wizyty</label>
-              <div class="calc-row">
-                <input type="range" id="calc-avg" min="20" max="500" step="10" value="150" />
-                <output for="calc-avg" id="calc-avg-out" class="mono">150 zł</output>
-              </div>
-            </div>
-            <div class="calc-field">
-              <label for="calc-visits">Klientek w miesiącu</label>
-              <div class="calc-row">
-                <input type="range" id="calc-visits" min="10" max="600" step="10" value="250" />
-                <output for="calc-visits" id="calc-visits-out" class="mono">250</output>
-              </div>
-            </div>
-            <div class="calc-field">
-              <label for="calc-return">Ile procent klientek dziś wraca (Twój szacunek)</label>
-              <div class="calc-row">
-                <input type="range" id="calc-return" min="5" max="80" step="5" value="40" />
-                <output for="calc-return" id="calc-return-out" class="mono">40%</output>
-              </div>
-            </div>
-          </div>
-          <div class="calc-result">
-            <p class="calc-scenario">
-              Jeśli <strong>co dziesiąta z niewracających</strong> klientek z jednego miesiąca
-              zacznie wracać co 6 tygodni, razem zostawią u Ciebie w ciągu roku dodatkowo:
-            </p>
-            <p class="calc-amount mono" id="calc-amount" aria-live="polite">+18 000 zł</p>
-            <p class="calc-breakdown" id="calc-breakdown">
-              150 klientek bez powrotu → 15 zaczyna wracać → ok. 120 dodatkowych wizyt w roku
-            </p>
-            <p class="calc-note">
-              Prosta arytmetyka na Twoich liczbach, nie cudzy benchmark.
-            </p>
-          </div>
+    <section id="kalkulator" class="calculator-section section-space" data-reveal-section>
+      <div class="section-shell calculator-grid">
+        <div class="calculator-copy reveal">
+          <p class="eyebrow">Policz na swoich danych</p>
+          <h2>Jedna dodatkowa wizyta ma konkretną wartość.</h2>
+          <p>
+            Zobacz przykładowy dodatkowy obrót, jeśli część klientów wróci w roku o jeden raz więcej.
+          </p>
         </div>
-      </div>
-    </section>
 
-    <!-- 6 · The card journey (customer side) -->
-    <section class="journey-section">
-      <div class="container journey-inner">
-        <div class="journey-copy">
-          <h2 class="section-h2">Wygoda, której klientka nie musi się uczyć</h2>
-          <ul class="journey-list">
-            <li><strong>Bez aplikacji i haseł.</strong> Wystarczy skan, imię i adres e-mail.</li>
-            <li><strong>Punkty zawsze widoczne.</strong> Saldo rośnie po każdej wizycie.</li>
-            <li><strong>Nagrody bez formalności.</strong> Kupon jest widoczny bezpośrednio na karcie.</li>
-          </ul>
-          <span class="demo-chip">Widok ilustracyjny</span>
-        </div>
-        <div class="journey-deck" aria-label="Trzy stany karty lojalnościowej: po zapisie, po wizytach, z kuponem">
-          <div class="journey-card journey-card--fresh">
-            <span class="journey-step">Po zapisie</span>
-            <WalletCard state="fresh" />
+        <form class="calculator reveal reveal--late" data-ltv-form novalidate>
+          <div class="field-row">
+            <label for="visit-value">Średnia wartość wizyty</label>
+            <div class="input-with-unit">
+              <input id="visit-value" name="visitValue" type="number" min="1" step="1" value="150" inputmode="decimal" required />
+              <span>zł</span>
+            </div>
+            <small>Wpisz średni rachunek jednego klienta.</small>
           </div>
-          <div class="journey-card journey-card--points">
-            <span class="journey-step">Po trzech wizytach</span>
-            <WalletCard state="points" />
+
+          <div class="field-row">
+            <label for="monthly-clients">Klientów miesięcznie</label>
+            <input id="monthly-clients" name="monthlyClients" type="number" min="1" step="1" value="120" inputmode="numeric" required />
+            <small>Użyj średniej z kilku ostatnich miesięcy.</small>
           </div>
-          <div class="journey-card journey-card--coupon">
-            <span class="journey-step">Z kuponem imiennym</span>
-            <WalletCard state="coupon" />
+
+          <div class="field-row field-row--range">
+            <div class="range-label">
+              <label for="return-rate">Klienci, którzy wrócą dodatkowy raz</label>
+              <output for="return-rate" data-rate-output>10%</output>
+            </div>
+            <input id="return-rate" name="returnRate" type="range" min="5" max="30" step="1" value="10" />
           </div>
-        </div>
-      </div>
-    </section>
 
-    <!-- 7 · Merchant panel -->
-    <section class="panel" id="panel">
-      <div class="container">
-        <h2 class="section-h2">Poznaj wszystkie swoje klientki</h2>
-        <div class="panel-grid">
-          <figure class="panel-figure">
-            <PanelTable variant="named" />
-            <figcaption>Lista klientek w panelu LoyaltyGo. Widok ilustracyjny.</figcaption>
-          </figure>
-          <ul class="panel-features">
-            <li>
-              <strong>Lista klientek.</strong> Punkty i data ostatniej wizyty. Widzisz, kto
-              przestaje wracać, zanim zniknie na dobre.
-            </li>
-            <li>
-              <strong>Kreator karty.</strong> Logo, kolory i opis. Karta wygląda jak Twoja marka.
-            </li>
-            <li>
-              <strong>Kupony jednorazowe.</strong> „−25% w środy” tworzysz w minutę.
-            </li>
-            <li>
-              <strong>Oferty imienne.</strong> Kupon skrojony pod konkretną klientkę, prosto na jej
-              kartę.
-            </li>
-            <li>
-              <strong>Historia transakcji.</strong> Ile punktów naliczono, które oferty zadziałały.
-            </li>
-          </ul>
-        </div>
-      </div>
-    </section>
+          <button class="button button--dark" type="submit">Policz potencjał</button>
+          <p class="form-error" data-form-error role="alert" hidden>Uzupełnij obie wartości liczbami większymi od zera.</p>
 
-    {/* 7b · Stationary payments (hidden behind SHOW_TPAYGO until launch) */}
-    {SHOW_TPAYGO && (
-    <section class="payments" id="platnosci">
-      <div class="container">
-        <h2 class="section-h2">Lojalność wbudowana w TpayGO</h2>
-        <p class="payments-lead">
-          LoyaltyGo działa wewnątrz aplikacji TpayGO, która zamienia telefon w punkt
-          przyjmowania płatności. Karta lojalnościowa dołącza do transakcji w momencie
-          płatności, a punkty naliczają się automatycznie.
-        </p>
-        <ol class="payments-flow" aria-label="Przepływ: płatność, potwierdzenie, punkty">
-          <li class="payments-node">
-            <h3>Płatność</h3>
-            <p>Klientka płaci, kasjer skanuje jej kartę z Walleta.</p>
-            <span class="payments-payload mono" aria-hidden="true">kwota + ID karty</span>
-          </li>
-          <li class="payments-arrow" aria-hidden="true">
-            <svg width="32" height="16" viewBox="0 0 32 16" fill="none"><path d="M0 8h26M26 8l-5-4M26 8l-5 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </li>
-          <li class="payments-node">
-            <h3>Potwierdzenie</h3>
-            <p>Tpay wysyła potwierdzenie transakcji do LoyaltyGo.</p>
-            <span class="payments-payload mono" aria-hidden="true">transakcja zrealizowana</span>
-          </li>
-          <li class="payments-arrow" aria-hidden="true">
-            <svg width="32" height="16" viewBox="0 0 32 16" fill="none"><path d="M0 8h26M26 8l-5-4M26 8l-5 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </li>
-          <li class="payments-node">
-            <h3>Punkty</h3>
-            <p>Saldo rośnie na karcie w Wallecie klientki.</p>
-            <span class="payments-payload mono" aria-hidden="true">+15 pkt</span>
-          </li>
-        </ol>
-        <a class="btn btn--ghost" href="/platnosci-stacjonarne">Zobacz, jak działa integracja</a>
-      </div>
-    </section>
-    )}
-
-    <!-- 8 · Clienteling -->
-    <section class="cliente">
-      <div class="container">
-        <h2 class="section-h2">Koniec z „Szanowny Kliencie”. Zacznij od „Kasiu, to dla Ciebie”.</h2>
-        <div class="cliente-grid">
-          <div class="cliente-copy">
-            <p class="story-lead">
-              Newsletter „−10% na wszystko” ląduje w spamie, bo nie mówi do nikogo konkretnego.
-              Wiadomość „Kasiu, minął rok od Twojej higienizacji, odbierz zniżkę 25% na
-              kolejną” to nie marketing, lecz wyraz troski. Kasia rezerwuje wizytę jeszcze
-              tego samego dnia.
-            </p>
-            <ol class="cliente-steps">
-              <li>
-                <strong>Widzisz historię każdej klientki.</strong> Kasia, higienizacja,
-                12 miesięcy temu.
-              </li>
-              <li>
-                <strong>Tworzysz ofertę dla konkretnej osoby.</strong> Kupon imienny zamiast
-                mailingu do anonimowego segmentu.
-              </li>
-              <li>
-                <strong>Oferta trafia prosto na jej kartę.</strong> Telefon Kasi pokazuje
-                powiadomienie z Walleta na ekranie blokady.
-              </li>
-            </ol>
-            <p class="cliente-micro">
-              Tak pracują najlepsi doradcy w butikach. Teraz możesz tak pracować z każdym
-              klientem.
-            </p>
+          <div class="calc-result" aria-live="polite" aria-atomic="true">
+            <span class="calc-result-label">Przykładowy dodatkowy obrót rocznie</span>
+            <strong data-result-value>21 600 zł</strong>
+            <span class="calc-skeleton" aria-hidden="true"></span>
+            <small>Wyliczenie jest scenariuszem, nie gwarancją wyniku.</small>
           </div>
-          <div class="cliente-stage" aria-label="Ilustracja: imienny kupon jako powiadomienie na ekranie blokady">
-            <LockToast text="Kasiu, −25% na higienizację specjalnie dla Ciebie. Pokaż kartę przy wizycie." time="9:41" />
-            <div class="cliente-tags">
-              <span class="tag"><span class="tag-dot tag-dot--green" aria-hidden="true"></span>właściwa oferta: usługa, którą klientka zna</span>
-              <span class="tag"><span class="tag-dot tag-dot--green" aria-hidden="true"></span>właściwy moment: rytm wizyt, nie przypadek</span>
-              <span class="tag"><span class="tag-dot tag-dot--green" aria-hidden="true"></span>właściwy ton: imię i konkret</span>
-            </div>
-            <span class="demo-chip">Widok ilustracyjny</span>
-          </div>
-        </div>
+        </form>
       </div>
     </section>
 
-    <!-- 9 · Act III close -->
-    <section class="act finale">
-      <div class="container">
-        <div class="finale-panel">
-          <span class="finale-chip">Scenariusz ilustracyjny. Case study opublikujemy po pierwszym pilotażu</span>
-          <div class="finale-grid">
-            <div class="finale-copy">
-              <p class="finale-story">
-                Trzy miesiące później pani Kasia ma 180 klientek z kartą w Wallecie. Widzi, że
-                Marta nie była od ośmiu tygodni, a jej ostatnią usługą była koloryzacja. Wysyła
-                jej na kartę imienny kupon. Marta rezerwuje wizytę jeszcze tego samego dnia.
-              </p>
-              <p class="finale-close">
-                To pierwsza osobista rozmowa, jaką jej salon prowadzi z klientkami między
-                wizytami.
-              </p>
-            </div>
-            <div class="finale-stage">
-              <LockToast text="Marta, −20% na koloryzację specjalnie dla Ciebie." time="14:02" />
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+    <section class="customer-section section-shell section-space" data-reveal-section>
+      <figure class="customer-media reveal">
+        <img
+          src="/images/wallet-checkout-ios-orange-cafe-pass.webp"
+          srcset="/images/wallet-checkout-ios-orange-cafe-pass-640.webp 640w, /images/wallet-checkout-ios-orange-cafe-pass-960.webp 960w, /images/wallet-checkout-ios-orange-cafe-pass.webp 1448w"
+          sizes="(max-width: 56rem) calc(100vw - 2rem), 50vw"
+          width="1448"
+          height="1086"
+          alt="Klient pokazuje kartę lojalnościową w Apple Wallet na pomarańczowym iPhonie przy kasie kawiarni"
+          loading="lazy"
+          decoding="async"
+        />
+      </figure>
 
-    <!-- 10 · Industries -->
-    <section class="industries">
-      <div class="container">
-        <h2 class="section-h2">Dla biznesów, które żyją z powrotów</h2>
-        <ul class="industry-list">
-          <li>
-            <span class="industry-glyph" aria-hidden="true">
-              <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
-                <circle cx="7" cy="18.5" r="3" stroke="currentColor" stroke-width="1.5"/>
-                <circle cx="15.5" cy="19.5" r="3" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M9.3 16.2 20.5 4.5M17.8 17.3 6.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              </svg>
-            </span>
-            <div>
-              <h3>Salony beauty i fryzjerskie</h3>
-              <p>Klientka wraca co 6 tygodni albo wcale.</p>
-            </div>
-          </li>
-          <li>
-            <span class="industry-glyph" aria-hidden="true">
-              <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
-                <path d="M7.5 3.5C5 3.5 3.5 5.6 3.5 8.2c0 4.3 2.6 6.6 3.3 10.6.3 1.8.7 3.7 2 3.7 1.6 0 1.2-2.9 1.7-5.4.3-1.4 1-2.3 2.5-2.3s2.2.9 2.5 2.3c.5 2.5.1 5.4 1.7 5.4 1.3 0 1.7-1.9 2-3.7.7-4 3.3-6.3 3.3-10.6 0-2.6-1.5-4.7-4-4.7-2.1 0-3 1.2-5.5 1.2s-3.4-1.2-5.5-1.2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-              </svg>
-            </span>
-            <div>
-              <h3>Gabinety stomatologiczne i medyczne</h3>
-              <p>Karta przypomni o corocznym przeglądzie.</p>
-            </div>
-          </li>
-          <li>
-            <span class="industry-glyph" aria-hidden="true">
-              <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
-                <path d="M4.5 9.5h13v6.5a5 5 0 0 1-5 5h-3a5 5 0 0 1-5-5z" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M17.5 11h1.5a2.75 2.75 0 1 1 0 5.5h-1.5M8 3.5c0 1.2 1 1.3 1 2.5M12 3.5c0 1.2 1 1.3 1 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              </svg>
-            </span>
-            <div>
-              <h3>Gastronomia i kawiarnie</h3>
-              <p>Dziesiąta kawa smakuje najlepiej.</p>
-            </div>
-          </li>
-          <li>
-            <span class="industry-glyph" aria-hidden="true">
-              <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
-                <path d="M8 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                <rect x="4" y="9" width="3" height="8" rx="1.2" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="19" y="9" width="3" height="8" rx="1.2" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M2 11.5v3M24 11.5v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              </svg>
-            </span>
-            <div>
-              <h3>Usługi lokalne</h3>
-              <p>Warsztaty, groomerzy, studia fitness. Stały klient to stały przychód.</p>
-            </div>
-          </li>
-        </ul>
-      </div>
-    </section>
-
-    <!-- 11 · FAQ -->
-    <section class="faq" id="faq">
-      <div class="container faq-container">
-        <h2 class="section-h2">Ostatnie wątpliwości</h2>
-        <div class="faq-list">
-          {faq.map((item) => (
-            <details name="faq" class="faq-item">
-              <summary>
-                {item.q}
-                <svg class="faq-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                  <path d="M3.5 5.5 7 9l3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </summary>
-              <p>{item.a}</p>
-            </details>
+      <div class="customer-copy reveal reveal--late">
+        <h2>Klient lubi to, czego nie musi się uczyć.</h2>
+        <div class="customer-benefits">
+          {customerBenefits.map(([title, text]) => (
+            <article>
+              <h3>{title}</h3>
+              <p>{text}</p>
+            </article>
           ))}
         </div>
       </div>
     </section>
 
-    <!-- 12 · Signup -->
-    <section class="cta-final" id="zapisz-sie">
-      <div class="container cta-inner">
-        <h2 class="cta-h2">
-          Twoja następna stała klientka zapłaci u Ciebie dziś.<br />Daj jej powód, żeby wróciła.
-        </h2>
-        <p class="signup-intro">
-          Pierwsze programy udostępnimy wkrótce. Zostaw adres, aby założyć swój w pierwszej
-          kolejności.
-        </p>
-        <form class="signup" id="signup-form" novalidate>
-          <div class="signup-row">
-            <div class="signup-field">
-              <label for="signup-email">Adres e-mail Twojej firmy</label>
-              <input
-                type="email"
-                id="signup-email"
-                name="email"
-                autocomplete="email"
-                required
-                maxlength="254"
-                placeholder="salon@twojafirma.pl"
-                aria-describedby="signup-hint"
-              />
-            </div>
-            <button type="submit" class="btn btn--amber btn--lg signup-submit">Zapisz się</button>
+    <section class="brand-section section-space" data-reveal-section>
+      <div class="section-shell brand-grid">
+        <div class="brand-copy reveal">
+          <h2>To Twoja karta. Klient ma widzieć Twoją markę.</h2>
+          <p>
+            W panelu ustawiasz nazwę, logo, kolor i zasady punktów. LoyaltyGo pozostaje w tle.
+          </p>
+
+          <div class="field-row brand-field">
+            <label for="brand-name">Nazwa Twojej firmy</label>
+            <input id="brand-name" type="text" value="Studio Forma" maxlength="28" data-brand-input />
+            <small>Wpisz nazwę i zobacz ją na przykładowej karcie.</small>
           </div>
-          <label class="signup-consent">
-            <input type="checkbox" id="signup-consent" name="consent" required />
-            <span>
-              Wyrażam zgodę na przetwarzanie mojego adresu e-mail przez LoyaltyGo w celu
-              kontaktu w sprawie zapisu na listę oczekujących, zgodnie z
-              <a class="signup-policy-link" href="/polityka-prywatnosci">polityką prywatności</a>.
-            </span>
-          </label>
-          <p class="signup-error" id="signup-error" role="alert" hidden></p>
-          <p class="cta-micro" id="signup-hint">Żadnego spamu, tylko wiadomość o starcie.</p>
-        </form>
-        <div class="signup-success" id="signup-success" role="status" hidden>
-          <span class="signup-success-badge" aria-hidden="true">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4.5 10.5l3.5 3.5 7.5-8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </span>
-          <h3>Jesteś na liście</h3>
-          <p>Odezwiemy się na Twój adres przed startem pierwszych programów.</p>
         </div>
+
+        <div class="wallet-preview-wrap reveal reveal--late">
+          <p class="preview-label">Podgląd karty</p>
+          <article class="wallet-pass" aria-label="Interaktywny podgląd karty lojalnościowej">
+            <div class="wallet-pass-topline">
+              <span class="wallet-pass-mark" aria-hidden="true">L</span>
+              <span data-brand-output>Studio Forma</span>
+            </div>
+            <div class="wallet-pass-balance">
+              <span>Przykładowe saldo</span>
+              <strong>840</strong>
+              <small>punktów</small>
+            </div>
+            <div class="wallet-pass-offer">
+              <span>Oferta na karcie</span>
+              <strong>20% na kolejną wizytę</strong>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="audience-section section-shell section-space" data-reveal-section>
+      <div class="audience-heading reveal">
+        <h2>Najwięcej zyskują miejsca, do których warto wracać.</h2>
+      </div>
+      <div class="audience-list reveal reveal--late">
+        {audiences.map(([title, text]) => (
+          <article>
+            <h3>{title}</h3>
+            <p>{text}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <section id="faq" class="faq-section section-shell section-space" data-reveal-section>
+      <div class="faq-heading reveal">
+        <h2>Krótko i konkretnie.</h2>
+        <p>Najważniejsze odpowiedzi przed uruchomieniem programu.</p>
+      </div>
+
+      <div class="faq-list reveal reveal--late">
+        {faqs.map(([question, answer], index) => (
+          <details open={index === 0}>
+            <summary>{question}<span aria-hidden="true"></span></summary>
+            <p>{answer}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <section id="start" class="final-cta section-space" data-reveal-section>
+      <div class="section-shell final-cta-inner reveal">
+        <h2>Następny stały klient zapłaci u Ciebie dziś.</h2>
+        <p>Daj mu prosty powód, żeby wrócił.</p>
+        <a class="button button--dark" href={merchantAppUrl}>Uruchom program</a>
       </div>
     </section>
   </main>
 
-  <!-- 13 · Footer -->
-  <footer class="footer">
-    <div class="container footer-inner">
-      <div class="footer-brand">
-        <span class="wordmark">Loyalty<span class="wordmark-go">Go</span></span>
-        <p>Program lojalnościowy w Apple Wallet i Google Wallet dla lokalnych biznesów usługowych.</p>
+  <footer class="site-footer">
+    <div class="section-shell footer-grid">
+      <div>
+        <a class="wordmark" href="#top" aria-label="LoyaltyGo, wróć na górę">
+          <span class="wordmark-mark" aria-hidden="true"><i></i><i></i></span>
+          <span>LoyaltyGo</span>
+        </a>
+        <p>Lojalność w Wallet. Prostszy powrót klienta.</p>
       </div>
-      <div class="footer-links">
-        <span class="footer-pending">Panel merchanta (wkrótce)</span>
-        <a href="/polityka-prywatnosci">Polityka prywatności</a>
-        <span class="footer-pending">Regulamin (wkrótce)</span>
-        <a href="mailto:kontakt@loyaltygo.pl">Kontakt: kontakt@loyaltygo.pl</a>
-      </div>
+      <nav aria-label="Linki w stopce">
+        <a href="#jak-dziala">Jak działa</a>
+        <a href="/polityka-prywatnosci">Prywatność</a>
+        <a href="mailto:kontakt@loyaltygo.pl">Kontakt</a>
+        <a href={merchantAppUrl}>Panel merchanta</a>
+      </nav>
+      <p class="copyright">© {new Date().getFullYear()} LoyaltyGo</p>
     </div>
   </footer>
-</Base>
 
-<style>
-  /* ————— Nav ————— */
-  .nav {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background: rgba(8, 9, 10, 0.8);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .nav-inner {
-    display: flex;
-    align-items: center;
-    gap: var(--space-9);
-    height: 64px;
-  }
-
-  .wordmark {
-    font-size: 16px;
-    font-weight: 640;
-    letter-spacing: -0.02em;
-    color: var(--text-1);
-  }
-
-  .wordmark-go {
-    color: var(--accent);
-  }
-
-  .nav-links {
-    display: flex;
-    gap: var(--space-8);
-    flex: 1;
-  }
-
-  .nav-links a {
-    font-size: 13px;
-    line-height: 19.5px;
-    letter-spacing: -0.13px;
-    color: var(--text-3);
-    transition: color 140ms ease;
-  }
-
-  .nav-links a:hover {
-    color: var(--text-1);
-  }
-
-  @media (max-width: 720px) {
-    .nav-links {
-      display: none;
-    }
-
-    .nav-inner {
-      justify-content: space-between;
-    }
-  }
-
-  /* ————— Hero ————— */
-  .hero {
-    padding-block: var(--space-11) var(--space-11);
-    overflow: hidden;
-  }
-
-  .hero-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-    gap: var(--space-10);
-    align-items: center;
-  }
-
-  .hero-h1 {
-    font-size: clamp(40px, 5.4vw, 62px);
-    line-height: 1.08;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-  }
-
-  .hero-sub {
-    margin-top: var(--space-8);
-    font-size: 17px;
-    line-height: 27px;
-    color: var(--text-3);
-    max-width: 52ch;
-  }
-
-  .hero-actions {
-    margin-top: var(--space-9);
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-5);
-  }
-
-  .hero-fineprint {
-    margin-top: var(--space-6);
-    font-size: 13px;
-    line-height: 19.5px;
-    color: var(--text-4);
-  }
-
-  .hero-stage {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-6);
-    padding-block: var(--space-6);
-  }
-
-  .hero-stage :global(.hero-card) {
-    transform: rotate(2.5deg);
-  }
-
-  .hero-stage :global(.hero-toast) {
-    transform: translateX(-14px) rotate(-1deg);
-  }
-
-  .demo-chip {
-    font-size: 10px;
-    font-weight: 590;
-    line-height: 15px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-4);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-pill);
-    padding: var(--space-1) var(--space-5);
-  }
-
-  @media (max-width: 860px) {
-    .hero {
-      padding-block: var(--space-10) var(--space-10);
-    }
-
-    .hero-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .hero-stage {
-      align-items: flex-start;
-    }
-
-    .hero-stage :global(.hero-toast) {
-      transform: translateX(14px) rotate(-1deg);
-    }
-  }
-
-  /* ————— Shared section rhythm ————— */
-  .act,
-  .how,
-  .ltv,
-  .journey-section,
-  .panel,
-  .cliente,
-  .industries,
-  .faq {
-    padding-block: var(--space-11);
-    border-top: 1px solid var(--border);
-  }
-
-  .section-h2 {
-    font-size: clamp(28px, 3.4vw, 40px);
-    line-height: 1.15;
-    max-width: 24ch;
-  }
-
-  .story-lead {
-    font-size: 19px;
-    line-height: 30px;
-    color: var(--text-2);
-    max-width: 62ch;
-  }
-
-  /* ————— Act I: problem ————— */
-  .act-h2 {
-    font-size: clamp(28px, 3.4vw, 40px);
-    line-height: 1.15;
-    max-width: 22ch;
-  }
-
-  .problem-grid {
-    margin-top: var(--space-10);
-    display: grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-    gap: var(--space-10);
-    align-items: start;
-  }
-
-  .pain-list {
-    margin-top: var(--space-9);
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-7);
-  }
-
-  .pain-list li {
-    padding-left: var(--space-7);
-    border-left: 1px solid var(--border-strong);
-    font-size: 15px;
-    line-height: 24px;
-    letter-spacing: -0.165px;
-    color: var(--text-3);
-  }
-
-  .pain-list strong {
-    display: block;
-    color: var(--text-1);
-    font-weight: 590;
-    margin-bottom: var(--space-2);
-  }
-
-  .problem-figure figcaption,
-  .panel-figure figcaption {
-    margin-top: var(--space-5);
-    font-size: 12px;
-    line-height: 16.8px;
-    color: var(--text-4);
-  }
-
-  @media (max-width: 860px) {
-    .problem-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  /* ————— Act II: turn ————— */
-  .turn-bridge {
-    font-size: clamp(26px, 3.2vw, 36px);
-    line-height: 1.25;
-    font-weight: 590;
-    letter-spacing: -0.02em;
-    color: var(--text-1);
-    max-width: 26ch;
-    text-wrap: balance;
-  }
-
-  .turn-bridge-answer {
-    display: block;
-    margin-top: var(--space-4);
-    color: var(--text-3);
-    font-weight: 460;
-    font-size: 0.72em;
-    letter-spacing: -0.01em;
-  }
-
-  .pillars {
-    margin-top: var(--space-10);
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--space-9);
-  }
-
-  .pillar h3 {
-    font-size: 16px;
-    font-weight: 590;
-    margin-bottom: var(--space-4);
-  }
-
-  .pillar p {
-    font-size: 15px;
-    line-height: 24px;
-    letter-spacing: -0.165px;
-    color: var(--text-3);
-  }
-
-  .versus {
-    margin-top: var(--space-11);
-  }
-
-  .versus-h3 {
-    font-size: 22px;
-    margin-bottom: var(--space-8);
-  }
-
-  .versus-table {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
-    overflow: hidden;
-    background: var(--bg-raised);
-  }
-
-  .versus-row {
-    display: grid;
-    grid-template-columns: 0.8fr 1fr 1fr;
-    gap: var(--space-8);
-    padding: var(--space-6) var(--space-7);
-    font-size: 14px;
-    line-height: 21px;
-    letter-spacing: -0.13px;
-    color: var(--text-3);
-  }
-
-  .versus-row + .versus-row {
-    border-top: 1px solid var(--border);
-  }
-
-  .versus-row--head {
-    font-weight: 590;
-    color: var(--text-1);
-    background: rgba(255, 255, 255, 0.02);
-  }
-
-  .versus-note {
-    display: block;
-    font-weight: 400;
-    font-size: 12px;
-    line-height: 16.8px;
-    color: var(--text-4);
-  }
-
-  .versus-dim {
-    color: var(--text-4);
-  }
-
-  .versus-us {
-    color: var(--text-1);
-  }
-
-
-  @media (max-width: 860px) {
-    .pillars {
-      grid-template-columns: 1fr;
-      gap: var(--space-8);
-    }
-
-    .versus-row {
-      grid-template-columns: 1fr;
-      gap: var(--space-3);
-    }
-
-    .versus-row--head {
-      display: none;
-    }
-
-    .versus-row span[role='cell']::before {
-      content: 'E-pieczątki';
-      display: block;
-      font-size: 11px;
-      font-weight: 590;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--text-4);
-      margin-bottom: var(--space-1);
-    }
-
-    .versus-row span.versus-us[role='cell']::before {
-      content: 'LoyaltyGo';
-      color: var(--accent);
-    }
-  }
-
-  /* ————— How ————— */
-  .steps {
-    margin-top: var(--space-10);
-    list-style: none;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--space-9);
-    counter-reset: step;
-  }
-
-  .step-visual {
-    height: 190px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
-    background: var(--bg-raised);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-6);
-    margin-bottom: var(--space-7);
-  }
-
-  .step-visual--photo {
-    padding: 0;
-    overflow: hidden;
-  }
-
-  .step-visual--photo img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-
-  .scan-frame {
-    position: relative;
-    width: 108px;
-    height: 108px;
-    display: grid;
-    place-items: center;
-  }
-
-  .scan-corner {
-    position: absolute;
-    width: 18px;
-    height: 18px;
-    border: 2px solid var(--text-2);
-  }
-
-  .scan-corner--tl { top: 0; left: 0; border-right: none; border-bottom: none; border-top-left-radius: var(--radius-md); }
-  .scan-corner--tr { top: 0; right: 0; border-left: none; border-bottom: none; border-top-right-radius: var(--radius-md); }
-  .scan-corner--bl { bottom: 0; left: 0; border-right: none; border-top: none; border-bottom-left-radius: var(--radius-md); }
-  .scan-corner--br { bottom: 0; right: 0; border-left: none; border-top: none; border-bottom-right-radius: var(--radius-md); }
-
-  .scan-qr {
-    border-radius: var(--radius-xs);
-  }
-
-  .scan-result {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-4);
-    padding: var(--space-2) var(--space-5);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-pill);
-    font-size: 13px;
-    letter-spacing: -0.13px;
-    color: var(--text-1);
-  }
-
-  .scan-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: var(--radius-pill);
-    background: var(--green);
-    flex-shrink: 0;
-  }
-
-  .scan-who {
-    color: var(--text-3);
-  }
-
-  .coupon-slip {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-7) var(--space-9);
-    background: linear-gradient(160deg, var(--salon) 0%, var(--salon-deep) 100%);
-    border-radius: var(--radius-lg);
-    box-shadow: 0 12px 28px -12px rgba(0, 0, 0, 0.5);
-  }
-
-  .coupon-slip-badge {
-    font-size: 10px;
-    font-weight: 590;
-    line-height: 15px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: var(--space-1) var(--space-4);
-    border-radius: var(--radius-pill);
-    background: #fff;
-    color: var(--salon-deep);
-  }
-
-  .coupon-slip-value {
-    font-size: 30px;
-    font-weight: 640;
-    color: #fff;
-    line-height: 1.1;
-  }
-
-  .coupon-slip-what {
-    font-size: 13px;
-    letter-spacing: -0.13px;
-    color: var(--salon-tint);
-  }
-
-  .step h3 {
-    font-size: 16px;
-    font-weight: 590;
-    margin-bottom: var(--space-4);
-  }
-
-  .step p {
-    font-size: 15px;
-    line-height: 24px;
-    letter-spacing: -0.165px;
-    color: var(--text-3);
-  }
-
-  .how-micro {
-    margin-top: var(--space-9);
-    font-size: 14px;
-    line-height: 21px;
-    color: var(--text-4);
-  }
-
-  @media (max-width: 860px) {
-    .steps {
-      grid-template-columns: 1fr;
-      gap: var(--space-8);
-    }
-  }
-
-  /* ————— LTV ————— */
-  .ltv-lead {
-    margin-top: var(--space-8);
-  }
-
-  .levers {
-    margin-top: var(--space-10);
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0 var(--space-10);
-  }
-
-  .lever {
-    display: grid;
-    grid-template-columns: 180px 1fr;
-    gap: var(--space-7);
-    padding-block: var(--space-7);
-    border-top: 1px solid var(--border);
-  }
-
-  .lever dt {
-    font-size: 15px;
-    font-weight: 590;
-    letter-spacing: -0.165px;
-    color: var(--text-1);
-  }
-
-  .lever dd {
-    font-size: 14px;
-    line-height: 22px;
-    letter-spacing: -0.13px;
-    color: var(--text-3);
-  }
-
-  .lever em {
-    display: block;
-    margin-top: var(--space-3);
-    font-style: normal;
-    color: var(--text-2);
-    font-weight: 590;
-    font-size: 13px;
-  }
-
-  .calc {
-    margin-top: var(--space-11);
-    display: grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-2xl);
-    background: var(--bg-raised);
-    overflow: hidden;
-  }
-
-  .calc-inputs {
-    padding: var(--space-9);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-8);
-    border-right: 1px solid var(--border);
-  }
-
-  .calc-h3 {
-    font-size: 18px;
-  }
-
-  .calc-field label {
-    display: block;
-    font-size: 13px;
-    line-height: 19.5px;
-    letter-spacing: -0.13px;
-    color: var(--text-3);
-    margin-bottom: var(--space-4);
-  }
-
-  .calc-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-6);
-  }
-
-  .calc-row output {
-    min-width: 72px;
-    text-align: right;
-    font-size: 15px;
-    color: var(--text-1);
-  }
-
-  input[type='range'] {
-    flex: 1;
-    appearance: none;
-    -webkit-appearance: none;
-    height: 4px;
-    border-radius: var(--radius-pill);
-    background: var(--border-strong);
-    outline-offset: 6px;
-  }
-
-  input[type='range']::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 16px;
-    height: 16px;
-    border-radius: var(--radius-pill);
-    background: var(--text-1);
-    border: none;
-    cursor: grab;
-  }
-
-  input[type='range']::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
-    border-radius: var(--radius-pill);
-    background: var(--text-1);
-    border: none;
-    cursor: grab;
-  }
-
-  .calc-result {
-    padding: var(--space-9);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: var(--space-5);
-  }
-
-  .calc-scenario {
-    font-size: 14px;
-    line-height: 22px;
-    color: var(--text-3);
-  }
-
-  .calc-scenario strong {
-    color: var(--text-1);
-  }
-
-  .calc-amount {
-    font-size: clamp(36px, 4vw, 48px);
-    line-height: 1.05;
-    font-weight: 640;
-    color: var(--text-1);
-    letter-spacing: -0.02em;
-  }
-
-  .calc-breakdown {
-    font-size: 13px;
-    line-height: 19.5px;
-    color: var(--text-3);
-  }
-
-  .calc-note {
-    font-size: 12px;
-    line-height: 16.8px;
-    color: var(--text-4);
-  }
-
-  @media (max-width: 860px) {
-    .levers {
-      grid-template-columns: 1fr;
-    }
-
-    .lever {
-      grid-template-columns: 1fr;
-      gap: var(--space-3);
-    }
-
-    .calc {
-      grid-template-columns: 1fr;
-    }
-
-    .calc-inputs {
-      border-right: none;
-      border-bottom: 1px solid var(--border);
-    }
-  }
-
-  /* ————— Journey (card deck) ————— */
-  .journey-inner {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
-    gap: var(--space-10);
-    align-items: center;
-  }
-
-  .journey-list {
-    list-style: none;
-    margin-top: var(--space-9);
-    display: flex;
-    flex-direction: column;
-  }
-
-  .journey-list li {
-    font-size: 15px;
-    line-height: 24px;
-    letter-spacing: -0.165px;
-    color: var(--text-3);
-    padding-block: 14px;
-  }
-
-  .journey-list li + li {
-    border-top: 1px solid var(--border);
-  }
-
-  .journey-list strong {
-    color: var(--text-1);
-    font-weight: 590;
-  }
-
-  .journey-copy .demo-chip {
-    display: inline-block;
-    margin-top: var(--space-8);
-  }
-
-  /* Vertical cascade: each card's header and points row stay visible, so the
-     fresh → points → coupon progression reads at a glance. */
-  .journey-deck {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    padding-block: var(--space-6);
-  }
-
-  .journey-card {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-  }
-
-  .journey-card :global(.wallet-card) {
-    width: 270px;
-  }
-
-  .journey-step {
-    align-self: flex-start;
-    font-size: 10px;
-    font-weight: 590;
-    line-height: 15px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-3);
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-pill);
-    padding: var(--space-1) var(--space-5);
-  }
-
-  /* Cascaded cards pin their state chip past the right edge of the card above,
-     so no chip ever cuts through another card's text. */
-  .journey-card--points .journey-step,
-  .journey-card--coupon .journey-step {
-    align-self: flex-end;
-    transform: translateX(var(--space-6));
-  }
-
-  .journey-card--fresh {
-    transform: rotate(-2deg);
-  }
-
-  .journey-card--points {
-    margin-top: -80px;
-    margin-left: 96px;
-    z-index: 1;
-  }
-
-  .journey-card--coupon {
-    margin-top: -80px;
-    margin-left: 192px;
-    transform: rotate(2deg);
-    z-index: 2;
-  }
-
-  @media (max-width: 860px) {
-    .journey-inner {
-      grid-template-columns: 1fr;
-    }
-
-    .journey-deck {
-      gap: var(--space-8);
-    }
-
-    .journey-card--fresh,
-    .journey-card--coupon {
-      transform: none;
-    }
-
-    .journey-card--points,
-    .journey-card--coupon {
-      margin-top: 0;
-      margin-left: 0;
-    }
-
-    .journey-card--points .journey-step,
-    .journey-card--coupon .journey-step {
-      align-self: flex-start;
-      transform: none;
-    }
-  }
-
-  /* ————— Panel ————— */
-  .panel-grid {
-    margin-top: var(--space-10);
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-    gap: var(--space-10);
-    align-items: start;
-  }
-
-  .panel-features {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .panel-features li {
-    font-size: 14px;
-    line-height: 22px;
-    letter-spacing: -0.13px;
-    color: var(--text-3);
-    padding-block: var(--space-6);
-  }
-
-  .panel-features li + li {
-    border-top: 1px solid var(--border);
-  }
-
-  .panel-features strong {
-    color: var(--text-1);
-    font-weight: 590;
-  }
-
-  @media (max-width: 860px) {
-    .panel-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  /* ————— Payments (TpayGO) ————— */
-  .payments {
-    padding-block: var(--space-11);
-    border-top: 1px solid var(--border);
-  }
-
-  .payments-lead {
-    margin-top: var(--space-7);
-    font-size: 16px;
-    line-height: 26px;
-    color: var(--text-3);
-    max-width: 60ch;
-  }
-
-  /* Flow accepted in live session fadbb319 (density 1, arrows on). */
-  .payments-flow {
-    list-style: none;
-    margin-block: 40px;
-    display: flex;
-    align-items: stretch;
-    gap: var(--space-5);
-  }
-
-  .payments-node {
-    flex: 1;
-    min-width: 0;
-    background: var(--bg-raised);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
-    padding: var(--space-7);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-  }
-
-  .payments-node h3 {
-    font-size: 15px;
-    font-weight: 590;
-    letter-spacing: -0.165px;
-  }
-
-  .payments-node p {
-    font-size: 13px;
-    line-height: 19.5px;
-    color: var(--text-3);
-  }
-
-  .payments-payload {
-    margin-top: auto;
-    align-self: flex-start;
-    font-size: 11px;
-    line-height: 16px;
-    color: var(--text-2);
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: var(--space-1) var(--space-4);
-  }
-
-  .payments-arrow {
-    align-self: center;
-    color: var(--text-4);
-    flex-shrink: 0;
-  }
-
-  @media (max-width: 860px) {
-    .payments-flow {
-      flex-direction: column;
-    }
-
-    .payments-arrow {
-      transform: rotate(90deg);
-      align-self: flex-start;
-      margin-left: var(--space-8);
-    }
-  }
-
-  /* ————— Clienteling ————— */
-  .cliente-grid {
-    margin-top: var(--space-10);
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-    gap: var(--space-10);
-    align-items: start;
-  }
-
-  .cliente-steps {
-    margin-top: var(--space-9);
-    list-style: none;
-    counter-reset: cstep;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-6);
-  }
-
-  .cliente-steps li {
-    counter-increment: cstep;
-    position: relative;
-    padding-left: 44px;
-    font-size: 15px;
-    line-height: 24px;
-    letter-spacing: -0.165px;
-    color: var(--text-3);
-  }
-
-  .cliente-steps li::before {
-    content: counter(cstep);
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 26px;
-    height: 26px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--border-strong);
-    display: grid;
-    place-items: center;
-    font-size: 12px;
-    font-weight: 590;
-    color: var(--text-2);
-  }
-
-  .cliente-steps strong {
-    color: var(--text-1);
-    font-weight: 590;
-  }
-
-  .cliente-micro {
-    margin-top: var(--space-8);
-    font-size: 14px;
-    line-height: 21px;
-    color: var(--text-4);
-  }
-
-  .cliente-stage {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-7);
-    padding-top: var(--space-6);
-  }
-
-  .cliente-tags {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-  }
-
-  .tag {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-4);
-    font-size: 13px;
-    line-height: 19.5px;
-    letter-spacing: -0.13px;
-    color: var(--text-3);
-  }
-
-  .tag-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: var(--radius-pill);
-    flex-shrink: 0;
-  }
-
-  .tag-dot--green {
-    background: var(--green);
-  }
-
-  @media (max-width: 860px) {
-    .cliente-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  /* ————— Finale ————— */
-  .finale-panel {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-2xl);
-    background: var(--bg-raised);
-    padding: clamp(28px, 5vw, 56px);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-7);
-  }
-
-  .finale-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
-    gap: var(--space-10);
-    align-items: center;
-  }
-
-  .finale-copy {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-7);
-  }
-
-  .finale-stage {
-    display: flex;
-    justify-content: center;
-  }
-
-  @media (max-width: 860px) {
-    .finale-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .finale-stage {
-      justify-content: flex-start;
-    }
-  }
-
-  .finale-chip {
-    align-self: flex-start;
-    font-size: 11px;
-    font-weight: 590;
-    line-height: 16px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-4);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-pill);
-    padding: var(--space-1) var(--space-5);
-  }
-
-  .finale-story {
-    font-size: clamp(19px, 2.4vw, 24px);
-    line-height: 1.5;
-    color: var(--text-1);
-    font-weight: 460;
-    letter-spacing: -0.01em;
-  }
-
-  .finale-close {
-    font-size: 16px;
-    line-height: 26px;
-    color: var(--text-3);
-  }
-
-  /* ————— Industries ————— */
-  .industry-list {
-    margin-top: var(--space-10);
-    list-style: none;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-9) var(--space-10);
-  }
-
-  .industry-list li {
-    display: flex;
-    gap: var(--space-6);
-    align-items: flex-start;
-  }
-
-  .industry-glyph {
-    display: inline-grid;
-    place-items: center;
-    width: 44px;
-    height: 44px;
-    border-radius: var(--radius-xl);
-    border: 1px solid var(--border-strong);
-    color: var(--text-2);
-    flex-shrink: 0;
-  }
-
-  .industry-list h3 {
-    font-size: 15px;
-    font-weight: 590;
-    letter-spacing: -0.165px;
-    margin-bottom: var(--space-2);
-  }
-
-  .industry-list p {
-    font-size: 14px;
-    line-height: 21px;
-    color: var(--text-3);
-  }
-
-  @media (max-width: 720px) {
-    .industry-list {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  /* ————— FAQ ————— */
-  .faq-container {
-    max-width: 760px;
-  }
-
-  .faq-list {
-    margin-top: var(--space-9);
-    border-top: 1px solid var(--border);
-  }
-
-  .faq-item {
-    border-bottom: 1px solid var(--border);
-  }
-
-  .faq-item summary {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--space-8);
-    padding-block: var(--space-7);
-    padding-inline: var(--space-5);
-    margin-inline: calc(-1 * var(--space-5));
-    border-radius: var(--radius-md);
-    font-size: 15px;
-    font-weight: 590;
-    letter-spacing: -0.165px;
-    color: var(--text-1);
-    cursor: pointer;
-    list-style: none;
-    transition: background-color 140ms ease;
-  }
-
-  .faq-item summary::-webkit-details-marker {
-    display: none;
-  }
-
-  .faq-item summary:hover {
-    background: rgba(255, 255, 255, 0.04);
-  }
-
-  .faq-item summary:hover .faq-chevron {
-    color: var(--text-1);
-  }
-
-  .faq-chevron {
-    flex-shrink: 0;
-    color: var(--text-4);
-    transition: transform 200ms ease;
-  }
-
-  .faq-item[open] .faq-chevron {
-    transform: rotate(180deg);
-  }
-
-  .faq-item p {
-    padding-bottom: var(--space-7);
-    font-size: 15px;
-    line-height: 24px;
-    letter-spacing: -0.165px;
-    color: var(--text-3);
-    max-width: 60ch;
-  }
-
-  /* ————— Final CTA ————— */
-  .cta-final {
-    border-top: 1px solid var(--border);
-    padding-block: calc(var(--space-11) + var(--space-9));
-    text-align: center;
-  }
-
-  .cta-h2 {
-    font-size: clamp(30px, 4vw, 46px);
-    line-height: 1.15;
-    margin-bottom: var(--space-9);
-  }
-
-
-  .cta-micro {
-    margin-top: var(--space-6);
-    font-size: 13px;
-    line-height: 19.5px;
-    color: var(--text-4);
-  }
-
-  .signup-intro {
-    margin: calc(-1 * var(--space-6)) auto var(--space-9);
-    max-width: 52ch;
-    font-size: 16px;
-    line-height: 26px;
-    color: var(--text-3);
-  }
-
-  .signup {
-    max-width: 560px;
-    margin-inline: auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-  }
-
-  .signup[hidden] {
-    display: none;
-  }
-
-  .signup-row {
-    display: flex;
-    align-items: flex-end;
-    gap: var(--space-5);
-  }
-
-  .signup-field {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-    text-align: left;
-  }
-
-  .signup-field label {
-    font-size: 13px;
-    line-height: 19.5px;
-    letter-spacing: -0.13px;
-    color: var(--text-3);
-  }
-
-  .signup-field input {
-    height: 52px;
-    padding-inline: var(--space-6);
-    background: var(--bg-raised);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-lg);
-    color: var(--text-1);
-    font: inherit;
-    font-size: 15px;
-    letter-spacing: -0.165px;
-    transition: border-color 140ms ease;
-  }
-
-  .signup-field input::placeholder {
-    color: var(--text-3);
-  }
-
-  .signup-field input:hover {
-    border-color: var(--text-4);
-  }
-
-  .signup-field input:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-    border-color: var(--accent);
-  }
-
-  .signup.is-invalid .signup-field input {
-    border-color: var(--red);
-  }
-
-  .signup.is-invalid .signup-field input:focus-visible {
-    outline-color: var(--red);
-    border-color: var(--red);
-  }
-
-  .signup-consent {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-4);
-    text-align: left;
-    font-size: 13px;
-    line-height: 19.5px;
-    color: var(--text-3);
-    cursor: pointer;
-  }
-
-  .signup-consent input {
-    flex-shrink: 0;
-    width: 18px;
-    height: 18px;
-    margin-top: 2px;
-    accent-color: var(--accent);
-  }
-
-  .signup.is-invalid .signup-consent input:invalid {
-    outline: 2px solid var(--red);
-    outline-offset: 2px;
-  }
-
-  .signup-error {
-    font-size: 13px;
-    line-height: 19.5px;
-    color: var(--red);
-    text-align: left;
-  }
-
-  .signup-submit {
-    flex-shrink: 0;
-  }
-
-  .signup-policy-link {
-    color: var(--text-3);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    transition: color 140ms ease;
-  }
-
-  .signup-policy-link:hover {
-    color: var(--text-1);
-  }
-
-  .signup-submit[disabled] {
-    opacity: 0.6;
-    cursor: default;
-  }
-
-  /* Success panel accepted in live sessions 4e452e76 + 7719e12f (celebratory, 40px gap). */
-  .signup-success {
-    max-width: 560px;
-    margin-top: 40px;
-    margin-inline: auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-5);
-    padding: var(--space-9);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-2xl);
-    background: var(--bg-raised);
-  }
-
-  .signup-success[hidden] {
-    display: none;
-  }
-
-  .signup-success-badge {
-    width: 44px;
-    height: 44px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--green);
-    color: var(--green);
-    display: grid;
-    place-items: center;
-  }
-
-  .signup-success h3 {
-    font-size: 18px;
-    font-weight: 590;
-    letter-spacing: -0.02em;
-  }
-
-  .signup-success p {
-    font-size: 14px;
-    line-height: 22px;
-    color: var(--text-3);
-  }
-
-  @media (max-width: 640px) {
-    .signup-row {
-      flex-direction: column;
-      align-items: stretch;
-    }
-  }
-
-  /* ————— Footer ————— */
-  .footer {
-    border-top: 1px solid var(--border);
-    padding-block: var(--space-10);
-  }
-
-  .footer-inner {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--space-10);
-    flex-wrap: wrap;
-  }
-
-  .footer-brand {
-    max-width: 40ch;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-5);
-  }
-
-  .footer-brand p {
-    font-size: 13px;
-    line-height: 19.5px;
-    color: var(--text-4);
-  }
-
-  .footer-links {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-    font-size: 13px;
-    line-height: 19.5px;
-  }
-
-  .footer-links a {
-    color: var(--text-3);
-    transition: color 140ms ease;
-  }
-
-  .footer-links a:hover {
-    color: var(--text-1);
-  }
-
-  .footer-pending {
-    color: var(--text-4);
-  }
-</style>
-
-<script>
-  // LTV calculator — transparent arithmetic on the merchant's own numbers.
-  const avgIn = document.getElementById('calc-avg') as HTMLInputElement | null;
-  const visitsIn = document.getElementById('calc-visits') as HTMLInputElement | null;
-  const returnIn = document.getElementById('calc-return') as HTMLInputElement | null;
-
-  const fmt = new Intl.NumberFormat('pl-PL');
-
-  function plural(n: number, one: string, few: string, many: string) {
-    if (n === 1) return one;
-    const d = n % 10;
-    const h = n % 100;
-    return d >= 2 && d <= 4 && (h < 12 || h > 14) ? few : many;
-  }
-
-  function recalc() {
-    if (!avgIn || !visitsIn || !returnIn) return;
-    const avg = Number(avgIn.value);
-    const visits = Number(visitsIn.value);
-    const ret = Number(returnIn.value) / 100;
-
-    const nonReturning = Math.round(visits * (1 - ret));
-    const converted = Math.max(1, Math.round(nonReturning * 0.1));
-    const extraVisits = converted * 8; // returning every ~6 weeks ≈ 8 visits/year
-    const yearly = Math.round((extraVisits * avg) / 100) * 100;
-
-    (document.getElementById('calc-avg-out') as HTMLElement).textContent = `${fmt.format(avg)} zł`;
-    (document.getElementById('calc-visits-out') as HTMLElement).textContent = fmt.format(visits);
-    (document.getElementById('calc-return-out') as HTMLElement).textContent = `${returnIn.value}%`;
-    (document.getElementById('calc-amount') as HTMLElement).textContent = `+${fmt.format(yearly)} zł`;
-    (document.getElementById('calc-breakdown') as HTMLElement).textContent =
-      `${fmt.format(nonReturning)} ${plural(nonReturning, 'klientka', 'klientki', 'klientek')} bez powrotu → ` +
-      `${fmt.format(converted)} ${plural(converted, 'zaczyna', 'zaczynają', 'zaczyna')} wracać → ` +
-      `ok. ${fmt.format(extraVisits)} ${plural(extraVisits, 'dodatkowa wizyta', 'dodatkowe wizyty', 'dodatkowych wizyt')} w roku`;
-  }
-
-  [avgIn, visitsIn, returnIn].forEach((el) => el?.addEventListener('input', recalc));
-  recalc();
-
-  // Waitlist signup: inserts into the Supabase `waitlist` table (see
-  // backend/supabase/migrations/0001_waitlist.sql). Configure PUBLIC_SUPABASE_URL and
-  // PUBLIC_SUPABASE_ANON_KEY in landing_page/.env (template: .env.example).
-  const SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL as string | undefined;
-  const SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY as string | undefined;
-  const CONTACT_FALLBACK =
-    'Nie udało się zapisać adresu. Napisz do nas: kontakt@loyaltygo.pl, a dodamy Cię do listy.';
-
-  const signupForm = document.getElementById('signup-form') as HTMLFormElement | null;
-  const signupEmail = document.getElementById('signup-email') as HTMLInputElement | null;
-  const signupConsent = document.getElementById('signup-consent') as HTMLInputElement | null;
-  const signupError = document.getElementById('signup-error') as HTMLElement | null;
-  const signupSuccess = document.getElementById('signup-success') as HTMLElement | null;
-
-  function showSignupError(msg: string) {
-    if (!signupForm || !signupError) return;
-    signupForm.classList.add('is-invalid');
-    signupEmail?.setAttribute('aria-invalid', 'true');
-    signupError.textContent = msg;
-    signupError.hidden = false;
-    signupEmail?.setAttribute('aria-describedby', 'signup-error signup-hint');
-  }
-
-  function clearSignupError() {
-    signupForm?.classList.remove('is-invalid');
-    signupEmail?.removeAttribute('aria-invalid');
-    signupEmail?.setAttribute('aria-describedby', 'signup-hint');
-    if (signupError) signupError.hidden = true;
-  }
-
-  signupEmail?.addEventListener('input', clearSignupError);
-  signupConsent?.addEventListener('change', clearSignupError);
-
-  signupForm?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!signupEmail || !signupForm || !signupSuccess) return;
-
-    const email = signupEmail.value.trim();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-      showSignupError('Podaj poprawny adres e-mail, na przykład salon@twojafirma.pl.');
-      signupEmail.focus();
-      return;
-    }
-
-    if (!signupConsent?.checked) {
-      showSignupError('Zaznacz zgodę na przetwarzanie adresu e-mail, aby dołączyć do listy.');
-      signupConsent?.focus();
-      return;
-    }
-
-    if (!navigator.onLine) {
-      showSignupError('Brak połączenia z internetem. Spróbuj ponownie po odzyskaniu sieci.');
-      return;
-    }
-
-    const submitBtn = signupForm.querySelector('.signup-submit') as HTMLButtonElement | null;
-    if (submitBtn) {
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Zapisujemy…';
-    }
-
-    try {
-      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) throw new Error('missing_config');
-
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          Prefer: 'return=minimal',
-        },
-        body: JSON.stringify({ email }),
-        signal: AbortSignal.timeout(10000),
+  <script>
+    const menuToggle = document.querySelector(".menu-toggle");
+    const mainNav = document.querySelector(".main-nav");
+
+    menuToggle?.addEventListener("click", () => {
+      const isOpen = menuToggle.getAttribute("aria-expanded") === "true";
+      menuToggle.setAttribute("aria-expanded", String(!isOpen));
+      mainNav?.classList.toggle("is-open", !isOpen);
+    });
+
+    mainNav?.querySelectorAll("a").forEach((link) => {
+      link.addEventListener("click", () => {
+        menuToggle?.setAttribute("aria-expanded", "false");
+        mainNav.classList.remove("is-open");
       });
+    });
 
-      // 409 = unique-constraint hit: the address is already on the list. That is a success
-      // for the visitor, not an error.
-      if (!res.ok && res.status !== 409) throw new Error(String(res.status));
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const revealSections = document.querySelectorAll("[data-reveal-section]");
 
-      signupForm.hidden = true;
-      signupSuccess.hidden = false;
-      signupSuccess.querySelector('h3')?.setAttribute('tabindex', '-1');
-      (signupSuccess.querySelector('h3') as HTMLElement | null)?.focus();
-    } catch {
-      showSignupError(CONTACT_FALLBACK);
-    } finally {
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Zapisz się';
-      }
+    if (reducedMotion || !("IntersectionObserver" in window)) {
+      revealSections.forEach((section) => section.classList.add("is-visible"));
+    } else {
+      const revealObserver = new IntersectionObserver(
+        (entries, observer) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            entry.target.classList.add("is-visible");
+            observer.unobserve(entry.target);
+          });
+        },
+        { threshold: 0.14 },
+      );
+      revealSections.forEach((section) => revealObserver.observe(section));
     }
-  });
-</script>
+
+    const calculator = document.querySelector<HTMLFormElement>("[data-ltv-form]");
+    const resultValue = calculator?.querySelector<HTMLElement>("[data-result-value]");
+    const errorMessage = calculator?.querySelector<HTMLElement>("[data-form-error]");
+    const rateInput = calculator?.querySelector<HTMLInputElement>("#return-rate");
+    const rateOutput = calculator?.querySelector<HTMLOutputElement>("[data-rate-output]");
+    let calculationTimer: number | undefined;
+
+    rateInput?.addEventListener("input", () => {
+      if (rateOutput) rateOutput.value = `${rateInput.value}%`;
+    });
+
+    calculator?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(calculator);
+      const visitValue = Number(formData.get("visitValue"));
+      const monthlyClients = Number(formData.get("monthlyClients"));
+      const returnRate = Number(formData.get("returnRate"));
+      const valid = visitValue > 0 && monthlyClients > 0 && returnRate > 0;
+
+      if (!valid) {
+        if (errorMessage) errorMessage.hidden = false;
+        calculator.classList.remove("is-loading");
+        return;
+      }
+
+      if (errorMessage) errorMessage.hidden = true;
+      calculator.classList.add("is-loading");
+      window.clearTimeout(calculationTimer);
+
+      calculationTimer = window.setTimeout(() => {
+        const annualPotential = visitValue * monthlyClients * 12 * (returnRate / 100);
+        if (resultValue) {
+          resultValue.textContent = new Intl.NumberFormat("pl-PL", {
+            style: "currency",
+            currency: "PLN",
+            maximumFractionDigits: 0,
+          }).format(annualPotential);
+        }
+        calculator.classList.remove("is-loading");
+      }, reducedMotion ? 0 : 380);
+    });
+
+    const brandInput = document.querySelector<HTMLInputElement>("[data-brand-input]");
+    const brandOutput = document.querySelector<HTMLElement>("[data-brand-output]");
+
+    brandInput?.addEventListener("input", () => {
+      if (!brandOutput) return;
+      brandOutput.textContent = brandInput.value.trim() || "Twoja firma";
+    });
+  </script>
+</BaseLayout>
