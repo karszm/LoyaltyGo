@@ -219,7 +219,8 @@ export function PublishPanel({ program, reload, saving, prepare, onFieldErrors, 
             <p className="panel__note">Klucz do terminala jest widoczny do czasu odświeżenia strony.</p>
           ) : (
             <p className="panel__note">
-              Klucza do terminala już nie pokażemy. Jeśli go nie masz, wygeneruj nowy w zakładce Integracja.
+              Klucza do terminala już nie pokażemy. Jeśli go nie masz, napisz do nas na kontakt@loyaltygo.pl —
+              wygenerujemy nowy.
             </p>
           )}
           <div style={{ display: 'flex', gap: 'var(--space-5)', flexWrap: 'wrap', marginBlockStart: 'var(--space-6)' }}>
@@ -228,9 +229,9 @@ export function PublishPanel({ program, reload, saving, prepare, onFieldErrors, 
                 Pokaż klucz ponownie
               </button>
             ) : (
-              <Link to="/integracja" className="btn btn--ghost">
-                Przejdź do integracji
-              </Link>
+              <a href="mailto:kontakt@loyaltygo.pl?subject=Klucz%20do%20terminala" className="btn btn--ghost">
+                Napisz o nowy klucz
+              </a>
             )}
             <Link to="/zaproszenie" className="btn btn--primary">
               Przejdź do kodu QR
@@ -280,8 +281,8 @@ export function PublishPanel({ program, reload, saving, prepare, onFieldErrors, 
           konfiguruje terminal.
         </p>
         <p className="confirm__body">
-          Jeśli go nie zapiszesz, wygeneruj nowy w zakładce Integracja. Dopóki terminal nie jest skonfigurowany, nic
-          to nie psuje.
+          Jeśli go nie zapiszesz, napisz do nas na <span className="mono">kontakt@loyaltygo.pl</span> — wygenerujemy
+          nowy. Dopóki terminal nie jest skonfigurowany, nic to nie psuje.
         </p>
         <div className="confirm__actions">
           <span role="status" style={{ fontSize: 13, lineHeight: '19.5px', color: 'var(--text-3)', marginInlineEnd: 'auto' }}>

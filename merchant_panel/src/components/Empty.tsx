@@ -16,6 +16,10 @@ import { Link } from 'react-router-dom'
 type EmptyAction =
   | { label: string; to: string; variant?: 'primary' | 'ghost' }
   | { label: string; onClick: () => void; variant?: 'primary' | 'ghost' }
+  // A route out of the product itself -- today that is `mailto:`, for the states whose real fix
+  // is a person rather than another screen. Without this the "one real fix" rule (panel-shell.md
+  // §13.5) had to point somewhere inside the panel even when nothing inside it helps.
+  | { label: string; href: string; variant?: 'primary' | 'ghost' }
 
 interface EmptyProps {
   headline: string
@@ -33,6 +37,10 @@ export function Empty({ headline, note, action }: EmptyProps) {
           <Link to={action.to} className={`btn btn--${action.variant ?? 'primary'}`}>
             {action.label}
           </Link>
+        ) : 'href' in action ? (
+          <a href={action.href} className={`btn btn--${action.variant ?? 'primary'}`}>
+            {action.label}
+          </a>
         ) : (
           <button type="button" className={`btn btn--${action.variant ?? 'primary'}`} onClick={action.onClick}>
             {action.label}

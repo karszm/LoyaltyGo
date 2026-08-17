@@ -255,8 +255,8 @@ function PublishedTransactions() {
       memberCount && memberCount > 0 ? (
         <Empty
           headline="Nie ma jeszcze żadnej transakcji."
-          note="Transakcja trafia tutaj, gdy klient z kartą zapłaci na kasie, a aplikacja płatnicza zarejestruje ją w programie. Jeśli klienci już płacą, sprawdź połączenie terminala z programem."
-          action={{ label: 'Przejdź do integracji', to: '/integracja', variant: 'primary' }}
+          note="Transakcja trafia tutaj, gdy klient z kartą zapłaci na kasie, a aplikacja płatnicza zarejestruje ją w programie. Twoi klienci już dołączyli, więc jeśli któryś z nich zapłacił, terminal najpewniej nie jest jeszcze połączony z programem. Napisz do nas — sprawdzimy to razem."
+          action={{ label: 'Napisz: kontakt@loyaltygo.pl', href: 'mailto:kontakt@loyaltygo.pl?subject=Terminal%20nie%20rejestruje%20transakcji', variant: 'primary' }}
         />
       ) : (
         <Empty

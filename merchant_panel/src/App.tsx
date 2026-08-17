@@ -11,6 +11,7 @@ import MemberDetail from './screens/MemberDetail'
 import Transactions from './screens/Transactions'
 import Invite from './screens/Invite'
 import { DraftGate } from './components/DraftGate'
+import { Empty } from './components/Empty'
 
 // Placeholder screen body for task 17 (/integracja) -- each real screen owns its own
 // h1#screen-title and (for the gated ones) its own DraftGate note in that screen's terms
@@ -37,7 +38,15 @@ function PlaceholderScreen({ label, gateNote }: { label: string; gateNote?: stri
         {gated ? (
           <DraftGate note={gateNote} />
         ) : (
-          <p style={{ color: 'var(--text-3)' }}>Ekran budowany w kolejnym zadaniu.</p>
+          // The destination of three recovery paths (the key dialog, the publish handoff, and
+          // /transakcje's "the till isn't connected" state), so it cannot answer with a status
+          // line about our own backlog. It says what it will hold, what to do about the one
+          // thing people arrive here needing, and gives a route that exists today.
+          <Empty
+            headline="Klucz do terminala pokażemy tu wkrótce."
+            note="Na tym ekranie zobaczysz końcówkę klucza, którym aplikacja płatnicza łączy się z Twoim programem, i wygenerujesz nowy, jeśli trzeba. Jeśli klucz zginął albo terminal nie rejestruje transakcji, napisz do nas — wygenerujemy nowy i pomożemy go wpisać."
+            action={{ label: 'Napisz: kontakt@loyaltygo.pl', href: 'mailto:kontakt@loyaltygo.pl?subject=Klucz%20do%20terminala', variant: 'primary' }}
+          />
         )}
       </div>
     </>

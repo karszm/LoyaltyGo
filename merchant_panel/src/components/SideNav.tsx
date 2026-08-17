@@ -76,6 +76,13 @@ export function SideNav({ program, merchantEmail, onLogout }: SideNavProps) {
               {merchantEmail}
             </p>
           )}
+          {/* The panel had no route to a person on any screen (critique 2026-08-17, P0). A
+             merchant whose till stops sending transactions, or who lost the terminal key, was in
+             a closed room. It sits by Wyloguj because both are "leave this screen" actions and
+             this is the one place present on every screen. */}
+          <a className="btn--text" href="mailto:kontakt@loyaltygo.pl">
+            Pomoc
+          </a>
           <button type="button" className="btn--text" onClick={onLogout}>
             Wyloguj
           </button>
@@ -97,6 +104,11 @@ export function SideNav({ program, merchantEmail, onLogout }: SideNavProps) {
         </div>
         <div className="shell__nav-row2">
           {navLinks()}
+          {/* Same route to a person as the desktop footer -- without it the closed room the
+             critique found would simply move to tablet and phone. */}
+          <a className="btn--text shell__nav-logout" href="mailto:kontakt@loyaltygo.pl">
+            Pomoc
+          </a>
           <button type="button" className="btn--text shell__nav-logout" onClick={onLogout}>
             Wyloguj
           </button>
