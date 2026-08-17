@@ -30,7 +30,7 @@ function PlaceholderScreen({ label, gateNote }: { label: string; gateNote?: stri
       <h1
         id="screen-title"
         tabIndex={-1}
-        style={{ fontSize: 20, lineHeight: '28px', fontWeight: 590, color: 'var(--text-1)' }}
+        className="screen-heading"
       >
         {label}
       </h1>

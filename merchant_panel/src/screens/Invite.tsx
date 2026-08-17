@@ -23,7 +23,6 @@ const DRAFT_GATE_NOTE = 'Link zapraszający i kod QR powstają dopiero w chwili 
 // margin the geometry in §6.4 was built around.
 const QR_OPTIONS = { width: 1024, errorCorrectionLevel: 'M' } as const
 
-const titleStyle = { fontSize: 20, lineHeight: '28px', fontWeight: 590, color: 'var(--text-1)' } as const
 const descStyle = {
   marginBlockStart: 'var(--space-5)',
   maxWidth: '68ch',
@@ -42,7 +41,7 @@ export default function Invite() {
   if (program.status !== 'published') {
     return (
       <>
-        <h1 id="screen-title" tabIndex={-1} style={titleStyle}>
+        <h1 id="screen-title" tabIndex={-1} className="screen-heading">
           Zaproszenie
         </h1>
         <div style={{ marginBlockStart: 'var(--space-8)' }}>
@@ -75,8 +74,8 @@ function PublishedInvite({ displayName, inviteCode }: { displayName: string; inv
 
   return (
     <>
-      <div className="no-print" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-6)' }}>
-        <h1 id="screen-title" tabIndex={-1} style={titleStyle}>
+      <div className="no-print" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-6)' }}>
+        <h1 id="screen-title" tabIndex={-1} className="screen-heading">
           Zaproszenie
         </h1>
         <button type="button" className="btn btn--ghost" onClick={() => window.print()}>
@@ -140,7 +139,7 @@ function PublishedInvite({ displayName, inviteCode }: { displayName: string; inv
           Nie udało się skopiować. Zaznacz adres na arkuszu powyżej i skopiuj ręcznie.
         </p>
       )}
-      <p className="no-print" style={{ marginBlockStart: 'var(--space-6)', fontSize: 14, lineHeight: '21px', color: 'var(--text-3)' }}>
+      <p className="no-print screen-intro">
         Klient skanuje kod aparatem telefonu, podaje imię, nazwisko i adres e-mail i dostaje kartę w portfelu.
       </p>
     </>

@@ -22,7 +22,6 @@ const DRAFT_GATE_NOTE =
 const SEARCH_DEBOUNCE_MS = 250
 const REGION_ID = 'members-region'
 
-const titleStyle = { fontSize: 20, lineHeight: '28px', fontWeight: 590, color: 'var(--text-1)' } as const
 const descStyle = {
   marginBlockStart: 'var(--space-5)',
   maxWidth: '68ch',
@@ -101,7 +100,7 @@ export default function Members() {
   if (program.status !== 'published') {
     return (
       <>
-        <h1 id="screen-title" tabIndex={-1} style={titleStyle}>
+        <h1 id="screen-title" tabIndex={-1} className="screen-heading">
           Klienci
         </h1>
         <div style={{ marginBlockStart: 'var(--space-8)' }}>
@@ -185,13 +184,17 @@ function PublishedMembers() {
 
   return (
     <>
-      <h1 id="screen-title" tabIndex={-1} style={titleStyle}>
+      <h1 id="screen-title" tabIndex={-1} className="screen-heading">
         Klienci
       </h1>
       <p style={descStyle}>Osoby, które dołączyły do Twojego programu, skanując kod QR zaproszenia.</p>
 
       <div className="toolbar" style={{ marginBlockStart: 'var(--space-8)' }}>
-        <div>
+        {/* flex-basis + minInlineSize 0 instead of a fixed 320px input: a flex item's automatic
+           minimum would otherwise hold the wrapper at the input's specified width and overflow a
+           320px viewport; this way the field shrinks with the toolbar and the counter wraps under
+           it when space runs out. */}
+        <div style={{ flex: '0 1 320px', minInlineSize: 0 }}>
           <label htmlFor="member-search" className="visually-hidden">
             Szukaj klienta po nazwisku lub adresie e-mail
           </label>
@@ -200,7 +203,7 @@ function PublishedMembers() {
             ref={searchInputRef}
             type="search"
             className="field field--compact"
-            style={{ inlineSize: 320, maxInlineSize: '100%' }}
+            style={{ inlineSize: '100%' }}
             placeholder="Nazwisko lub e-mail"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}

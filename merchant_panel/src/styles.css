@@ -54,6 +54,11 @@
   max-inline-size: var(--panel-measure);
   margin-inline: auto;
   padding: var(--panel-gutter);
+  /* Landscape phone with a notch: the safe-area inset (≈44px) exceeds the 20px mobile gutter,
+     so content would sit under the housing without the max(). Portrait and desktop resolve the
+     env() to 0 and keep the plain gutter. */
+  padding-inline: max(var(--panel-gutter), env(safe-area-inset-left))
+    max(var(--panel-gutter), env(safe-area-inset-right));
 }
 
 @media print {
@@ -199,7 +204,7 @@
     align-items: center;
     gap: var(--space-5);
     block-size: 48px;
-    padding-inline: var(--space-6);
+    padding-inline: max(var(--space-6), env(safe-area-inset-left)) max(var(--space-6), env(safe-area-inset-right));
   }
   .shell__nav-row1 .shell__program-name--inline {
     flex: 1;
@@ -215,6 +220,10 @@
     padding-inline: var(--space-6);
     overflow-x: auto;
     scroll-snap-type: x proximity;
+    /* Without this, reaching the row's left edge mid-scroll hands the gesture to iOS Safari's
+       back-swipe navigation -- the merchant loses the panel instead of the scroll stopping. */
+    overscroll-behavior-x: contain;
+    padding-inline: max(var(--space-6), env(safe-area-inset-left)) max(var(--space-6), env(safe-area-inset-right));
   }
   .shell__nav-row2 .shell__nav-item {
     flex-shrink: 0;
@@ -415,6 +424,20 @@ select.field {
   color: var(--text-3);
 }
 
+/* The one interactive chip (ProgramStateChip is a <Link>) keeps the spec's 24px visual height
+   but earns a 44px effective touch target through an invisible hit-area extension -- the
+   geometry itself is spec-fixed (panel-shell-design.md §5.3) and must not grow. Scoped to
+   `a.chip` so the static chips in tables stay untouched. */
+a.chip {
+  position: relative;
+}
+a.chip::after {
+  content: '';
+  position: absolute;
+  inset-block: -10px;
+  inset-inline: -4px;
+}
+
 /* MonoChip — machine data inline: key fragments, transaction ids, point deltas. */
 .chip-mono {
   display: inline-block;
@@ -517,6 +540,8 @@ dialog.confirm::backdrop {
 }
 .confirm__actions {
   display: flex;
+  flex-wrap: wrap; /* KeyReveal's two buttons exceed the dialog's content width at 320px (UA caps
+     the dialog at calc(100% - 6px - 2em)); flex-end keeps wrapped buttons right-aligned. */
   gap: var(--space-5);
   justify-content: flex-end;
 }
@@ -736,6 +761,9 @@ dialog.confirm::backdrop {
    the compact 44px field variant, never the 52px form field. */
 .toolbar {
   display: flex;
+  flex-wrap: wrap; /* adapt pass: the /klienci/:id adjustment form (120px + 220px + button) must
+     stack on a phone instead of forcing page-level horizontal scroll; on /klienci the counter
+     simply drops under the search field when space runs out. */
   gap: var(--space-5);
   align-items: center;
   margin-block-end: var(--space-6);
@@ -768,6 +796,7 @@ dialog.confirm::backdrop {
   justify-items: center;
   align-content: safe center; /* `safe`: content scrolls instead of clipping at a short viewport */
   padding: var(--space-10) var(--space-7);
+  padding-inline: max(var(--space-7), env(safe-area-inset-left)) max(var(--space-7), env(safe-area-inset-right));
 }
 .auth__col {
   inline-size: min(100%, var(--auth-measure));
@@ -778,6 +807,18 @@ dialog.confirm::backdrop {
    Precedent: program_page/src/components/JoinForm.astro:206. */
 .auth .field {
   font-size: 16px;
+}
+
+/* Adapt pass extends that same rule to every field, but only on touch devices: the two-row
+   mobile nav exists because merchants DO open the panel on a phone (a point correction at the
+   till is the canonical case), and a 14/15px input there zooms the whole viewport on focus in
+   iOS Safari. `pointer: coarse` keeps the spec's 15px/14px intact on desktop, where the zoom
+   never happens. */
+@media (pointer: coarse) {
+  .field,
+  .field--compact {
+    font-size: 16px;
+  }
 }
 
 .field--code {
@@ -1043,4 +1084,42 @@ dialog.confirm::backdrop {
     border-radius: 0;
     break-inside: avoid;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Screen frame — the three things every screen repeated inline.       */
+/*                                                                    */
+/* `titleStyle` was declared identically in four screens and inline in */
+/* two more (six copies), and had already started to drift: one screen */
+/* spread it with an extra margin, another redeclared the same values  */
+/* under a second name. Extracted so the panel's voice can be changed  */
+/* in one place — which is the prerequisite for any character work,    */
+/* not a tidiness exercise.                                            */
+/*                                                                    */
+/* Values are the incumbent ones, unchanged: this is extraction, not   */
+/* a restyle. panel-shell.md §3's type scale still owns them.          */
+/* ------------------------------------------------------------------ */
+
+.screen-heading {
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 590;
+  color: var(--text-1);
+}
+
+/* The sentence under the heading. Sits at --space-5 because it belongs to
+   the heading, not to the next section (panel-shell.md §3: more space above
+   a heading than below it). */
+.screen-intro {
+  margin-block-start: var(--space-5);
+  max-width: 68ch;
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--text-3);
+}
+
+/* The gap that separates one region of a screen from the next. Named for what
+   it means rather than for its value, so the rhythm can change once. */
+.screen-section {
+  margin-block-start: var(--space-8);
 }

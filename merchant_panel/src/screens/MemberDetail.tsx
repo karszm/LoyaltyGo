@@ -22,7 +22,6 @@ const DRAFT_GATE_NOTE =
   'Link zapraszający i kod QR nie istnieją, dopóki program nie zostanie opublikowany, więc nikt nie może jeszcze dołączyć.'
 const REGION_ID = 'member-transactions-region'
 
-const titleStyle = { fontSize: 20, lineHeight: '28px', fontWeight: 590, color: 'var(--text-1)' } as const
 const metaStyle = {
   marginBlockStart: 'var(--space-5)',
   fontSize: 14,
@@ -46,7 +45,7 @@ export default function MemberDetail() {
   if (program.status !== 'published') {
     return (
       <>
-        <h1 id="screen-title" tabIndex={-1} style={titleStyle}>
+        <h1 id="screen-title" tabIndex={-1} className="screen-heading">
           Klient
         </h1>
         <div style={{ marginBlockStart: 'var(--space-8)' }}>
@@ -154,7 +153,7 @@ function PublishedMemberDetail({ memberId }: { memberId: string }) {
     const notFound = member.error.code === 'not_found'
     return (
       <>
-        <h1 id="screen-title" tabIndex={-1} style={titleStyle}>
+        <h1 id="screen-title" tabIndex={-1} className="screen-heading">
           Klient
         </h1>
         <div className="region region--centered" style={{ marginBlockStart: 'var(--space-8)' }}>
@@ -175,7 +174,8 @@ function PublishedMemberDetail({ memberId }: { memberId: string }) {
           ← Klienci
         </Link>
       </p>
-      <h1 id="screen-title" tabIndex={-1} style={{ ...titleStyle, marginBlockStart: 'var(--space-5)' }}>
+      {/* Margines jest lokalny: nad naglowkiem stoi link powrotny, ktorego inne ekrany nie maja. */}
+      <h1 id="screen-title" tabIndex={-1} className="screen-heading" style={{ marginBlockStart: 'var(--space-5)' }}>
         {name ?? 'Klient'}
         {member.data?.status === 'blocked' && (
           <span className="chip chip--warn" style={{ marginInlineStart: 'var(--space-5)', verticalAlign: 'middle' }}>

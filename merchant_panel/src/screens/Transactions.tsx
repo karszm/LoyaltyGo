@@ -21,7 +21,6 @@ const DRAFT_GATE_NOTE =
   'Transakcje pojawią się dopiero, gdy klienci zaczną korzystać z karty, a to wymaga opublikowania programu.'
 const REGION_ID = 'transactions-region'
 
-const titleStyle = { fontSize: 20, lineHeight: '28px', fontWeight: 590, color: 'var(--text-1)' } as const
 const descStyle = {
   marginBlockStart: 'var(--space-5)',
   maxWidth: '68ch',
@@ -208,7 +207,7 @@ export default function Transactions() {
   if (program.status !== 'published') {
     return (
       <>
-        <h1 id="screen-title" tabIndex={-1} style={titleStyle}>
+        <h1 id="screen-title" tabIndex={-1} className="screen-heading">
           Transakcje
         </h1>
         <div style={{ marginBlockStart: 'var(--space-8)' }}>
@@ -271,7 +270,7 @@ function PublishedTransactions() {
 
   return (
     <>
-      <h1 id="screen-title" tabIndex={-1} style={titleStyle}>
+      <h1 id="screen-title" tabIndex={-1} className="screen-heading">
         Transakcje
       </h1>
       <p style={descStyle}>

@@ -328,11 +328,11 @@ export default function CardWizard() {
       <h1
         id="screen-title"
         tabIndex={-1}
-        style={{ fontSize: 20, lineHeight: '28px', fontWeight: 590, color: 'var(--text-1)' }}
+        className="screen-heading"
       >
         Karta programu
       </h1>
-      <p style={{ marginBlockStart: 'var(--space-5)', maxWidth: '68ch', fontSize: 14, lineHeight: '21px', color: 'var(--text-3)' }}>
+      <p className="screen-intro">
         Tak wygląda karta, którą Twoi klienci dodadzą do Apple Wallet i Google Wallet.
       </p>
 
@@ -348,7 +348,7 @@ export default function CardWizard() {
             <div aria-live="polite">
               {contrastWarning && <p className="card-warning">{CONTRAST_WARNING}</p>}
             </div>
-            <p style={{ marginBlockStart: 'var(--space-6)', fontSize: 14, lineHeight: '21px', color: 'var(--text-3)' }}>
+            <p className="screen-intro">
               Podgląd zmienia się na bieżąco. Tekst na karcie w portfelu jest zawsze biały, dlatego tak samo pokazujemy go tutaj.
             </p>
           </section>
@@ -577,7 +577,7 @@ export default function CardWizard() {
             </div>
 
             {program.status === 'published' && (
-              <p style={{ marginBlockStart: 'var(--space-6)', fontSize: 14, lineHeight: '21px', color: 'var(--text-3)' }}>
+              <p className="screen-intro">
                 Karty już wydane zaktualizują się przy najbliższej synchronizacji.
               </p>
             )}

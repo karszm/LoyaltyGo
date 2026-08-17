@@ -318,7 +318,7 @@ export default function Login() {
                   {verifying ? 'Sprawdzanie…' : 'Zaloguj się kodem'}
                 </button>
               </form>
-              <div style={{ display: 'flex', gap: 'var(--space-5)', marginBlockStart: 'var(--space-6)' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-5)', marginBlockStart: 'var(--space-6)' }}>
                 <button
                   type="button"
                   className="btn btn--ghost"
