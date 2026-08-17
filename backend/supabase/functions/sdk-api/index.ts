@@ -3,7 +3,13 @@
 
 import { resolveProgramFromKey, serviceClient, signScanToken, verifyScanToken } from "../_shared/auth.ts";
 import { jsonError, mapPgError, validationError } from "../_shared/errors.ts";
-import { json, parseBody, preflight, safeDecode } from "../_shared/http.ts";
+import {
+  fireAndForget as sharedFireAndForget,
+  json,
+  parseBody,
+  preflight,
+  safeDecode,
+} from "../_shared/http.ts";
 import { syncPassBalance } from "../_shared/adapters/passkit.ts";
 
 // The customer-facing program page (karta.loyaltygo.pl), NOT the merchant panel
@@ -12,12 +18,10 @@ import { syncPassBalance } from "../_shared/adapters/passkit.ts";
 // merchant panel instead of the program page, and a printed QR can't be recalled.
 const PROGRAM_PAGE_BASE_URL = Deno.env.get("PROGRAM_PAGE_BASE_URL") ?? "https://karta.loyaltygo.pl";
 
-// Fire-and-forget: a PassKit failure must never change the HTTP response to the SDK —
-// the DB balance is the source of truth, PassKit catches up on the next successful call.
+// Fire-and-forget moved to _shared/http.ts (panel-api's points adjustment shares it);
+// this alias keeps the call sites below unchanged.
 function fireAndForget(p: Promise<unknown>): void {
-  const withCatch = p.catch((err) => console.error("[sdk-api] passkit call failed", err));
-  const rt = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
-  if (rt?.waitUntil) rt.waitUntil(withCatch);
+  sharedFireAndForget(p, "sdk-api");
 }
 
 // Runs an RPC, retrying exactly once on the "retry" sentinel (SQLSTATE 40001) per

@@ -7,6 +7,7 @@ import AuthCallback from './screens/AuthCallback'
 import Onboarding from './screens/Onboarding'
 import CardWizard from './screens/CardWizard'
 import Members from './screens/Members'
+import MemberDetail from './screens/MemberDetail'
 import Transactions from './screens/Transactions'
 import Invite from './screens/Invite'
 import { DraftGate } from './components/DraftGate'
@@ -55,6 +56,7 @@ function App() {
             <Route path="/" element={<RootRedirect />} />
             <Route path="/karta" element={<CardWizard />} />
             <Route path="/klienci" element={<Members />} />
+            <Route path="/klienci/:id" element={<MemberDetail />} />
             <Route path="/transakcje" element={<Transactions />} />
             <Route
               path="/integracja"

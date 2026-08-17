@@ -649,7 +649,7 @@ dialog.confirm::backdrop {
 /* DataTable (docs/design/panel-shell.md §5.10, added by task 16) — the React port of           */
 /* PanelTable.astro. Container/row rhythm and cell typography mirror .panel-table exactly; the   */
 /* header colour is --text-3 (not the landing's --text-4, §5.5's AA rule), and there is no row    */
-/* hover -- no row in this panel is clickable.                                                    */
+/* hover -- rows are not clickable; navigation into a member is the .table-link on the name.     */
 /* ------------------------------------------------------------------ */
 
 .data-table {
@@ -692,6 +692,24 @@ dialog.confirm::backdrop {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* In-table link (the member's name on /klienci → member detail). Inherits the cell's colour
+   and weight so the table keeps its rhythm; the underline alone says "clickable" (colour
+   alone would fail WCAG 1.4.1 against the surrounding plain cells). */
+.table-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--text-4);
+  text-underline-offset: 3px;
+}
+.table-link:hover {
+  text-decoration-color: currentColor;
+}
+.table-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs, 4px);
 }
 
 /* Delayed-sync date marker (task-16-design.md §6) — a dotted underline costs zero grid-track

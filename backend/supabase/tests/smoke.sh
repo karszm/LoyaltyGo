@@ -655,6 +655,56 @@ panel_tests() {
   status=$(echo "$r" | tail -1)
   check "resume A back to published status" "$status" "200"
   check "A restored to published in DB" "$(psql_count "select status from public.programs where id='$PROGRAM_A';")" "published"
+
+  # -- POST /members/:id/adjustment (migration 0012) --
+  # Balances are read from the DB, not assumed: earlier sections may have already moved them.
+
+  local MEMBER_A="54000000-0000-0000-0000-000000000001"
+  local MEMBER_B="64000000-0000-0000-0000-000000000001"
+  local bal_a bal_b
+  bal_a=$(psql_count "select points_balance from public.members where id='$MEMBER_A';")
+  bal_b=$(psql_count "select points_balance from public.members where id='$MEMBER_B';")
+
+  r=$(preq POST "/members/$MEMBER_A/adjustment" '{"delta":12,"description":"smoke: premia"}' "$JWT_A")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "adjustment +12 status" "$status" "201"
+  check "adjustment +12 balance in response" "$(echo "$body" | jq -r .points_balance)" "$((bal_a + 12))"
+  check "adjustment +12 balance in DB" \
+    "$(psql_count "select points_balance from public.members where id='$MEMBER_A';")" "$((bal_a + 12))"
+  check "adjustment row lands in transactions" \
+    "$(psql_count "select count(*) from public.transactions where member_id='$MEMBER_A' and source='manual' and description='smoke: premia';")" "1"
+
+  # over-balance withdrawal -> 409, balance untouched
+  r=$(preq POST "/members/$MEMBER_A/adjustment" "{\"delta\":-$((bal_a + 13)),\"description\":\"smoke: za duzo\"}" "$JWT_A")
+  body=$(echo "$r" | sed '$d'); status=$(echo "$r" | tail -1)
+  check "over-balance adjustment status" "$status" "409"
+  check "over-balance adjustment code" "$(echo "$body" | jq -r .error.code)" "insufficient_balance"
+  check "over-balance leaves balance untouched" \
+    "$(psql_count "select points_balance from public.members where id='$MEMBER_A';")" "$((bal_a + 12))"
+
+  # validation: delta 0 / missing description -> 422
+  r=$(preq POST "/members/$MEMBER_A/adjustment" '{"delta":0,"description":""}' "$JWT_A")
+  status=$(echo "$r" | tail -1)
+  check "adjustment delta 0 status" "$status" "422"
+
+  # cross-tenant: merchant A adjusting B's member -> 404, B's balance untouched
+  r=$(preq POST "/members/$MEMBER_B/adjustment" '{"delta":5,"description":"smoke: cudzy"}' "$JWT_A")
+  status=$(echo "$r" | tail -1)
+  check "cross-tenant adjustment status" "$status" "404"
+  check "cross-tenant adjustment leaves B untouched" \
+    "$(psql_count "select points_balance from public.members where id='$MEMBER_B';")" "$bal_b"
+
+  # non-uuid member segment never reaches the handler -> 404 at the path gate
+  r=$(preq POST "/members/not-a-uuid/adjustment" '{"delta":5,"description":"smoke"}' "$JWT_A")
+  status=$(echo "$r" | tail -1)
+  check "adjustment with non-uuid member status" "$status" "404"
+
+  # restore A's balance so a re-run of this section starts from the same point
+  r=$(preq POST "/members/$MEMBER_A/adjustment" '{"delta":-12,"description":"smoke: sprzatanie"}' "$JWT_A")
+  status=$(echo "$r" | tail -1)
+  check "adjustment -12 (cleanup) status" "$status" "201"
+  check "A balance restored" \
+    "$(psql_count "select points_balance from public.members where id='$MEMBER_A';")" "$bal_a"
 }
 
 cors_tests() {

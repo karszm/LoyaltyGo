@@ -61,6 +61,19 @@ export function closeProgram<T = unknown>(confirm = false): Promise<T> {
   return invoke<T>('/program/close', { body: { confirm } })
 }
 
+export interface AdjustmentResult {
+  id: string
+  points_delta: number
+  points_balance: number
+}
+
+// Manual points adjustment (+12 / -30 with a service description) from the member-detail
+// screen. Edge Function, not PostgREST: the write crosses transactions + members.points_balance
+// atomically and pushes the new balance onto the wallet card (panel-api's handleAdjustment).
+export function adjustPoints(memberId: string, delta: number, description: string): Promise<AdjustmentResult> {
+  return invoke<AdjustmentResult>(`/members/${memberId}/adjustment`, { body: { delta, description } })
+}
+
 // Pushes the branding currently saved in the database onto the merchant's PassKit template.
 // Provisioning happens once, at publication, so without this call every later edit of the
 // logo, name or colour would change the panel and leave the customer's card untouched.

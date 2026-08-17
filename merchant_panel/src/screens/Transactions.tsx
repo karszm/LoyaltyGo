@@ -36,6 +36,13 @@ const counterStyle = {
   color: 'var(--text-3)',
 } as const
 
+// Shared with MemberDetail.tsx (which drops the redundant client column on a single
+// customer's history) — the two lists must read identically or a merchant comparing them
+// would suspect different data.
+export function transactionColumns(includeClient: boolean): DataTableColumn<TransactionRow>[] {
+  return includeClient ? COLUMNS : COLUMNS.filter((c) => c.key !== 'client')
+}
+
 const COLUMNS: DataTableColumn<TransactionRow>[] = [
   {
     key: 'date',
@@ -79,11 +86,16 @@ const COLUMNS: DataTableColumn<TransactionRow>[] = [
     header: 'Kwota',
     minWidth: '100px',
     numeric: true,
-    render: (t) => (
-      <span className="mono" style={{ color: 'var(--text-2)' }}>
-        {formatMoney(t.amount)}
-      </span>
-    ),
+    render: (t) =>
+      // A manual adjustment has no purchase amount (migration 0012) — an em dash, not 0,00 zł:
+      // zero would read as a real till transaction for nothing.
+      t.amount === null ? (
+        <span style={{ color: 'var(--text-3)' }}>—</span>
+      ) : (
+        <span className="mono" style={{ color: 'var(--text-2)' }}>
+          {formatMoney(t.amount)}
+        </span>
+      ),
   },
   {
     key: 'points',
@@ -96,7 +108,9 @@ const COLUMNS: DataTableColumn<TransactionRow>[] = [
       const text = formatPointsDelta(value)
       if (!cancelled) {
         return (
-          <span className="mono" style={{ color: 'var(--text-2)' }}>
+          // Red for a negative manual adjustment too, same signal as a cancellation:
+          // "points left this customer's balance".
+          <span className="mono" style={{ color: value < 0 ? 'var(--red)' : 'var(--text-2)' }}>
             {text}
           </span>
         )
@@ -125,6 +139,14 @@ const COLUMNS: DataTableColumn<TransactionRow>[] = [
           </span>
         )
       }
+      if (t.source === 'manual') {
+        return (
+          <span className="chip chip--muted">
+            <span className="chip__dot" aria-hidden="true" />
+            Korekta ręczna
+          </span>
+        )
+      }
       if (t.delayed_sync) {
         return (
           <span className="chip chip--muted">
@@ -140,17 +162,21 @@ const COLUMNS: DataTableColumn<TransactionRow>[] = [
   },
   {
     key: 'coupon',
-    header: 'Kupon',
+    // One supplementary-text column for both row kinds: a till transaction's coupon titles
+    // OR a manual adjustment's service description — never both (a manual row has no coupons).
+    header: 'Szczegóły',
     minWidth: 'minmax(120px, 1fr)',
     render: (t) => {
-      const titles = t.coupon_redemptions
-        .map((r) => r.offers?.title)
-        .filter((title): title is string => Boolean(title))
-        .join(', ')
-      if (!titles) return null
+      const text = t.source === 'manual'
+        ? t.description ?? ''
+        : t.coupon_redemptions
+          .map((r) => r.offers?.title)
+          .filter((title): title is string => Boolean(title))
+          .join(', ')
+      if (!text) return null
       return (
-        <span className="data-table__ellipsis" title={titles} style={{ color: 'var(--text-2)' }}>
-          {titles}
+        <span className="data-table__ellipsis" title={text} style={{ color: 'var(--text-2)' }}>
+          {text}
         </span>
       )
     },
@@ -159,11 +185,16 @@ const COLUMNS: DataTableColumn<TransactionRow>[] = [
     key: 'softpos',
     header: 'Identyfikator',
     minWidth: '132px',
-    render: (t) => (
-      <span className="chip-mono data-table__ellipsis" title={t.softpos_transaction_id}>
-        {t.softpos_transaction_id}
-      </span>
-    ),
+    render: (t) =>
+      // A manual adjustment has no till identifier; the Status chip already names the row
+      // kind, so the cell stays visually empty but not silent for a screen reader.
+      t.softpos_transaction_id === null ? (
+        <span className="visually-hidden">brak — korekta ręczna</span>
+      ) : (
+        <span className="chip-mono data-table__ellipsis" title={t.softpos_transaction_id}>
+          {t.softpos_transaction_id}
+        </span>
+      ),
   },
 ]
 

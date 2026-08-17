@@ -36,6 +36,15 @@ export async function parseBody(req: Request): Promise<Record<string, unknown>> 
   }
 }
 
+// Fire-and-forget: a PassKit failure must never change the HTTP response — the DB balance
+// is the source of truth, PassKit catches up on the next successful call. Moved here from
+// sdk-api when panel-api's points adjustment needed the same behaviour.
+export function fireAndForget(p: Promise<unknown>, logTag: string): void {
+  const withCatch = p.catch((err) => console.error(`[${logTag}] passkit call failed`, err));
+  const rt = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+  if (rt?.waitUntil) rt.waitUntil(withCatch);
+}
+
 // decodeURIComponent throws URIError on a malformed %-escape (e.g. a lone surrogate half
 // like %ED%A0%80) — without this, that throw propagates to the top-level catch-all and
 // comes out as a generic 500. null means "treat this path segment as not found".

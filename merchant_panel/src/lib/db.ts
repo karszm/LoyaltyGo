@@ -216,6 +216,10 @@ const MEMBERS_LIMIT = 200
  * `search` must already be sanitized (lib/search.ts's sanitizeSearchTerm) -- this function does
  * not sanitize its input a second time, and passes it through unfiltered when empty.
  */
+export function getMemberById(memberId: string): Promise<Member> {
+  return unwrap(supabase.from('members').select(MEMBER_LIST_COLUMNS).eq('id', memberId).single())
+}
+
 export async function listMembers(search: string): Promise<{ rows: Member[]; count: number }> {
   let query = supabase
     .from('members')
@@ -251,19 +255,23 @@ export interface TransactionRow {
   performed_at: string
   synced_at: string
   delayed_sync: boolean
-  amount: number
+  // null exactly when source === 'manual' (migration 0012's transactions_source_shape):
+  // a manual points adjustment has no purchase amount and no till identifier.
+  amount: number | null
   points_awarded: number
   points_reverted: number | null
   correction: number | null
   status: 'registered' | 'cancelled'
-  softpos_transaction_id: string
+  softpos_transaction_id: string | null
+  source: 'softpos' | 'manual'
+  description: string | null
   members: TransactionMember
   coupon_redemptions: TransactionCouponRedemption[]
 }
 
 const TRANSACTION_LIST_COLUMNS =
   'id, performed_at, synced_at, delayed_sync, amount, points_awarded, points_reverted, correction, status, ' +
-  'softpos_transaction_id, members(first_name, last_name), coupon_redemptions(status, offers(title))'
+  'softpos_transaction_id, source, description, members(first_name, last_name), coupon_redemptions(status, offers(title))'
 const TRANSACTIONS_LIMIT = 200
 
 /**
@@ -272,14 +280,18 @@ const TRANSACTIONS_LIMIT = 200
  * only synced just now must land where it actually happened, not jump to the top of today's list.
  * NEVER filtered by `status`: a cancelled row is exactly what a merchant reconciling their day
  * needs to see, not its absence.
+ *
+ * `memberId` narrows the list to one customer (the member-detail screen); /transakcje passes
+ * nothing and sees the whole program.
  */
-export async function listTransactions(): Promise<{ rows: TransactionRow[]; count: number }> {
-  const query = supabase
+export async function listTransactions(memberId?: string): Promise<{ rows: TransactionRow[]; count: number }> {
+  let query = supabase
     .from('transactions')
     .select(TRANSACTION_LIST_COLUMNS, { count: 'exact' })
     .order('performed_at', { ascending: false })
     .order('id', { ascending: true })
     .limit(TRANSACTIONS_LIMIT)
+  if (memberId) query = query.eq('member_id', memberId)
   const { data, count } = await unwrapCounted<TransactionRow[]>(query)
   return { rows: data, count }
 }
