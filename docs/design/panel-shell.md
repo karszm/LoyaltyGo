@@ -875,3 +875,28 @@ correct and costs nothing. Task 11 must not ship `--text-1` on `--accent` either
 | `DataTable` (port of `PanelTable.astro`, §5.5 changes applied) | `src/ui/` | table task |
 | `ProgramCard` (port, unchanged geometry) | `src/ui/` | `/karta` task |
 | Buttons | none — `.btn` classes | everyone |
+
+---
+
+## §14. Metryka na listach — odwrócenie decyzji z Taska 16 (2026-08-17)
+
+`task-16-design.md` §2 zapisał: **żadnego kafla `.metric`** na listach, z uzasadnieniem, że wielkie
+„0" w dniu pierwszym zrobiłoby z braku klientów nagłówek ekranu. Uzasadnienie było trafne.
+
+**Decyzja odwrócona świadomie**, po krytyce z 2026-08-17, która postawiła pytanie: *dlaczego liczba,
+po którą właścicielka przychodzi, jest najmniejszym i najbledszym tekstem na ekranie?* Licznik
+w pasku narzędzi odwracał hierarchię ekranu, którego jedynym powodem istnienia jest ta liczba.
+
+**Powód pierwotnej decyzji jest jednak zachowany w implementacji:** metryka renderuje się
+wyłącznie gdy liczba jest większa od zera. Przy zerze ekran niesie stan pusty — dokładnie tak,
+jak zakładał Task 16. Metryka pojawia się wtedy, gdy liczba ma co powiedzieć.
+
+Prymityw `.metric__value`/`.metric__label` istniał w arkuszu **nieużywany** od §5.6; ta zmiana
+dodała mu brakujący kontener `.metric`, czyli dokończyła blok, nie wprowadziła nowego.
+
+Etykieta niesie **znaczenie liczby w kontekście**, nie nazwę ekranu: `klientów w programie`,
+a przy wyszukiwaniu `wyników dla „…"`. Powtórzenie tytułu ekranu mówiłoby jedną rzecz dwa razy.
+
+Świadomie **nie** jest to kafel kokpitowy: jedna liczba, bez akcentu, bez rzędu statystyk
+towarzyszących, bez karty wokół. `craft-floor` wymienia „wielka liczba plus mała etykieta"
+jako domyślny odruch do odrzucenia — ten przypadek jest uzasadniony pytaniem ekranu, nie modą.

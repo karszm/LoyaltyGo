@@ -22,14 +22,6 @@ const DRAFT_GATE_NOTE =
 const SEARCH_DEBOUNCE_MS = 250
 const REGION_ID = 'members-region'
 
-const descStyle = {
-  marginBlockStart: 'var(--space-5)',
-  maxWidth: '68ch',
-  fontSize: 14,
-  lineHeight: '21px',
-  color: 'var(--text-3)',
-} as const
-const counterStyle = { fontSize: 13, lineHeight: '19.5px', color: 'var(--text-3)' } as const
 
 const COLUMNS: DataTableColumn<Member>[] = [
   {
@@ -180,16 +172,40 @@ function PublishedMembers() {
     content = <DataTable columns={COLUMNS} rows={data.rows} rowKey={(m) => m.id} scrollLabel="Lista klientów" />
   }
 
-  const counterLabel = !announcedCount ? '' : announcedCount.search ? `Wyników: ${announcedCount.count}` : `Klientów: ${announcedCount.count}`
+  // The number is the reason for the visit (critique 2026-08-17: "why is the number she came for
+  // the smallest, dimmest text on the screen?"), so it opens the screen instead of trailing the
+  // toolbar. The label carries what the number MEANS in the current context -- repeating the
+  // screen title would say one idea twice.
+  const metricLabel = !announcedCount
+    ? ''
+    : announcedCount.search
+      ? `wyników dla „${announcedCount.search}”`
+      : 'klientów w programie'
 
   return (
     <>
       <h1 id="screen-title" tabIndex={-1} className="screen-heading">
         Klienci
       </h1>
-      <p style={descStyle}>Osoby, które dołączyły do Twojego programu, skanując kod QR zaproszenia.</p>
+      <p className="screen-intro">Osoby, które dołączyły do Twojego programu, skanując kod QR zaproszenia.</p>
 
-      <div className="toolbar" style={{ marginBlockStart: 'var(--space-8)' }}>
+      {/* One role="status" per screen (panel-shell.md): it moved here with the number, so the
+         announcement still carries the resolved (term, count) pair task 17 fixed. */}
+      {/* REVERSAL of task-16-design.md §2's "no .metric tile", authorised 2026-08-17 and recorded
+         in docs/design/panel-shell.md. Its reason still holds and is honoured here: a 28px "0"
+         would make the absence of customers the headline of day one, so the metric appears only
+         once there is a number worth reading. At zero the empty state carries the screen, exactly
+         as that decision intended. */}
+      <div className="metric" role="status">
+        {announcedCount && announcedCount.count > 0 && (
+          <>
+            <p className="metric__value">{announcedCount.count}</p>
+            <p className="metric__label">{metricLabel}</p>
+          </>
+        )}
+      </div>
+
+      <div className="toolbar">
         {/* flex-basis + minInlineSize 0 instead of a fixed 320px input: a flex item's automatic
            minimum would otherwise hold the wrapper at the input's specified width and overflow a
            320px viewport; this way the field shrinks with the toolbar and the counter wraps under
@@ -210,9 +226,6 @@ function PublishedMembers() {
             aria-controls={REGION_ID}
           />
         </div>
-        <span role="status" style={counterStyle}>
-          {counterLabel}
-        </span>
       </div>
 
       <div id={REGION_ID} className={centered ? 'region region--centered' : 'region'} aria-busy={loading || undefined}>

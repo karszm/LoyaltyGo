@@ -1123,3 +1123,28 @@ dialog.confirm::backdrop {
 .screen-section {
   margin-block-start: var(--space-8);
 }
+
+/* ------------------------------------------------------------------ */
+/* Metric — the container panel-shell.md §5.6 defined the parts of but */
+/* never gave a parent. `.metric__value` and `.metric__label` sat in    */
+/* this file unused while both list screens rendered their count as a  */
+/* 13px grey line, so the number a merchant came for was the smallest  */
+/* text on the screen. This completes the existing block; it does not  */
+/* invent a new one.                                                   */
+/*                                                                    */
+/* Deliberately NOT the dashboard stat template: one number answering  */
+/* the screen's own question, no accent colour, no supporting stat row,*/
+/* no card around it. The value already carries mono + tabular-nums so */
+/* it reads as a measurement rather than a headline.                    */
+/* ------------------------------------------------------------------ */
+
+.metric {
+  margin-block-start: var(--space-7);
+  margin-block-end: var(--space-6);
+}
+
+/* Optical, not mathematical: the label sits tight under the numeral because they are one
+   statement, and the numeral's own line-height already carries space above it. */
+.metric__label {
+  margin-block-start: var(--space-1);
+}

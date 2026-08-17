@@ -23,13 +23,6 @@ const DRAFT_GATE_NOTE = 'Link zapraszający i kod QR powstają dopiero w chwili 
 // margin the geometry in §6.4 was built around.
 const QR_OPTIONS = { width: 1024, errorCorrectionLevel: 'M' } as const
 
-const descStyle = {
-  marginBlockStart: 'var(--space-5)',
-  maxWidth: '68ch',
-  fontSize: 14,
-  lineHeight: '21px',
-  color: 'var(--text-3)',
-} as const
 
 export default function Invite() {
   const { program } = useProgram()
@@ -82,7 +75,7 @@ function PublishedInvite({ displayName, inviteCode }: { displayName: string; inv
           Drukuj arkusz
         </button>
       </div>
-      <p className="no-print" style={descStyle}>
+      <p className="no-print screen-intro">
         Kod QR, przez który klienci dołączają do programu. Wydrukuj go i powieś przy kasie.
       </p>
 

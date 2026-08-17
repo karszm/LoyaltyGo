@@ -21,19 +21,6 @@ const DRAFT_GATE_NOTE =
   'Transakcje pojawią się dopiero, gdy klienci zaczną korzystać z karty, a to wymaga opublikowania programu.'
 const REGION_ID = 'transactions-region'
 
-const descStyle = {
-  marginBlockStart: 'var(--space-5)',
-  maxWidth: '68ch',
-  fontSize: 14,
-  lineHeight: '21px',
-  color: 'var(--text-3)',
-} as const
-const counterStyle = {
-  marginBlockStart: 'var(--space-8)',
-  fontSize: 13,
-  lineHeight: '19.5px',
-  color: 'var(--text-3)',
-} as const
 
 // Shared with MemberDetail.tsx (which drops the redundant client column on a single
 // customer's history) — the two lists must read identically or a merchant comparing them
@@ -273,13 +260,22 @@ function PublishedTransactions() {
       <h1 id="screen-title" tabIndex={-1} className="screen-heading">
         Transakcje
       </h1>
-      <p style={descStyle}>
+      <p className="screen-intro">
         Zakupy zarejestrowane na kasie przez klientów z kartą. Data to czas transakcji na kasie, nie czas jej
         dotarcia do panelu.
       </p>
-      <p role="status" style={counterStyle}>
-        {data ? `Transakcji: ${data.count}` : ''}
-      </p>
+      {/* Same move as /klienci: the count opens the screen instead of trailing it. Label says
+         what the number is, not what the screen is called. */}
+      {/* Same reversal and the same guard as /klienci: no metric until the number says something.
+         An empty till on day one is the empty state's story, not a big zero's. */}
+      <div className="metric" role="status">
+        {data && data.count > 0 && (
+          <>
+            <p className="metric__value">{data.count}</p>
+            <p className="metric__label">zarejestrowanych transakcji</p>
+          </>
+        )}
+      </div>
 
       <div
         id={REGION_ID}
