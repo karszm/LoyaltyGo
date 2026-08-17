@@ -1,0 +1,42 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#f2f3f7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#101218" media="(prefers-color-scheme: dark)" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content="/images/loyaltygo-hero.webp" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script is:inline>
+      const searchParams = new URLSearchParams(window.location.search);
+      const themeOverride = searchParams.get("theme");
+      const paletteOverride = searchParams.get("palette");
+      if (themeOverride === "light" || themeOverride === "dark") {
+        document.documentElement.dataset.theme = themeOverride;
+      }
+      document.documentElement.dataset.palette = ["cobalt", "coral", "violet", "orange"].includes(paletteOverride)
+        ? paletteOverride
+        : "orange";
+    </script>
+    <title>{title}</title>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
