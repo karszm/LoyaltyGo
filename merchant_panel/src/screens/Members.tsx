@@ -7,6 +7,7 @@
 // nothing behind it can exist yet (panel-shell.md §2(b)), not a banner sitting above empty
 // furniture.
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { useProgram } from '../lib/program'
 import { useAsync } from '../lib/useAsync'
 import { listMembers, type Member } from '../lib/db'
@@ -40,7 +41,9 @@ const COLUMNS: DataTableColumn<Member>[] = [
       const name = `${m.first_name} ${m.last_name}`
       return (
         <span className="data-table__ellipsis" title={name} style={{ color: 'var(--text-1)', fontWeight: 590 }}>
-          {name}
+          <Link to={`/klienci/${m.id}`} className="table-link">
+            {name}
+          </Link>
           {m.status === 'blocked' && (
             <span className="chip chip--warn" style={{ marginInlineStart: 'var(--space-4)' }}>
               <span className="chip__dot" aria-hidden="true" />

@@ -14,9 +14,9 @@
 // request body or path, which would let one merchant operate on another's program.
 
 import { hashProgramKey, resolveMerchant, serviceClient } from "../_shared/auth.ts";
-import { jsonError, validationError } from "../_shared/errors.ts";
-import { json, parseBody, preflight } from "../_shared/http.ts";
-import { createProgram, updateTemplateBranding } from "../_shared/adapters/passkit.ts";
+import { jsonError, mapPgError, validationError } from "../_shared/errors.ts";
+import { fireAndForget, json, parseBody, preflight } from "../_shared/http.ts";
+import { createProgram, syncPassBalance, updateTemplateBranding } from "../_shared/adapters/passkit.ts";
 
 const PROGRAM_COLUMNS =
   "id, status, display_name, logo_url, background_color, description, points_per_pln, invite_code";
@@ -283,6 +283,61 @@ async function handleRotateKey(sb: ReturnType<typeof serviceClient>, programId: 
   return json({ program_key: plaintext, created_at: createdAt, last_used_at: null }, 201);
 }
 
+// POST /members/:id/adjustment — manual points adjustment (+12 / -30 with a service
+// description). Goes through here, not PostgREST: the write crosses two tables atomically
+// (transactions + members.points_balance, adjust_points RPC in migration 0012) and has to
+// push the new balance onto the wallet card afterwards — both service-role-only.
+async function handleAdjustment(
+  req: Request,
+  sb: ReturnType<typeof serviceClient>,
+  programId: string,
+  memberId: string,
+): Promise<Response> {
+  const body = await parseBody(req);
+  const delta = body.delta;
+  const description = typeof body.description === "string" ? body.description.trim() : "";
+
+  const invalid: { field: string; message: string }[] = [];
+  if (typeof delta !== "number" || !Number.isInteger(delta) || delta === 0) {
+    invalid.push({ field: "delta", message: "liczba punktów musi być całkowita i różna od zera" });
+  }
+  if (!description || description.length > 200) {
+    invalid.push({ field: "description", message: "opis jest wymagany (najwyżej 200 znaków)" });
+  }
+  if (invalid.length > 0) return validationError("Popraw dane korekty.", invalid);
+
+  // The RPC scopes the member to THIS merchant's program (LG002 when it isn't theirs) —
+  // never trust the path id alone.
+  const { data, error } = await sb.rpc("adjust_points", {
+    p_program_id: programId,
+    p_member_id: memberId,
+    p_delta: delta,
+    p_description: description,
+  });
+  if (error) {
+    const code = (error as { code?: string }).code;
+    if (code === "LG007") {
+      // adjust_points puts the member's current balance in DETAIL exactly for this message.
+      const balance = (error as { details?: string }).details ?? "0";
+      return jsonError(
+        "insufficient_balance",
+        `Nie można odjąć ${Math.abs(delta as number)} punktów — klient ma tylko ${balance}.`,
+        409,
+      );
+    }
+    const mapped = mapPgError(error);
+    if (mapped !== null && mapped !== "retry") return mapped; // LG002 -> 404 not_found
+    console.error("[panel-api] adjust_points failed", error);
+    return jsonError("internal_error", "Wystąpił błąd serwera.", 500);
+  }
+
+  const result = data as Record<string, unknown>;
+  // Same contract as sdk-api's registration: DB balance is the source of truth, the wallet
+  // card catches up — a PassKit hiccup must not turn a committed adjustment into an error.
+  fireAndForget(syncPassBalance(sb, memberId, result.points_balance as number), "panel-api");
+  return json(result, 201);
+}
+
 function invalidTransitionResponse(status: string): Response {
   return jsonError(
     "invalid_state_transition",
@@ -343,6 +398,11 @@ const KNOWN_PATHS = new Set([
   "/program/close",
 ]);
 
+// The one dynamic route — checked alongside KNOWN_PATHS at the same gate, so the rule
+// "an unlisted path 404s before reaching any handler" still holds. Strict UUID shape:
+// anything else in the segment is a 404, never a handler's problem.
+const ADJUSTMENT_PATH = /^\/members\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/adjustment$/;
+
 Deno.serve(async (req) => {
   // Preflight carries no Authorization header — answer it before any auth resolution.
   if (req.method === "OPTIONS") return preflight();
@@ -354,7 +414,10 @@ Deno.serve(async (req) => {
     let path = url.pathname.replace(/^(\/functions\/v1)?\/panel-api/, "");
     if (path === "") path = "/";
 
-    if (!KNOWN_PATHS.has(path)) return jsonError("not_found", "Nie znaleziono zasobu.", 404);
+    const adjustmentMatch = path.match(ADJUSTMENT_PATH);
+    if (!KNOWN_PATHS.has(path) && !adjustmentMatch) {
+      return jsonError("not_found", "Nie znaleziono zasobu.", 404);
+    }
 
     const allowedMethods = path === "/program/key" ? ["GET", "POST"] : ["POST"];
     if (!allowedMethods.includes(req.method)) {
@@ -373,6 +436,7 @@ Deno.serve(async (req) => {
     const sb = serviceClient();
     const programId = merchant.programId;
 
+    if (adjustmentMatch) return await handleAdjustment(req, sb, programId, adjustmentMatch[1]);
     if (path === "/program/publish") return await handlePublish(sb, programId);
     if (path === "/program/branding") return await handleBrandingSync(sb, programId);
     if (path === "/program/key") {
