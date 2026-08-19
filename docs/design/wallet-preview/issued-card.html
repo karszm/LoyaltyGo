@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wydana karta — Le Perle Studio</title>
+<style>
+/* Ta strona nie jest makietą. Wszystko poniżej pochodzi z prawdziwego pliku .pkpass
+   pobranego z pub1.pskt.io: strip.png i logo.png to te same bajty, jakie dostaje telefon,
+   teksty i kolory są przepisane z pass.json i pl.lproj/pass.strings, a kod QR nosi
+   prawdziwy identyfikator członkostwa. Geometria jest w px = pt @1x. */
+:root{
+  --page:#08090a; --page-2:#0f1113; --line:rgba(255,255,255,.10);
+  --ink:#f4f5f6; --ink-2:rgba(244,245,246,.62); --ink-3:rgba(244,245,246,.40);
+  --ok:#3fb950; --warn:#d29922; --bad:#f85149;
+  --card-bg:#1c4149;          /* pass.json: backgroundColor rgb(28,65,73) */
+  --card-ink:#ffffff;         /* pass.json: foregroundColor rgb(255,255,255) */
+  --card-label:rgba(255,255,255,.78); /* pass.json: labelColor rgb(255,255,255) */
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);padding:48px 24px 96px;
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Inter,system-ui,sans-serif}
+.wrap{max-width:1060px;margin:0 auto}
+h1{font-size:28px;line-height:1.2;letter-spacing:-.02em;margin:0 0 8px}
+h2{font-size:18px;letter-spacing:-.01em;margin:52px 0 6px}
+p{margin:0 0 14px;color:var(--ink-2);max-width:76ch}
+a{color:#8ab4f8}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88em;background:rgba(255,255,255,.07);padding:.1em .35em;border-radius:4px}
+.lede{font-size:16px;max-width:78ch;margin-bottom:30px}
+.cols{display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start}
+
+/* ---------- front passa storeCard ---------- */
+.pass{
+  width:375px;border-radius:14px;overflow:hidden;background:var(--card-bg);color:var(--card-ink);
+  font:15px/1.3 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+  box-shadow:0 1px 0 rgba(255,255,255,.14) inset,0 18px 40px -12px rgba(0,0,0,.75),0 2px 8px rgba(0,0,0,.5);
+}
+/* Wallet przyciemnia pasek nad stripem; PassKit trzyma to pod
+   appleWalletSettings.suppressHeaderDarkening i my go nie włączamy. */
+.pass__header{display:flex;align-items:center;gap:11px;padding:11px 14px 10px;
+  background:linear-gradient(rgba(0,0,0,.24),rgba(0,0,0,.06))}
+/* logo.png z .pkpass. Slot Apple to 160×50 pt. Nasze pierwsze logo było kwadratem 660×660,
+   który PassKit przeskalował do 150×150 @3x, czyli 50×50 pt — znak zajmował trzecią część
+   dopuszczonej szerokości. Wersja szeroka 1980×660 wraca jako 450×150 @3x = 150×50 pt. */
+.pass__header img{height:36px;width:auto;max-width:170px;display:block;flex:0 0 auto;object-fit:contain}
+.logotext{font-size:14px;font-weight:600;letter-spacing:-.01em;flex:1 1 auto;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.strip{position:relative;height:144px}
+.strip img{display:block;width:375px;height:144px}
+.primary{position:absolute;bottom:12px;left:16px;right:16px;display:flex;flex-direction:column-reverse;gap:0}
+.primary .lbl{font-size:17px;font-weight:400;letter-spacing:0;color:rgba(255,255,255,.95)}
+.primary .val{font-size:58px;font-weight:300;letter-spacing:-.02em;line-height:1.02}
+.primary .val span{font-size:22px;font-weight:300;opacity:.9;margin-left:4px}
+.rows{padding:14px 16px 4px}
+.row{display:flex;gap:18px}
+.f{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 0}
+.f .lbl{font-size:9.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--card-label)}
+.f .val{font-size:19px;font-weight:400;letter-spacing:-.01em}
+.row .f:last-child{text-align:right;align-items:flex-end}
+.barcode{margin:14px 14px 16px;background:#fff;border-radius:8px;padding:12px 12px 9px;display:grid;place-items:center;gap:7px}
+.barcode img{width:118px;height:118px;display:block}
+.barcode figcaption{font:500 11px/1 -apple-system,sans-serif;color:#3c3c43;letter-spacing:.04em}
+.under{margin:14px 0 0;font-size:13px;color:var(--ink-3);width:375px}
+
+/* ---------- tabele ---------- */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin:18px 0 8px}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:480px}
+th,td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600;background:var(--page-2)}
+tr:last-child td{border-bottom:0}
+.yes{color:var(--ok)} .no{color:var(--bad)} .hm{color:var(--warn)}
+ul{padding-left:20px;color:var(--ink-2);max-width:78ch} li{margin:0 0 8px} li strong{color:var(--ink)}
+.cta{display:inline-block;margin:6px 0 0;padding:9px 16px;border:1px solid var(--line);border-radius:8px;
+  background:var(--page-2);color:var(--ink);text-decoration:none;font-size:14px;font-weight:600}
+.foot{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-3)}
+@media (max-width:820px){body{padding:32px 16px 72px}.pass,.under{width:100%;max-width:375px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Wydana karta — Le Perle Studio</h1>
+<p class="lede">Karta istnieje. Została wydana na żywym koncie PassKita tą samą ścieżką, którą chodzi
+backend: szablon sklonowany z wzorca konta, program, poziom, członkostwo, saldo. Ta strona nie jest
+makietą — <code>strip.png</code> i <code>logo.png</code> to bajty wyjęte z pobranego
+<code>.pkpass</code>, teksty i kolory są przepisane z <code>pass.json</code> oraz
+<code>pl.lproj/pass.strings</code>, a kod QR nosi prawdziwy identyfikator członkostwa.</p>
+
+<div class="cols">
+  <div>
+    <div class="pass">
+      <div class="pass__header">
+        <img src="issued/logo.png" alt="Logo Le Perle Studio">
+        <div class="logotext">Le Perle Studio</div>
+      </div>
+      <div class="strip">
+        <img src="issued/strip.png" width="375" height="144" alt="Grafika karty w slocie strip">
+        <div class="primary"><span class="lbl">Saldo</span><span class="val">1250<span>pkt</span></span></div>
+      </div>
+      <div class="rows">
+        <div class="row">
+          <div class="f"><span class="lbl">Klient</span><span class="val">Karolina Nowak</span></div>
+          <div class="f"><span class="lbl">Poziom</span><span class="val">Srebrny</span></div>
+        </div>
+      </div>
+      <figure class="barcode">
+        <img src="issued/qr.svg" alt="Kod QR z identyfikatorem członkostwa">
+        <figcaption>5WXgFk6TInWhKkobttcuzy</figcaption>
+      </figure>
+    </div>
+    <p class="under">Otwórz na iPhone, żeby zobaczyć to samo w Wallet:</p>
+    <a class="cta" href="https://pub1.pskt.io/5WXgFk6TInWhKkobttcuzy">pub1.pskt.io/5WXgFk6TInWhKkobttcuzy</a>
+  </div>
+
+  <div style="flex:1 1 380px;min-width:320px">
+    <h2 style="margin-top:0">Co potwierdził plik</h2>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Element <code>.pkpass</code></th><th>Wartość</th></tr></thead>
+      <tbody>
+        <tr><td>styl passa</td><td class="yes"><code>storeCard</code></td></tr>
+        <tr><td><code>strip.png</code> / <code>@2x</code> / <code>@3x</code></td><td class="yes">obecne, <code>@3x</code> = 1125×432</td></tr>
+        <tr><td><code>primaryFields</code></td><td class="yes"><code>points</code> = 1250, <code>PKTextAlignmentLeft</code></td></tr>
+        <tr><td><code>logo.png</code> / <code>@3x</code></td><td class="yes">obecne, <code>@3x</code> = 450×150 (150×50 pt)</td></tr>
+        <tr><td>układ pola głównego</td><td class="yes">wartość nad etykietą, potwierdzone na iPhone</td></tr>
+        <tr><td><code>logoText</code></td><td class="yes">„Le Perle Studio"</td></tr>
+        <tr><td><code>backgroundColor</code></td><td class="yes"><code>rgb(28,65,73)</code></td></tr>
+        <tr><td>kod kreskowy</td><td class="yes"><code>PKBarcodeFormatQR</code></td></tr>
+        <tr><td>etykiety <code>pl.lproj</code></td><td class="yes">Saldo, Klient, Poziom</td></tr>
+        <tr><td><code>organizationName</code></td><td class="hm">„LoyaltyGo" — nie nazwa merchanta</td></tr>
+        <tr><td><code>expirationDate</code></td><td class="hm">2 dni — konto w <code>PROJECT_DRAFT</code></td></tr>
+        <tr><td><code>backFields</code></td><td class="hm">zawiera zastrzeżenie testowe PassKita</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<h2>Czym to się różni od podglądu z makiety</h2>
+<ul>
+<li><strong>Logo zamiast monogramu.</strong> Merchant ma plik PNG, więc idzie w slot <code>logo</code>
+— w Apple to lewy górny róg. Jedno wgranie wypełnia dwa slots, <code>logo</code> i <code>appleLogo</code>.
+Bez pliku ten slot zostaje nieruszony i kartę identyfikuje sam <code>logoText</code>, czyli nazwa programu:
+dokładnie zachowanie „zostaje tak, jak jest".</li>
+<li><strong>Logo szerokie zamiast kwadratu.</strong> Wgranie kwadratu 660×660 daje na karcie znak
+50×50 pt, choć Apple dopuszcza 160×50. Wgranie tego samego wordmarku jako 1980×660 daje 150×50 pt,
+czyli znak trzy razy większy — PassKit pilnuje tylko minimalnej szerokości 660 px, nie kwadratu.
+To zmiana w <code>logoCanvas.ts</code>: dopasowywać do wysokości 660, nie do kwadratu.</li>
+<li><strong>Wartość pola głównego jest nad etykietą</strong>, nie pod — i bez wersalików.
+Wallet rysuje saldo w swoim rozmiarze, bardzo dużym; typografia tej strony jest zmierzona ze zrzutu
+z prawdziwego Wallet, nie wymyślona.</li>
+<li><strong>Saldo zjechało z nagłówka na strip.</strong> Wzorzec konta trzymał punkty w
+<code>HEADER_FIELDS</code>, co przy stripie nie ma sensu — pole główne to jedyne, które Wallet rysuje
+na grafice. Przełożone na <code>PRIMARY_FIELDS</code> i widać to w <code>pass.json</code>.</li>
+<li><strong>Scrim jest wypalony w pliku</strong>, nie dorysowany w CSS. Lewa strona grafiki jest
+przygaszona w samym <code>strip.png</code>, więc saldo czyta się niezależnie od tego, co wygeneruje model.</li>
+<li><strong>Barcode to QR, nie PDF417.</strong> Wzorzec konta miał PDF417; <code>format: "QR"</code>
+przeszedł bez zastrzeżeń.</li>
+</ul>
+
+<h2>Co zostaje do poprawy w kodzie</h2>
+<ul>
+<li><code>organizationName</code> na szablonie trzeba ustawiać na nazwę merchanta — dziś zostaje
+„LoyaltyGo" z wzorca konta. Widać to w powiadomieniach i na ekranie blokady, nie na froncie karty.</li>
+<li><code>backFields</code> niesie zastrzeżenie testowe PassKita i dwudniowy termin ważności.
+Jedno i drugie schodzi po dopuszczeniu konta do produkcji — punkt 1 listy otwartych spraw
+w <code>docs/stan-implementacji.md</code>.</li>
+<li>Wzorzec konta (<code>PASSKIT_TEMPLATE_ID</code>) nadal jest <code>GENERIC</code>. Ta karta ma
+<code>STORE_CARD</code>, bo skrypt ustawił to na klonie — w adapterze musi to być ustawiane
+bezwarunkowo dla każdego nowego szablonu.</li>
+<li><code>logoCanvas.ts</code> dopasowuje logo do kwadratu 660×660. Ma dopasowywać do wysokości 660
+przy dowolnej szerokości od 660 do 1980 px, bo inaczej sam odbiera merchantowi dwie trzecie miejsca
+na znak.</li>
+<li>Rozmiaru czcionki salda nie da się zadać — ustala go Wallet dla pola głównego. Jedyne dostępne
+dźwignie to co wkładamy w to pole i czy pole główne w ogóle istnieje.</li>
+</ul>
+
+<div class="foot">
+Karta dodana do Wallet na iPhone i sprawdzona wzrokowo 2026-08-19. Wydana na żywym koncie pub1
+w trybie <code>PROJECT_DRAFT</code>:
+szablon <code>6JF6xOh1Ow18jB4VwI8qmV</code>, program <code>3gQ8OZsJjBeML5kqoZWhZq</code>,
+poziom <code>default</code>, członkostwo <code>5WXgFk6TInWhKkobttcuzy</code>.
+Makieta trzech wariantów kompozycji: <a href="index.html">index.html</a>.
+Specyfikacja: <code>docs/superpowers/specs/2026-08-19-ai-card-image-creator-design.md</code>.
+</div>
+
+</div>
+</body>
+</html>
