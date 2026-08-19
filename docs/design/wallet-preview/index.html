@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Karta LoyaltyGo w Apple Wallet — podglad storeCard</title>
+<style>
+/* Geometria karty jest w px = pt @1x z "Pass Design and Creation": szerokosc 375,
+   strip 375x144, logo do 160x50. Dzieki temu karta na ekranie ma fizycznie ten sam
+   rozmiar co na iPhone, a nie "cos podobnego". Nic tu nie skalujemy. */
+:root{
+  --page:#08090a; --page-2:#0f1113; --line:rgba(255,255,255,.10);
+  --ink:#f4f5f6; --ink-2:rgba(244,245,246,.62); --ink-3:rgba(244,245,246,.40);
+  --ok:#3fb950; --warn:#d29922; --bad:#f85149;
+  /* Kolor karty = dominujaca ciemna barwa wyprobkowana z grafiki (#1c4149).
+     Dokladnie to, co ma robic dominantColor.ts z sekcji 2.6 specyfikacji. */
+  --card-bg:#1c4149;
+  --card-ink:#ffffff;
+  --card-label:rgba(255,255,255,.72);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--page); color:var(--ink);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Inter,system-ui,sans-serif;
+  padding:48px 24px 96px;
+}
+.wrap{max-width:1216px;margin:0 auto}
+h1{font-size:28px;line-height:1.2;letter-spacing:-.02em;margin:0 0 8px}
+h2{font-size:18px;letter-spacing:-.01em;margin:56px 0 6px}
+h2:first-of-type{margin-top:48px}
+p{margin:0 0 14px;color:var(--ink-2);max-width:76ch}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88em;background:rgba(255,255,255,.07);padding:.1em .35em;border-radius:4px}
+.lede{color:var(--ink-2);font-size:16px;max-width:78ch;margin-bottom:28px}
+.sep{height:1px;background:var(--line);border:0;margin:0}
+
+/* ---------- panel sterowania ---------- */
+.controls{
+  display:flex;flex-wrap:wrap;gap:20px;align-items:center;
+  padding:14px 18px;border:1px solid var(--line);border-radius:10px;background:var(--page-2);
+  margin:0 0 32px;font-size:13px;color:var(--ink-2)
+}
+.controls label{display:flex;gap:8px;align-items:center;cursor:pointer;color:var(--ink)}
+.controls input{accent-color:#6e7681;width:15px;height:15px}
+
+/* ---------- galeria kart ---------- */
+.cards{display:flex;flex-wrap:wrap;gap:32px;margin:0}
+.case{width:375px;flex:0 0 auto;margin:0}
+.verdict{display:flex;gap:8px;align-items:baseline;font-size:13px;margin:14px 0 2px;font-weight:600}
+.verdict[data-v="ok"]{color:var(--ok)} .verdict[data-v="warn"]{color:var(--warn)} .verdict[data-v="bad"]{color:var(--bad)}
+.case figcaption{font-size:13px;color:var(--ink-3);line-height:1.5}
+
+/* ---------- karta: front passa storeCard ---------- */
+.pass{
+  width:375px;border-radius:14px;overflow:hidden;background:var(--card-bg);
+  color:var(--card-ink);
+  font:15px/1.3 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+  box-shadow:0 1px 0 rgba(255,255,255,.14) inset, 0 18px 40px -12px rgba(0,0,0,.75), 0 2px 8px rgba(0,0,0,.5);
+}
+/* Wallet przyciemnia pasek nagl√≥wka nad stripem. PassKit ma na to flage
+   appleWalletSettings.suppressHeaderDarkening — domyslnie wlaczone, wiec jest tu. */
+.pass__header{
+  display:flex;align-items:center;gap:10px;padding:11px 14px 10px;
+  background:linear-gradient(rgba(0,0,0,.24),rgba(0,0,0,.06));
+}
+/* Slot logo: logo.png ma maksimum 160x50 pt. Merchant bez pliku dostaje monogram —
+   ta sama zasada co CardPreview.tsx: monogram jest stala warstwa, nie fallbackiem z JS. */
+.logo{
+  width:34px;height:34px;border-radius:8px;flex:0 0 auto;
+  display:grid;place-items:center;font-weight:600;font-size:15px;letter-spacing:.02em;
+  background:rgba(255,255,255,.16);
+}
+.org{font-size:14px;font-weight:600;letter-spacing:-.01em;flex:1 1 auto;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.f{display:flex;flex-direction:column;gap:2px;min-width:0}
+.f .lbl{font-size:9.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--card-label)}
+.f .val{font-size:15px;font-weight:500;letter-spacing:-.01em}
+.f--head{text-align:right;flex:0 0 auto}
+.f--head .val{font-size:14px}
+
+/* strip: 375x144 pt. Zadnego cropu w CSS — plik jest juz w proporcji 2,604:1. */
+.strip{position:relative;height:144px;isolation:isolate}
+.strip img{display:block;width:375px;height:144px;object-fit:cover}
+/* Pole glowne. storeCard ma dokladnie JEDNO takie pole i Wallet rysuje je na stripie. */
+.primary{position:absolute;bottom:14px;left:16px;right:16px;display:flex;flex-direction:column;gap:1px}
+.primary .lbl{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:rgba(255,255,255,.88);text-shadow:0 1px 3px rgba(0,0,0,.45)}
+.primary .val{font-size:30px;font-weight:600;letter-spacing:-.02em;line-height:1.05;
+  text-shadow:0 1px 4px rgba(0,0,0,.45)}
+.primary .val span{font-size:17px;font-weight:500;opacity:.9;margin-left:3px;vertical-align:baseline}
+/* Wyrownanie pola glownego to jedyna rzecz, ktorej dokumentacja NIE przesadza —
+   patrz sekcja "Czego dokumentacja nie mowi". Przelacznik na stronie zmienia te klase. */
+body.align-right .primary{align-items:flex-end;text-align:right}
+
+/* Scrim wypalany w pliku strip.png po stronie serwera — wariant C. */
+.strip--scrim::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg, rgba(14,46,53,.90) 0%, rgba(14,46,53,.66) 36%, rgba(14,46,53,0) 64%);
+}
+body.align-right .strip--scrim::after{
+  background:linear-gradient(270deg, rgba(14,46,53,.90) 0%, rgba(14,46,53,.66) 36%, rgba(14,46,53,0) 64%);
+}
+.strip .primary{z-index:2}
+
+/* Strefa pola glownego — pomoc dla oceny kompozycji, nie element karty. */
+body.show-zone .strip::before{
+  content:"strefa pola glownego";position:absolute;z-index:3;
+  left:8px;bottom:6px;width:190px;height:62px;
+  border:1px dashed rgba(255,255,255,.85);border-radius:4px;
+  font:600 8.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.06em;text-transform:uppercase;
+  color:rgba(255,255,255,.9);padding:4px 5px;text-align:left;
+}
+body.show-zone.align-right .strip::before{left:auto;right:8px;text-align:right}
+
+/* secondary + auxiliary: razem maksimum 4 pola w tym stylu passa */
+.rows{padding:14px 16px 4px;display:flex;flex-direction:column;gap:13px}
+.row{display:flex;gap:18px}
+.row .f{flex:1 1 0}
+.row .f:last-child{text-align:right;align-items:flex-end}
+
+.barcode{margin:14px 14px 16px;background:#fff;border-radius:8px;padding:12px 12px 9px;display:grid;place-items:center;gap:7px}
+.barcode img{width:118px;height:118px;display:block;image-rendering:pixelated}
+.barcode figcaption{font:500 11px/1 -apple-system,sans-serif;color:#3c3c43;letter-spacing:.04em}
+
+/* ---------- tabele ---------- */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin:18px 0 8px}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:520px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:600;background:var(--page-2)}
+tr:last-child td{border-bottom:0}
+td code{white-space:nowrap}
+.yes{color:var(--ok)} .no{color:var(--bad)} .hm{color:var(--warn)}
+
+ul{margin:0 0 14px;padding-left:20px;color:var(--ink-2);max-width:78ch}
+li{margin:0 0 8px}
+li strong{color:var(--ink);font-weight:600}
+
+/* ---------- zrodlo + okno cropu ---------- */
+.source{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;margin-top:18px}
+.source figure{margin:0}
+.src-box{position:relative;width:300px;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.src-box img{display:block;width:300px;height:300px}
+.src-box .win{position:absolute;left:0;right:0;top:34.5%;height:38.4%;
+  border-top:2px solid #f4f5f6;border-bottom:2px solid #f4f5f6;
+  box-shadow:0 0 0 999px rgba(8,9,10,.62);}
+.src-box .win b{position:absolute;left:6px;top:5px;font:600 10px/1 ui-monospace,Menlo,monospace;
+  letter-spacing:.06em;color:#fff;text-shadow:0 1px 2px #000}
+.foot{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-3)}
+.foot a{color:var(--ink-2)}
+@media (max-width:860px){ body{padding:32px 16px 72px} .case,.pass{width:100%;max-width:375px} }
+</style>
+</head>
+<body class="align-left">
+<div class="wrap">
+
+<h1>Karta LoyaltyGo w Apple Wallet</h1>
+<p class="lede">Front passa <code>storeCard</code> zbudowany na wymiarach z dokumentacji Apple, z Twoją grafiką w slocie
+<code>strip.png</code>. Karta ma tu 375&nbsp;px szerokości, czyli 375&nbsp;pt — fizycznie tyle samo, ile na iPhone.
+Grafika jest wycięta do proporcji 2,604:1 i wstawiona bez skalowania w CSS. Kolor karty
+(<code>#1c4149</code>) jest wypróbkowany z grafiki, dokładnie tak, jak ma to robić <code>dominantColor.ts</code>
+z sekcji&nbsp;2.6 specyfikacji.</p>
+
+<div class="controls">
+  <span>Podgląd:</span>
+  <label><input type="checkbox" id="alignRight"> pole główne po prawej</label>
+  <label><input type="checkbox" id="showZone"> pokaż strefę pola głównego</label>
+</div>
+
+<div class="cards">
+
+  <!-- WARIANT A: grafika bez korekty -->
+  <figure class="case">
+    <div class="pass">
+      <div class="pass__header">
+        <div class="logo" aria-hidden="true">L</div>
+        <div class="org">Le Perle Studio</div>
+        <div class="f f--head"><span class="lbl">Poziom</span><span class="val">Srebrny</span></div>
+      </div>
+      <div class="strip">
+        <img src="strip-a.jpg" width="375" height="144" alt="Grafika karty: włosy, nożyczki i grzebień, kompozycja papierowa">
+        <div class="primary"><span class="lbl">Saldo</span><span class="val">1 250<span>pkt</span></span></div>
+      </div>
+      <div class="rows">
+        <div class="row">
+          <div class="f"><span class="lbl">Klient</span><span class="val">Karolina Nowak</span></div>
+          <div class="f"><span class="lbl">Przelicznik</span><span class="val">1 pkt / 1 zł</span></div>
+        </div>
+      </div>
+      <figure class="barcode">
+        <img src="qr.svg" alt="Kod QR karty (zaślepka)">
+        <figcaption>3F9A · 2B71 · 8C40</figcaption>
+      </figure>
+    </div>
+    <div class="verdict" data-v="warn">A · kompozycja bez korekty</div>
+    <figcaption>Saldo ląduje na jasnych pasmach włosów. Biały tekst na łososiowym tle to kontrast poniżej 2:1 —
+    czytelny tylko dzięki cieniowi, którego prawdziwy Wallet nie rysuje.</figcaption>
+  </figure>
+
+  <!-- WARIANT B: grafika odbita w poziomie -->
+  <figure class="case">
+    <div class="pass">
+      <div class="pass__header">
+        <div class="logo" aria-hidden="true">L</div>
+        <div class="org">Le Perle Studio</div>
+        <div class="f f--head"><span class="lbl">Poziom</span><span class="val">Srebrny</span></div>
+      </div>
+      <div class="strip">
+        <img src="strip-b.jpg" width="375" height="144" alt="Ta sama grafika odbita w poziomie">
+        <div class="primary"><span class="lbl">Saldo</span><span class="val">1 250<span>pkt</span></span></div>
+      </div>
+      <div class="rows">
+        <div class="row">
+          <div class="f"><span class="lbl">Klient</span><span class="val">Karolina Nowak</span></div>
+          <div class="f"><span class="lbl">Przelicznik</span><span class="val">1 pkt / 1 zł</span></div>
+        </div>
+      </div>
+      <figure class="barcode">
+        <img src="qr.svg" alt="Kod QR karty (zaślepka)">
+        <figcaption>3F9A · 2B71 · 8C40</figcaption>
+      </figure>
+    </div>
+    <div class="verdict" data-v="bad">B · odbita w poziomie</div>
+    <figcaption>Odbicie przenosi spokojne tło na prawo, ale wtedy nożyczki i grzebień wchodzą wprost pod saldo.
+    Dowód, że o czytelności decyduje strona, na której model zostawi pustą przestrzeń — nie ładność grafiki.</figcaption>
+  </figure>
+
+  <!-- WARIANT C: scrim wypalony w pliku -->
+  <figure class="case">
+    <div class="pass">
+      <div class="pass__header">
+        <div class="logo" aria-hidden="true">L</div>
+        <div class="org">Le Perle Studio</div>
+        <div class="f f--head"><span class="lbl">Poziom</span><span class="val">Srebrny</span></div>
+      </div>
+      <div class="strip strip--scrim">
+        <img src="strip-a.jpg" width="375" height="144" alt="Grafika karty z przygaszoną strefą pola głównego">
+        <div class="primary"><span class="lbl">Saldo</span><span class="val">1 250<span>pkt</span></span></div>
+      </div>
+      <div class="rows">
+        <div class="row">
+          <div class="f"><span class="lbl">Klient</span><span class="val">Karolina Nowak</span></div>
+          <div class="f"><span class="lbl">Przelicznik</span><span class="val">1 pkt / 1 zł</span></div>
+        </div>
+      </div>
+      <figure class="barcode">
+        <img src="qr.svg" alt="Kod QR karty (zaślepka)">
+        <figcaption>3F9A · 2B71 · 8C40</figcaption>
+      </figure>
+    </div>
+    <div class="verdict" data-v="ok">C · scrim wypalony w pliku</div>
+    <figcaption>Ta sama grafika co w A, z gradientem przygaszającym strefę pola głównego, wypalonym w
+    <code>strip.png</code> przy zapisie wariantu. Kontrast wychodzi ponad 7:1 niezależnie od tego, co wygeneruje model.</figcaption>
+  </figure>
+
+</div>
+
+<h2>Zgodność z dokumentacją</h2>
+<p>Wszystko poniżej pochodzi z <em>Pass Design and Creation</em> i z bieżącej dokumentacji <code>walletpasses</code>,
+nie z oglądu cudzych kart.</p>
+<div class="tbl-wrap">
+<table>
+<thead><tr><th>Element</th><th>Wymóg dokumentacji</th><th>Ta strona</th></tr></thead>
+<tbody>
+<tr><td>szerokość passa</td><td>375 pt</td><td class="yes">375 px = 1:1</td></tr>
+<tr><td><code>strip.png</code></td><td>375 × 144 pt dla kart sklepowych → @2x 750×288, @3x <strong>1125×432</strong></td><td class="yes">plik 750×288, wyświetlany 375×144</td></tr>
+<tr><td>pole główne</td><td><strong>dokładnie 1</strong>, rysowane <strong>na stripie</strong></td><td class="yes">saldo punktów, na stripie</td></tr>
+<tr><td>pola nagłówkowe</td><td>do 3 — jedyne widoczne, gdy karty leżą w stosie</td><td class="yes">1 (poziom)</td></tr>
+<tr><td>secondary + auxiliary</td><td><strong>do 4 razem</strong> w tym stylu passa</td><td class="yes">2 (klient, przelicznik)</td></tr>
+<tr><td><code>logo.png</code></td><td>do 160 × 50 pt</td><td class="hm">monogram 34×34 — merchant bez pliku</td></tr>
+<tr><td><code>icon.png</code></td><td>29 × 29 pt, wymagany (powiadomienia, e‑mail)</td><td class="hm">nie dotyczy podglądu</td></tr>
+<tr><td><code>background.png</code></td><td>tylko <code>eventTicket</code></td><td class="no">niedostępne — stąd cały pomysł ze stripem</td></tr>
+<tr><td><code>thumbnail.png</code></td><td>proporcja 2:3 – 3:2</td><td class="no">banner 21:8 odrzucony przez PassKit</td></tr>
+<tr><td>kolory</td><td><code>backgroundColor</code>, <code>foregroundColor</code>, <code>labelColor</code> jako trójki RGB</td><td class="yes"><code>#1c4149</code> + biel</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>Czego dokumentacja nie mówi</h2>
+<p><strong>Wyrównania pola głównego na stripie Apple nie precyzuje.</strong> Pisze tylko, że pole jest rysowane na
+stripie i że jest jedno. Wallet w praktyce wyrównuje je do lewej, ale to obserwacja, nie zapis w dokumentacji —
+dlatego na tej stronie jest przełącznik. Kliknij „pole główne po prawej" i porównaj: przy wyrównaniu do prawej
+wariant&nbsp;A czyta się bez zarzutu, a przy wyrównaniu do lewej potrzebuje scrimu z wariantu&nbsp;C.
+Rozstrzyga to jedno spojrzenie na prawdziwą kartę na telefonie — i to samo spojrzenie, które ma potwierdzić,
+że strip w ogóle się rysuje.</p>
+
+<h2>Co z tego wynika dla specyfikacji</h2>
+<ul>
+<li><strong>Reguła kompozycji w sekcji 2.1 jest odwrócona.</strong> Spec każe modelowi zaciemniać prawą strefę.
+Skoro Wallet wyrównuje pole główne do lewej, zaciemniana ma być <strong>lewa</strong> — albo, poprawniej,
+reguła ma mówić o „strefie pola głównego", a nie o stronie świata.</li>
+<li><strong>Scrim wypalany w pliku wchodzi do kroku wyboru wariantu (2.3).</strong> Osiem linii na canvasie
+w Edge Function. To jedyna rzecz na tej stronie, która daje czytelność <em>niezależnie</em> od tego, co wygeneruje
+model — a od modelu nie da się wymusić kompozycji z gwarancją. Reguła w promptcie zostaje, bo dobra kompozycja
+nadal wygląda lepiej niż przygaszona; scrim jest siatką bezpieczeństwa, nie zamiennikiem.</li>
+<li><strong>Grafika kwadratowa traci 62% kadru.</strong> Ta była 2048×2048; do stripa wchodzi pas 2048×786.
+Potwierdza wybór z sekcji 2.2: generować od razu w 1120×432, nie kwadrat do przycięcia.</li>
+<li><strong>Ostrzeżenie o kontraście z Taska 13 przestaje wystarczać.</strong> Liczy biel wobec
+<code>background_color</code>, a saldo leży teraz na grafice. Po wypaleniu scrimu kontrast jest znany z góry —
+i to jest drugi argument, żeby scrim wypalać, a nie liczyć jasność pikseli w przeglądarce.</li>
+</ul>
+
+<h2>Kadr</h2>
+<p>Grafika źródłowa i pas, który wchodzi na kartę — 786 z 2048 pikseli wysokości.</p>
+<div class="source">
+  <figure>
+    <div class="src-box">
+      <img src="source.jpg" width="300" height="300" alt="Grafika źródłowa w proporcji 1:1">
+      <div class="win"><b>strip 2,604:1</b></div>
+    </div>
+  </figure>
+  <div>
+    <div class="tbl-wrap" style="margin-top:0">
+    <table>
+      <thead><tr><th>Krok</th><th>Rozmiar</th></tr></thead>
+      <tbody>
+        <tr><td>grafika źródłowa</td><td>2048 × 2048</td></tr>
+        <tr><td>kadr 2,604:1</td><td>2048 × 786 (od y = 707)</td></tr>
+        <tr><td>plik na tej stronie</td><td>750 × 288 (@2x)</td></tr>
+        <tr><td>docelowo do PassKita</td><td>1125 × 432 (@3x)</td></tr>
+        <tr><td>generowane przez Flux</td><td>1120 × 432 (wielokrotność 16)</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<div class="foot">
+Podgląd do specyfikacji <code>docs/superpowers/specs/2026-08-19-ai-card-image-creator-design.md</code>.
+Źródła wymiarów i limitów pól:
+<a href="https://developer.apple.com/library/archive/documentation/UserExperience/Conceptual/PassKit_PG/Creating.html">Pass Design and Creation</a>,
+<a href="https://developer.apple.com/documentation/walletpasses/creating-the-source-for-a-pass">Creating the Source for a Pass</a>,
+<a href="https://developer.apple.com/documentation/walletpasses/pass">Pass</a>.
+Kod QR jest zaślepką — prawdziwy generuje PassKit z identyfikatora członkostwa.
+</div>
+
+</div>
+<script>
+// Dwa przelaczniki, zero stanu do trzymania: klasa na <body> i tyle.
+const b = document.body;
+document.getElementById('alignRight').addEventListener('change', e => {
+  b.classList.toggle('align-right', e.target.checked);
+  b.classList.toggle('align-left', !e.target.checked);
+});
+document.getElementById('showZone').addEventListener('change', e => {
+  b.classList.toggle('show-zone', e.target.checked);
+});
+</script>
+</body>
+</html>

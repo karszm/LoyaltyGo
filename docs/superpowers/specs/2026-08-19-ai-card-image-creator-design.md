@@ -89,7 +89,9 @@ zależy, czy karta jest czytelna:
 - bez tekstu, liter i cyfr (Apple renderuje własne pola na wierzchu),
 - bez logo i znaków firmowych (logo merchanta to osobny slot),
 - bez twarzy i rozpoznawalnych osób,
-- ciemniejsza, spokojna strefa po prawej stronie — tam Apple stawia saldo punktów,
+- ciemniejsza, spokojna **strefa pola głównego** — tam Apple stawia saldo punktów. Wallet
+  wyrównuje to pole do lewej, więc regułą jest lewa strona; dokumentacja wyrównania nie
+  precyzuje, patrz `docs/design/wallet-preview/index.html` i punkt 5 sekcji „Otwarte",
 - proporcja 21:8, kompozycja bez detali kluczowych przy krawędziach (Google przycina inaczej niż Apple),
 - gama stonowana, jeden dominujący ciemny odcień.
 
@@ -295,5 +297,10 @@ modelem językowym. Migracja starych szablonów `GENERIC` na `STORE_CARD`.
    prawdziwym wywołaniem, nie zaślepką.
 2. **Treść szkieletów promptów** — pierwsza wersja moja, użytkownik podmienia.
 3. **Czy `strip.png` rzeczywiście dociera na telefon** — zadanie pierwsze planu, blokuje resztę.
-4. **Dokładny wymiar** — czy PassKit przyjmie 1120×432 bez skargi na proporcję; jeśli nie,
+4. **Scrim wypalany w `strip.png`** — propozycja z podglądu: przy zapisie wybranego wariantu
+   dołożyć gradient przygaszający strefę pola głównego. Osiem linii na canvasie w Edge
+   Function, a daje czytelność niezależną od tego, co wygeneruje model. Do decyzji.
+5. **Wyrównanie pola głównego** — dokumentacja milczy, Wallet wyrównuje do lewej. Rozstrzyga
+   ogląd prawdziwej karty na telefonie, tym samym co punkt 3.
+6. **Dokładny wymiar** — czy PassKit przyjmie 1120×432 bez skargi na proporcję; jeśli nie,
    normalizacja do 1125×432 wchodzi do kroku wyboru.
