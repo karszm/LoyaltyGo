@@ -53,17 +53,32 @@ w readbacku.
 Decyzja użytkownika: istniejące szablony na koncie są testowe, nie ma na nich produkcyjnych
 kart — przestawiamy wzorzec i nowe programy, starych nie migrujemy.
 
-### Co pozostaje niezweryfikowane
+### Karta została wydana i oglądnięta na telefonie (2026-08-19)
 
-**Czy iPhone faktycznie pokazuje strip.** API tego nie powie. Weryfikacja: wydać kartę na
-szablonie `STORE_CARD` z wgranym stripem, pobrać `.pkpass`, rozpakować i sprawdzić, czy
-`strip.png` jest w archiwum, a potem otworzyć kartę na telefonie. To pierwsze zadanie planu;
-dopóki nie przejdzie, reszta nie ma sensu.
+Sonda API nie kończyła sprawy — nie mówi, czy strip dociera na urządzenie. Więc karta została
+wydana na żywym koncie tą samą ścieżką, którą chodzi backend, `.pkpass` pobrany i rozpakowany,
+a karta dodana do Wallet na iPhone. Pełny zapis: `docs/passkit-live-findings.md` §8, podgląd
+z tych samych plików: `docs/design/wallet-preview/issued-card.html`.
 
-Efekt uboczny sondy: na koncie zostało pięć szablonów o nazwach `PROBE …`. `DELETE` nie
-istnieje, więc zostają. Konto pracuje w `PROJECT_DRAFT`, są nieszkodliwe.
+Potwierdzone plikiem i wzrokiem: styl `storeCard`, `strip@3x` = 1125×432 bajt w bajt jak wgrany,
+saldo jako jedyne pole główne narysowane na grafice i **wyrównane do lewej**, logo merchanta
+w lewym górnym rogu, `logoText` z nazwą programu, kolor karty z `colors.backgroundColor`,
+kod QR.
 
----
+Cztery rzeczy wyszły dopiero z prawdziwego pliku i każda zmienia kod:
+
+1. **Pole punktów musi zmienić sekcję.** Wzorzec trzyma je w `HEADER_FIELDS`; pole główne jest
+   jedynym, które Wallet rysuje na stripie, więc musi być `PRIMARY_FIELDS`.
+2. **Wallet rysuje wartość nad etykietą i sam ustala rozmiar czcionki.** Nie ma pola, którym
+   dałoby się nim sterować. Decyzja użytkownika: zostawiamy duże saldo.
+3. **Logo kwadratowe marnuje dwie trzecie slotu.** 660×660 ląduje na karcie jako 50×50 pt;
+   ten sam wordmark wgrany jako 1980×660 daje 150×50 pt. PassKit pilnuje minimalnej
+   **szerokości** 660 px, nie kwadratu.
+4. **Strip minimum to 1125×432, twardo.** 1120×432 odrzucone:
+   `image width of [1120px], is smaller than the minimum width of 1125px`.
+
+Otwarte pozostaje jedno: czy karta **już zainstalowana** na telefonie odświeży się po zmianie
+grafiki. To ta sama luka co przy zmianie koloru, zależy od powiadomień Apple.
 
 ## 2. Architektura
 
@@ -104,72 +119,79 @@ ciało jednej funkcji, jeśli wyniki okażą się nudne.
 ### 2.2 Adapter generatora — `backend/supabase/functions/_shared/adapters/fal.ts`
 
 ```
-generateCardImages(prompt: string, seed?: number): Promise<string[]>   // 4 URL-e
+generateCardImages(prompt: string, seed?: number): Promise<string[]>   // 4 obrazy jako data: URL
 ```
 
-`POST https://fal.run/fal-ai/flux/schnell` z `{ prompt, image_size: { width: 1120, height: 432 },
-num_images: 4, ... }`, nagłówek `Authorization: Key <FAL_KEY>`. Klucz czyta się z `Deno.env`,
-nigdy nie trafia do przeglądarki i nigdy do logu.
+`POST https://fal.run/fal-ai/flux/schnell` z `{ prompt, image_size: { width: 1136, height: 432 },
+num_images: 4 }`, nagłówek `Authorization: Key <FAL_KEY>`. Klucz czyta się z `Deno.env`, nigdy
+nie trafia do przeglądarki i nigdy do logu.
 
-1120×432 zamiast 1125×432, bo Flux wymaga wymiarów podzielnych przez 16. Różnica 0,4 % —
-normalizację do dokładnego rozmiaru Apple robi krok wyboru (2.3), jeśli sonda PassKita pokaże,
-że to potrzebne.
+**1136×432, nie 1120×432**: Flux wymaga wymiarów podzielnych przez 16, a PassKit odrzuca strip
+mniejszy niż 1125×432 — sprawdzone wykonaniem. 1136 to pierwsza wielokrotność 16 powyżej 1125;
+nadmiarowe 11 px szerokości obcina panel przy przyjęciu wariantu (2.6).
+
+Adapter zwraca obrazy jako **`data:` URL-e, nie adresy po stronie fal**. Trzy powody, wszystkie
+praktyczne: `data:` URL nie wygasa, więc merchant może zostawić ekran na godzinę; nie wymaga
+nagłówków CORS, więc panel może wczytać obraz na canvas bez skażenia; i nie zostawia w magazynie
+trzech niewybranych wariantów. Koszt: odpowiedź waży około megabajta.
 
 Bez trybu zaślepki. Użytkownik ma klucz, a `PASSKIT_MODE=stub` nauczył nas, że kod pisany wobec
 zaślepki i dokumentacji jest kodem niesprawdzonym. Testy podmieniają `fetch`.
 
-### 2.3 Dwie trasy w `panel-api`
+### 2.3 Jedna nowa trasa w `panel-api`
 
-Obie dopisane **jednocześnie do `KNOWN_PATHS` i do dyspozytora** — nieujęta ścieżka 404-uje
-przy bramce i nigdy nie dochodzi do handlera; branding sync wszedł kiedyś dokładnie tak
-i po prostu nie działał.
+**`POST /program/card-image`** — ciało `{ description }`. Sprawdza limit (2.5), buduje prompt,
+woła fal, zwraca `{ category, prompt, images: [4 data: URL-e] }` i podbija licznik generacji.
+Dopisana **jednocześnie do `KNOWN_PATHS` i do dyspozytora** — nieujęta ścieżka 404-uje przy
+bramce i nigdy nie dochodzi do handlera; branding sync wszedł kiedyś dokładnie tak i po prostu
+nie działał.
 
-**`POST /program/card-image`** — ciało `{ description }`.
-Sprawdza limit (2.5), buduje prompt, woła fal, zwraca `{ category, prompt, images: [4 URL-e] }`.
-To URL-e po stronie fal, wyłącznie do podglądu; nic jeszcze nie jest zapisane.
+**Drugiej trasy nie ma.** Przyjęcie wariantu idzie ścieżką, która już istnieje i jest przeklikana:
+panel wgrywa gotowy plik prosto do Storage (jak logo, bo PostgREST nie bierze multipart),
+zapisuje `programs.card_image_url` przez PostgREST i woła istniejący `POST /program/branding`,
+który synchronizuje szablon w PassKicie. Zero nowego kodu na ścieżce zapisu, zero drugiego
+miejsca, w którym branding może się rozjechać.
 
-**`POST /program/card-image/select`** — ciało `{ url, prompt, category }`.
-Sprawdza, że `url` należy do domeny fal (inaczej trasa jest otwartym proxy do pobierania
-dowolnego adresu przez nasz serwer), pobiera obraz, zapisuje do bucketa `card-images` pod
-`<merchant_id>/card-<timestamp>.png`, ustawia `programs.card_image_url`, `business_category`,
-`card_image_prompt`, a potem — jeśli program ma już szablon — woła istniejący
-`updateTemplateBranding`. Zwraca `{ card_image_url, template_updated: boolean }`, dokładnie tak
-jak dzisiejszy `/program/branding`, żeby panel mógł powiedzieć „zapisano, ale karta w portfelu
-jeszcze się nie zaktualizowała".
+Prompt i kategoria wracają w odpowiedzi generowania i panel wysyła je razem z adresem obrazu —
+`card_image_prompt` jest zapisem audytowym tego, co poszło do modelu.
 
-Dlaczego zapis dopiero przy wyborze, a nie wszystkich czterech od razu: bucket nie ma polityki
-`DELETE` (świadomie, patrz `0010_program_logos.sql`), więc każdy niewybrany wariant zostawałby
-w magazynie na zawsze. Jeden przyjęty projekt = jeden plik.
-`ponytail:` URL-e fal są tymczasowe — jeśli merchant zostawi ekran na godzinę i wtedy kliknie,
-pobranie padnie i dostanie komunikat „wygeneruj ponownie". Naprawa, gdy okaże się realna:
-zapis wszystkich czterech i polityka czyszczenia.
+### 2.4 PassKit — cztery poprawki, wszystkie ustalone prawdziwym plikiem
 
-### 2.4 PassKit — dwa slots, jeden plik
-
-W `applyBranding` (`adapters/passkit.ts`) dochodzi gałąź symetryczna do logo:
+W `applyBranding` (`adapters/passkit.ts`):
 
 ```
+// grafika: dwa osobne wgrania, bo jedno wypelnia tylko swoj slot
 if (branding.cardImageUrl) {
-  const ids = await uploadImage(branding.cardImageUrl, "strip");   // → { strip }
-  const hero = await uploadImage(branding.cardImageUrl, "hero");   // → { hero }
-  tpl.imageIds = { ...tpl.imageIds, strip: ids?.strip, hero: hero?.hero };
+  const strip = await uploadImage(branding.cardImageUrl, "strip");
+  const hero  = await uploadImage(branding.cardImageUrl, "hero");
+  tpl.imageIds = { ...tpl.imageIds, strip: strip?.strip, hero: hero?.hero };
 }
-tpl.appleWalletSettings = { ...tpl.appleWalletSettings, passType: "STORE_CARD" };
+tpl.organizationName = branding.displayName;                 // dzis zostaje "LoyaltyGo" z konta
+tpl.barcode = { ...tpl.barcode, format: "QR" };              // wzorzec ma PDF417
+tpl.appleWalletSettings = {
+  ...tpl.appleWalletSettings,
+  passType: "STORE_CARD",                                    // wzorzec to GENERIC = brak stripa
+  logoText: branding.displayName,
+};
+// saldo musi byc polem GLOWNYM, bo tylko ono jest rysowane na stripie
+setFieldSection(tpl, "members.member.points", "PRIMARY_FIELDS", "LEFT");
 ```
 
-Dwa wywołania `POST /images`, bo jedno wgranie wypełnia tylko swój slot (`logo` był wyjątkiem —
-wypełniał `logo` i `appleLogo`). Istniejący `uploadLogo` zostaje uogólniony do `uploadImage(url,
-slot)`; jest to ta sama funkcja co dziś, z nazwą slotu jako parametrem — nie druga kopia
-ścieżki pobierz-zakoduj-wgraj, bo dwie kopie tej ścieżki już raz się rozjechały.
+`passType` ustawiany **bezwarunkowo**, także dla programów bez grafiki — to typ poprawny dla karty
+lojalnościowej, nie przełącznik funkcji. **Nigdy** `LOYALTY` ani `STORECARD`: PassKit odpowiada
+wtedy 200 i cicho zapisuje `APPLE_NOT_SUPPORTED`.
+
+`uploadLogo` uogólniony do `uploadImage(url, slot)` — ta sama funkcja z nazwą slotu jako
+parametrem, nie druga kopia ścieżki pobierz-zakoduj-wgraj; dwie kopie tej ścieżki już raz się
+rozjechały. Funkcja **asertuje, że id wróciło**: nieznana nazwa slotu daje 200 i nie mintuje nic.
 
 Degradacja jak przy logo: porażka wgrania obrazu **nie wywala publikacji**. Karta wychodzi
-w kolorze i z logo, bez bannera, a błąd ląduje w logu. Wywalenie publikacji z powodu grafiki
-byłoby gorsze niż karta bez grafiki.
+w kolorze i z logo, bez bannera, a błąd ląduje w logu.
 
-`passType` ustawiany bezwarunkowo na `STORE_CARD`, także dla programów bez grafiki — bo to typ
-poprawny dla karty lojalnościowej, a nie przełącznik funkcji. **Nigdy** nie wolno tu wpisać
-`LOYALTY` ani `STORECARD`: sonda pokazała, że PassKit odpowiada wtedy 200 i cicho zapisuje
-`APPLE_NOT_SUPPORTED`.
+**Zmiana w `logoCanvas.ts`:** dopasowywać logo do **wysokości 660 px** przy szerokości od 660
+do 1980, zamiast wpisywać je w kwadrat 660×660. Slot Apple'a to prostokąt 160×50 pt, a wordmark
+małej firmy — najczęstszy przypadek, dla którego ten plik powstał — zyskuje na karcie trzykrotnie.
+Kwadratowe logo nadal przechodzi, po prostu wypełnia mniej.
 
 ### 2.5 Migracja `0012_card_images.sql`
 
@@ -214,11 +236,17 @@ Zapis: wybór wariantu zapisuje się od razu (jak logo), bo to wgranie pliku, ni
 Reszta ekranu zostaje przy jednym przycisku zapisu — `points_per_pln` musi tak zostać,
 bo każda jego zmiana wpisuje wiersz do `program_rates`.
 
-**Kolor z grafiki.** Po wyborze wariantu `dominantColor.ts` (wzorem `logoCanvas.ts`) rysuje
-obraz na małym canvasie, próbkuje siatkę pikseli, odrzuca skrajnie jasne i skrajnie
-nienasycone, bierze najczęstszy ciemny odcień i wstawia go do pola koloru. Merchant może
-nadpisać pickerem — pole nie jest blokowane. Jeśli canvas okaże się „skażony" przez CORS
-i odczyt pikseli padnie, kolor zostaje bez zmian; funkcja zwraca `null`, nie rzuca.
+**Normalizacja i scrim.** Przyjęcie wariantu przechodzi przez canvas w przeglądarce, wzorem
+`logoCanvas.ts`: obraz 1136×432 obcięty centralnie do **1125×432** (minimum PassKita, sprawdzone
+wykonaniem), z **wypalonym gradientem** przygaszającym strefę pola głównego po lewej. Wypalanie,
+nie warstwa w CSS — na karcie w Wallet nie ma żadnego CSS, a od modelu nie da się wymusić
+kompozycji z gwarancją. Gotowy PNG idzie do Storage, ten sam plik trafia potem do `strip` i `hero`.
+
+**Kolor z grafiki.** Z tego samego canvasu `dominantColor.ts` próbkuje siatkę pikseli, odrzuca
+skrajnie jasne i nienasycone, bierze najczęstszy ciemny odcień i wstawia go do pola koloru.
+Merchant może nadpisać pickerem — pole nie jest blokowane. Obraz przychodzi jako `data:` URL,
+więc canvas nigdy nie jest skażony; gdyby odczyt pikseli mimo to padł, funkcja zwraca `null`
+i kolor zostaje bez zmian.
 
 ### 2.7 Podgląd — `CardPreview.tsx` przepisany na realny storeCard
 
@@ -227,8 +255,9 @@ faktycznie rysuje dla `storeCard`:
 
 - **nagłówek** na `background_color`: logo po lewej (kwadrat), nazwa programu, pole nagłówkowe
   po prawej,
-- **strip** pełnej szerokości z wybraną grafiką, a na niej pole główne — saldo `0 pkt`
-  — dokładnie w tej strefie, którą prompt kazał modelowi zaciemnić,
+- **strip** pełnej szerokości z wybraną grafiką, a na niej pole główne — saldo — wyrównane
+  do lewej, **wartość nad etykietą, bez wersalików, w rozmiarze zmierzonym na prawdziwej karcie**
+  (`docs/design/wallet-preview/issued-card.html`),
 - **pola dodatkowe** pod stripem na kolorze karty,
 - **kod kreskowy** jako zaślepka na dole (PassKit ustawia go dziś, merchant nic tu nie wybiera).
 
@@ -266,7 +295,6 @@ Jeden słownik błędów panelu (`lib/errors.ts`) dostaje trzy wpisy:
 |---|---|---|
 | limit dobowy | `rate_limited` (429) | „Dzienny limit generowania grafik wyczerpany. Spróbuj ponownie jutro." |
 | fal nie odpowiada / błąd modelu | `image_generation_failed` (502) | „Nie udało się wygenerować grafik. Spróbuj ponownie." |
-| wygasły URL przy wyborze | `image_fetch_failed` (410) | „Ta grafika już nie jest dostępna. Wygeneruj ponownie." |
 | PassKit odrzucił obraz | — | zapis się udaje, komunikat „Zapisano, ale karta w portfelu jeszcze się nie zaktualizowała." |
 
 ## 5. Testy
@@ -296,11 +324,21 @@ modelem językowym. Migracja starych szablonów `GENERIC` na `STORE_CARD`.
 1. **`FAL_KEY`** — użytkownik dostarcza przed implementacją; trasa ma być weryfikowana
    prawdziwym wywołaniem, nie zaślepką.
 2. **Treść szkieletów promptów** — pierwsza wersja moja, użytkownik podmienia.
-3. **Czy `strip.png` rzeczywiście dociera na telefon** — zadanie pierwsze planu, blokuje resztę.
-4. **Scrim wypalany w `strip.png`** — propozycja z podglądu: przy zapisie wybranego wariantu
-   dołożyć gradient przygaszający strefę pola głównego. Osiem linii na canvasie w Edge
-   Function, a daje czytelność niezależną od tego, co wygeneruje model. Do decyzji.
-5. **Wyrównanie pola głównego** — dokumentacja milczy, Wallet wyrównuje do lewej. Rozstrzyga
-   ogląd prawdziwej karty na telefonie, tym samym co punkt 3.
-6. **Dokładny wymiar** — czy PassKit przyjmie 1120×432 bez skargi na proporcję; jeśli nie,
-   normalizacja do 1125×432 wchodzi do kroku wyboru.
+3. **Czy karta już zainstalowana na telefonie odświeży się** po zmianie grafiki. Ta sama luka
+   co przy zmianie koloru; zależy od powiadomień Apple, nie od naszego kodu.
+4. **Konto w `PROJECT_DRAFT`** — passy kasują się po dwóch dniach i noszą zastrzeżenie testowe
+   PassKita w `backFields`. Schodzi po dopuszczeniu konta do produkcji, punkt 1 listy otwartych
+   spraw w `docs/stan-implementacji.md`.
+
+## 8. Rozstrzygnięte wykonaniem
+
+Poniższe **nie są już otwarte** — potwierdzone żywymi wywołaniami i oglądem karty na iPhone,
+zapis w `docs/passkit-live-findings.md` §8:
+
+- strip dociera na urządzenie i jest bajt w bajt tym, co wgrano,
+- `STORE_CARD` da się ustawić i utrzymuje się w readbacku,
+- pole główne jest wyrównane do lewej, więc scrim idzie po lewej stronie,
+- scrim wypalany w pliku wchodzi do zakresu (decyzja podjęta po obejrzeniu trzech wariantów),
+- minimum stripa to 1125×432, minimum logo to 660 px szerokości bez wymogu kwadratu,
+- `barcode.format: "QR"` przechodzi,
+- rozmiaru czcionki salda nie da się zadać i zostaje duży.
