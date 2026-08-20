@@ -98,6 +98,42 @@ begin
   end;
 end $$;
 
+reset role;
+
+-- ...a rola serwisowa MUSI móc, bo to ona wykonuje trasę. Sam `revoke ... from
+-- public` zabiera EXECUTE także jej (domyślny grant funkcji idzie do PUBLIC,
+-- czyli do wszystkich) i trasa umiera na 42501. Sprawdzenie samej odmowy
+-- przechodziło wtedy na zielono — dlatego ta połowa też musi tu być.
+set local role service_role;
+
+do $$
+declare
+  prog uuid := '53000000-0000-0000-0000-000000000001';
+begin
+  if public.claim_image_generation(prog) is null then
+    raise exception 'rola serwisowa powinna dostać licznik';
+  end if;
+
+  -- Zapis audytowy trasy generowania. `service_role` nie ma hurtowego update na
+  -- programs — tylko granty kolumnowe (0005, 0009, 0013), więc każda kolumna,
+  -- którą trasa pisze, musi być wymieniona z osobna.
+  update public.programs set business_category = 'kwiaciarnia', card_image_prompt = 'x' where id = prog;
+
+  -- ...a to, czego trasa NIE pisze, ma pozostać poza jej zasięgiem. Inaczej
+  -- grant kolumnowy przestaje cokolwiek ograniczać. `merchant_id` to granica
+  -- najemcy i nie pisze go żadna trasa; `status` nie nadaje się na ten test,
+  -- bo 0009 celowo daje go roli serwisowej dla publikacji.
+  begin
+    update public.programs set merchant_id = merchant_id where id = prog;
+    raise exception 'rola serwisowa nie powinna móc pisać merchant_id';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+reset role;
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"51000000-0000-0000-0000-000000000001","role":"authenticated"}';
+
 -- ---- 3) bucket card-images: ta sama granica najemcy co przy logo ----
 
 do $$

@@ -21,10 +21,19 @@ comment on column public.programs.card_image_prompt is
 -- bo PostgREST nie bierze multipart, i podmienia adres).
 grant update (card_image_url) on public.programs to authenticated;
 
--- business_category, card_image_prompt i oba liczniki: BEZ grantu update.
--- Kategoria i prompt powstają w trasie generowania i są zapisem tego, co
--- naprawdę poszło do modelu — pole sterowane przez przeglądarkę nie byłoby
--- żadnym audytem. Licznik pilnuje naszych pieniędzy.
+-- business_category, card_image_prompt i oba liczniki: BEZ grantu update dla
+-- authenticated. Kategoria i prompt powstają w trasie generowania i są zapisem
+-- tego, co naprawdę poszło do modelu — pole sterowane przez przeglądarkę nie
+-- byłoby żadnym audytem. Licznik pilnuje naszych pieniędzy.
+--
+-- ...ale ktoś je zapisać musi, i robi to Edge Function. `service_role` NIE ma
+-- w tym projekcie hurtowego update na programs — wzorem 0005 i 0009 dostaje
+-- granty KOLUMNOWE, dokładnie na to, co dana trasa pisze. Bez tych czterech
+-- PostgREST odpowiada `42501 permission denied for table programs`, a licznik
+-- (funkcja bez security definer, więc działająca jako wołający) pada na tym
+-- samym.
+grant update (business_category, card_image_prompt, image_gen_day, image_gen_count)
+                                    on public.programs to service_role;
 
 -- Bucket na grafiki. Kopia polityki logo (0010) z trzema różnicami: 4 MB
 -- zamiast 1 MB (banner 1125×432 PNG waży więcej niż logo), bez image/webp
@@ -89,6 +98,13 @@ returns int language sql volatile set search_path = public, pg_temp as $$
   returning image_gen_count
 $$;
 
--- Zero grantów execute dla authenticated/anon: przeglądarka nie ma prawa
--- podbijać licznika, który pilnuje rachunku za model.
+-- Przeglądarka nie ma prawa podbijać licznika, który pilnuje rachunku za model.
+--
+-- `create function` domyślnie daje EXECUTE roli PUBLIC, a PUBLIC to WSZYSCY —
+-- razem z `service_role`, która żadnego własnego grantu nie ma. Samo `revoke ...
+-- from public` odbiera więc uprawnienie także Edge Function i trasa umiera na
+-- `42501 permission denied for function claim_image_generation`. Odebranie i
+-- nadanie muszą tu stać razem; jedno bez drugiego to albo dziura, albo martwa
+-- trasa.
 revoke execute on function public.claim_image_generation(uuid) from public;
+grant execute on function public.claim_image_generation(uuid) to service_role;
