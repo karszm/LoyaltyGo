@@ -748,19 +748,12 @@ dialog.confirm::backdrop {
 /* ------------------------------------------------------------------ */
 
 .wordmark {
-  font-size: 16px;
-  font-weight: 640;
-  letter-spacing: -0.02em;
-  color: var(--text-1);
+  margin: 0;
 }
-.wordmark-mark {
-  width: 22px;
-  height: auto;
-  margin-right: 8px;
-  vertical-align: -5px;
-}
-.wordmark-go {
-  color: var(--accent);
+.wordmark-logo {
+  display: block;
+  height: 24px;
+  width: auto;
 }
 
 /* ------------------------------------------------------------------ */

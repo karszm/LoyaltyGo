@@ -349,10 +349,33 @@ p {
   text-decoration: none;
 }
 
-.wordmark-mark {
-  display: inline-block;
-  width: 1.75rem;
-  height: auto;
+.wordmark-logo {
+  height: 1.75rem;
+  width: auto;
+}
+
+/* The footer is always dark (--dark-surface), so it hard-codes the dark file; only the header
+   pair switches with the theme. */
+.wordmark-logo--dark {
+  display: none;
+}
+
+:root[data-theme="dark"] .wordmark-logo--light {
+  display: none;
+}
+
+:root[data-theme="dark"] .wordmark-logo--dark {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .wordmark-logo--light {
+    display: none;
+  }
+
+  :root:not([data-theme="light"]) .wordmark-logo--dark {
+    display: block;
+  }
 }
 
 .main-nav {

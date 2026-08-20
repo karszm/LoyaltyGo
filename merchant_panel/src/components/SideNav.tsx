@@ -49,8 +49,7 @@ export function SideNav({ program, merchantEmail, onLogout }: SideNavProps) {
       <div className="shell__nav-desktop">
         <div className="shell__brand">
           <p className="wordmark">
-            <img className="wordmark-mark" src="/logo-mark.png" alt="" width="203" height="201" />
-            Loyalty<span className="wordmark-go">Go</span>
+            <img className="wordmark-logo" src="/logo-dark.png" alt="LoyaltyGo" width="610" height="160" />
           </p>
         </div>
         <div className="shell__identity">
@@ -87,8 +86,7 @@ export function SideNav({ program, merchantEmail, onLogout }: SideNavProps) {
       <div className="shell__nav-mobile">
         <div className="shell__nav-row1">
           <p className="wordmark">
-            <img className="wordmark-mark" src="/logo-mark.png" alt="" width="203" height="201" />
-            Loyalty<span className="wordmark-go">Go</span>
+            <img className="wordmark-logo" src="/logo-dark.png" alt="LoyaltyGo" width="610" height="160" />
           </p>
           {!loading && programName && (
             <span className="shell__program-name shell__program-name--inline" title={programName}>
