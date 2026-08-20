@@ -98,6 +98,29 @@ this is the direct-to-handoff path task 17 fixed, reached without ever opening t
 
 ---
 
+## Path D — the card graphic
+
+Requires `FAL_KEY` in `backend/supabase/functions/.env.local`. **No step here is optional and
+none of it is replaceable by a passing test suite**: the previous session's seven defects all
+passed tests, types and review, and died on the first click in a browser. Step 9 in particular
+is the only proof that any of this reaches a customer.
+
+| # | Step | Expected result |
+|---|---|---|
+| 1 | `/karta`, type "kwiaciarnia" into "Czym zajmuje się Twoja firma?". | The datalist offers the eleven categories; typing something else is accepted too. |
+| 2 | "Wygeneruj grafikę". | Four skeletons appear at 21:8 immediately, replaced in place by four thumbnails. Nothing on the screen jumps when they land. |
+| 3 | Look at the four. | Wide, dark, no text or lettering, no logos, no faces, and a visibly calmer left third. A picture with writing baked into it means the prompt rules need work, not the code. |
+| 4 | Click one. | The preview's strip fills with it within a moment, the colour field moves to a shade taken from the picture, and the hint's promise holds: the graphic is saved, the colour is not yet. |
+| 5 | Read the balance on the preview. | "1250 pkt" over the graphic, left-aligned, white, legible — the scrim is burnt into the file, so this must hold whatever the picture is. |
+| 6 | "Wygeneruj ponownie". | A different four for the same description. |
+| 7 | "Bez grafiki". | The strip disappears, the card returns to a flat colour, and the button itself disappears with it. |
+| 8 | Pick a variant again, then "Zapisz zmiany". | Saves without an error. On a published program the branding sync runs and reports nothing. |
+| 9 | **Open the card on an iPhone** (`/zaproszenie` → join → add to Wallet, or re-download the `.pkpass`). | The graphic is on the card, the balance is drawn on it, left, in white, and readable. **This is the step that decides whether the feature works.** |
+| 10 | Generate 21 times in one day. | The 21st answers "Dzienny limit generowania grafik wyczerpany. Spróbuj ponownie jutro." |
+| 11 | Break `FAL_KEY` (edit `.env.local`, restart `supabase functions serve`) and generate. | "Nie udało się wygenerować grafik. Spróbuj ponownie." — and the four thumbnails clear rather than showing a stale set. |
+
+---
+
 ## Path C — security
 
 | # | Case | How to trigger it locally | Expected result |

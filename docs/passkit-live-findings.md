@@ -317,3 +317,44 @@ powiadomień wypychanych przez Apple.
 
 `DELETE /template/...` nie istnieje (404). Szablony z sond i eksperymentów zostają na koncie
 na zawsze — dziś jest ich kilkanaście, wszystkie w `PROJECT_DRAFT`.
+
+## 9. ZAPIS POLA GŁÓWNEGO PRZEZ API — SPRAWDZONY READBACKIEM (2026-08-20)
+
+§8 pokazał, **co** trzeba zmienić w szablonie, oglądając wydaną kartę. Nie mówił, czy da się to
+zmienić **naszym kodem**: kartę z §8 obejrzano, ale zapis pola głównego przez API pozostawał
+założeniem. A akurat tu PassKit ma udokumentowany zwyczaj odpowiadania 200 i cichego zapisania
+czegoś innego (`passType: LOYALTY` → `APPLE_NOT_SUPPORTED`, §8). Sonda: klon wzorca,
+`POST /template`, `GET /templates` i porównanie.
+
+### Pole danych ma `uniqueName`, nie `fieldName` ani `path`
+
+Klucz pola w `data.dataFields[]` to **`uniqueName`**, a pole punktów nazywa się dokładnie
+`members.member.points`. Pól `fieldName` ani `path` w ogóle nie ma. Umiejscowienie na passie
+Apple'a siedzi w `appleWalletFieldRenderOptions.positionSettings.section`, a wyrównanie
+w `appleWalletFieldRenderOptions.textAlignment`.
+
+Wzorzec konta przed zmianą:
+
+| `uniqueName` | sekcja | wyrównanie |
+|---|---|---|
+| `members.program.name` | `FIELD_SECTION_DO_NOT_USE` | `TEXT_ALIGNMENT_DO_NOT_USE` |
+| `members.member.points` | **`HEADER_FIELDS`** | `RIGHT` |
+| `person.displayName` | `SECONDARY_FIELDS` | `LEFT` |
+| `members.tier.name` | `SECONDARY_FIELDS` | `RIGHT` |
+| `universal.info` | `BACK_FIELDS` | `TEXT_ALIGNMENT_DO_NOT_USE` |
+
+### Cztery zapisy naraz, wszystkie utrzymane w readbacku
+
+| Zapis | Readback |
+|---|---|
+| `appleWalletSettings.passType = "STORE_CARD"` | `STORE_CARD` |
+| `barcode.format = "QR"` | `QR` |
+| `members.member.points` → `positionSettings.section = "PRIMARY_FIELDS"` | `PRIMARY_FIELDS` |
+| `members.member.points` → `textAlignment = "LEFT"` | `LEFT` |
+
+Enumy są gołe (`PRIMARY_FIELDS`, `LEFT`), bez prefiksów w rodzaju `TEXT_ALIGNMENT_LEFT` —
+w odróżnieniu od wartości „pustych", które prefiks mają (`TEXT_ALIGNMENT_DO_NOT_USE`).
+Pozostałe pola zostały tam, gdzie były: przestawienie jednego pola nie przetasowuje sąsiadów.
+
+Szablon sondy: `0BDnighIkpWfAee4YapBe7` (`PROBE primary-fields`). Zostaje na koncie na zawsze,
+jak każdy inny — `DELETE /template` nadal nie istnieje.
