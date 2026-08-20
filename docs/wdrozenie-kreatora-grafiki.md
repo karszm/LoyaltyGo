@@ -122,8 +122,18 @@ npm ci
 npm run build          # wynik w dist/
 ```
 
-Zawartość `dist/` idzie tam, gdzie stoi `app.loyaltygo.pl`. Nowy plik na tej gałęzi:
-`public/qr-preview.svg` — jeśli hosting kopiuje pliki wybiórczo, musi trafić razem z resztą.
+Wysyłka na serwer i konfiguracja nginx: **`docs/deploy-hetzner.md`**, sekcje 3.2 i 4. Skrót:
+
+```
+rsync -avz --delete dist/ deploy@<IP-SERWERA>:/var/www/loyaltygo-panel/
+```
+
+`--delete` czyści pliki po poprzednim buildzie. Nowy plik na tej gałęzi, `public/qr-preview.svg`,
+trafia do `dist/` sam i nie wymaga nic osobno.
+
+Sekcja 4 tamtego dokumentu ma `try_files $uri /index.html;` dla `app.loyaltygo.pl` — to nie jest
+kosmetyka. Panel używa `BrowserRouter`, a magic link ląduje na `/auth?returnTo=…`; bez tego
+przepisania logowanie nie działa w ogóle, nie „czasem".
 
 Przed budowaniem upewnij się, że `.env.local` nie został lokalnie przestawiony na
 `http://127.0.0.1:54321`. To dokładnie ten przypadek, przed którym ostrzega `VERIFY.md`, i
