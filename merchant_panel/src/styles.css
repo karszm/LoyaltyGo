@@ -1217,7 +1217,7 @@ dialog.confirm::backdrop {
   block-size: 22px;
   border-radius: 999px;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
   font-size: 13px;
   line-height: 1;
 }
