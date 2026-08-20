@@ -1183,6 +1183,7 @@ dialog.confirm::backdrop {
   overflow: hidden;
 }
 .card-gen__variant {
+  position: relative;
   padding: 0;
   border: 1px solid transparent;
   background: var(--bg);
@@ -1193,7 +1194,39 @@ dialog.confirm::backdrop {
 }
 .card-gen__variant:disabled {
   cursor: default;
-  opacity: 0.5;
+}
+/* Threefold, so the choice does not rest on colour alone: the ring, the tick, and the dimming
+   of everything not chosen. --accent is a fill and a focus colour in this panel, never text,
+   so it is doing the job it is reserved for. */
+.card-gen__variant--selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.card-gen__grid:has(.card-gen__variant--selected) .card-gen__variant:not(.card-gen__variant--selected) {
+  opacity: 0.45;
+}
+.card-gen__check {
+  position: absolute;
+  inset-block-start: var(--space-4);
+  inset-inline-end: var(--space-4);
+  display: none;
+  place-items: center;
+  inline-size: 22px;
+  block-size: 22px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+}
+.card-gen__variant--selected .card-gen__check {
+  display: grid;
+}
+.card-gen__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  margin-block-start: var(--space-6);
 }
 .card-gen__variant img {
   display: block;

@@ -167,15 +167,39 @@ export default function CardWizard() {
   const [uploading, setUploading] = useState(false)
   const [logoError, setLogoError] = useState<string | null>(null)
 
-  // --- Card graphic. Saved immediately, like the logo and for the same reason: it is a file
-  // upload, not a form field, and there is nothing sensible for "Zapisz zmiany" to do with a
-  // picture that is already in Storage. ---
-  const [cardImageUrl, setCardImageUrl] = useState(program.card_image_url)
+  // --- Card graphic. Unlike the logo, picking one is a form decision rather than an immediate
+  // write. The merchant is comparing four pictures: a choice that saved itself the moment it
+  // was clicked would leave rejected uploads behind and take away the ordinary way of changing
+  // your mind, which is to walk away without saving. So the click prepares the file and moves
+  // the preview, and "Zapisz zmiany" commits it — together with the colour it suggested, which
+  // was always going to wait for the save button anyway. ---
   const [businessDescription, setBusinessDescription] = useState('')
   const [variants, setVariants] = useState<string[]>([])
   const [generating, setGenerating] = useState(false)
-  const [applyingVariant, setApplyingVariant] = useState<number | null>(null)
+  const [selectedVariant, setSelectedVariant] = useState<number | null>(null)
+  const [preparingVariant, setPreparingVariant] = useState(false)
   const [cardImageError, setCardImageError] = useState<string | null>(null)
+  /**
+   * The choice waiting for the save button: the prepared PNG plus an object URL for the
+   * preview, or `{cleared: true}` for "Bez grafiki". `null` means "no decision made in this
+   * session", so the preview falls back to whatever the row already holds.
+   */
+  const [pendingCardImage, setPendingCardImage] = useState<
+    { file: File; previewUrl: string } | { cleared: true } | null
+  >(null)
+
+  const cardImageUrl = pendingCardImage === null
+    ? program.card_image_url
+    : 'cleared' in pendingCardImage
+      ? null
+      : pendingCardImage.previewUrl
+
+  // An object URL outlives the state that held it unless it is revoked by hand.
+  useEffect(() => {
+    if (!pendingCardImage || !('previewUrl' in pendingCardImage)) return
+    const url = pendingCardImage.previewUrl
+    return () => URL.revokeObjectURL(url)
+  }, [pendingCardImage])
 
   const [errors, setErrors] = useState<FieldErrors>({})
   const [saving, setSaving] = useState(false)
@@ -279,11 +303,15 @@ export default function CardWizard() {
   // task-13-design.md §10 point 2's isDirty, computed inline rather than exposed (see the
   // retirement note above handleSubmit): four fields, one comparison each -- logo_url is excluded
   // on purpose, it saves immediately on upload (§6.2) and never sits in this form's dirty set.
+  // The card graphic is NOT excluded: unlike the logo it waits for the save button, so an
+  // unsaved choice has to count as a change or the button would sit there with nothing to do
+  // while the preview shows a picture the row has never seen.
   const isDirty =
     values.name !== serverBaseline.name ||
     values.color !== serverBaseline.color ||
     values.ratePer100 !== serverBaseline.ratePer100 ||
-    values.description !== serverBaseline.description
+    values.description !== serverBaseline.description ||
+    pendingCardImage !== null
 
   async function handleLogoChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -339,66 +367,33 @@ export default function CardWizard() {
   }
 
   /**
-   * Accepting a variant. The order matters and is the logo's: prepare the file, upload it, write
-   * the row, and only then move what the merchant sees. A failure at any step leaves the
-   * previous graphic on the card rather than showing one that was never stored.
+   * Picking a variant. Nothing is uploaded and nothing is written — the crop and the burnt-in
+   * scrim happen here, on a canvas, and the result waits for the save button. The four
+   * thumbnails stay on screen with this one marked, so the choice can still be changed.
    *
-   * The colour follows the image because the card is one object — but only as a suggestion:
+   * The colour follows the image because the card is one object, but only as a suggestion:
    * the picker is not disabled and dominantColor returns null rather than a bad guess.
    */
-  async function applyVariant(index: number) {
+  async function selectVariant(index: number) {
     setCardImageError(null)
-    setApplyingVariant(index)
+    setPreparingVariant(true)
     try {
       const { file, color } = await prepareCardImage(variants[index])
-      const url = await uploadCardImage(merchant.id, file)
-      await updateProgram(program.id, { card_image_url: url })
-      setCardImageUrl(url)
+      setPendingCardImage({ file, previewUrl: URL.createObjectURL(file) })
+      setSelectedVariant(index)
       if (color) updateValue('color', color)
-      await pushBranding()
-      reload()
-    } catch (err) {
-      setCardImageError(
-        err instanceof LogoUploadError && err.rejected ? CARD_IMAGE_REJECTED : CARD_IMAGE_FAILED,
-      )
-    } finally {
-      setApplyingVariant(null)
-    }
-  }
-
-  async function clearCardImage() {
-    setCardImageError(null)
-    setApplyingVariant(-1)
-    try {
-      await updateProgram(program.id, { card_image_url: null })
-      setCardImageUrl(null)
-      setVariants([])
-      await pushBranding()
-      reload()
     } catch {
       setCardImageError(CARD_IMAGE_FAILED)
     } finally {
-      setApplyingVariant(null)
+      setPreparingVariant(false)
     }
   }
 
-  /**
-   * Pushes the row's branding onto the PassKit template, exactly as runSave does — including
-   * the `{synced: false}` case, which is a 200 and not a thrown error, and is the silent-failure
-   * shape this project has been bitten by before.
-   *
-   * Only for a published program: a draft has no template yet, so there is nothing to push and
-   * the graphic rides in at publication instead. Either way the row IS saved by the time this
-   * runs, so a failure here says the card lags, never that the image did not save.
-   */
-  async function pushBranding() {
-    if (program.status !== 'published') return
-    try {
-      const message = brandingSyncMessage(await syncBranding())
-      if (message) setCardImageError(`${BRANDING_LAG_TITLE} ${message}`)
-    } catch (err) {
-      setCardImageError(`${BRANDING_LAG_TITLE} ${normalizeCode(err).message}`)
-    }
+  /** Also pending: the card keeps its graphic until the save button says otherwise. */
+  function clearCardImage() {
+    setCardImageError(null)
+    setPendingCardImage({ cleared: true })
+    setSelectedVariant(null)
   }
 
   /** Returns whether the save succeeded, so the publish flow (runPublish's caller) can stop
@@ -409,12 +404,30 @@ export default function CardWizard() {
     setSaving(true)
     setServerError(null)
     try {
+      // The graphic goes up BEFORE the row is written, so a rejected upload fails the save
+      // outright rather than leaving `card_image_url` pointing at a file that never landed.
+      // `undefined` means "no decision this session" and is omitted from the patch entirely,
+      // which is not the same as `null` — that one clears the column on purpose.
+      let cardImagePatch: { card_image_url?: string | null } = {}
+      if (pendingCardImage !== null) {
+        cardImagePatch = {
+          card_image_url: 'file' in pendingCardImage
+            ? await uploadCardImage(merchant.id, pendingCardImage.file)
+            : null,
+        }
+      }
+
       await updateProgram(program.id, {
         display_name: values.name.trim(),
         background_color: values.color,
         description: values.description,
         points_per_pln: ratePer100ToPointsPerPln(Number(values.ratePer100)),
+        ...cardImagePatch,
       })
+      // The choice is the row's now, so the section has nothing left to hold.
+      setPendingCardImage(null)
+      setVariants([])
+      setSelectedVariant(null)
       if (userId) clearDraft(userId, DRAFT_KEY)
       // Provisioning runs once, at publication — so for an already-published program the save
       // above changes the panel and nothing else unless we push it to the pass issuer too.
@@ -437,7 +450,12 @@ export default function CardWizard() {
       reload()
       return true
     } catch (err) {
-      setServerError({ title: SAVE_FAILED_TITLE, body: `${normalizeCode(err).message} Spróbuj ponownie za chwilę.` })
+      // A Storage refusal has its own vocabulary — routing it through normalizeCode would call
+      // a rejected file a connection problem, since LogoUploadError is just an Error to it.
+      const body = err instanceof LogoUploadError
+        ? (err.rejected ? CARD_IMAGE_REJECTED : CARD_IMAGE_FAILED)
+        : `${normalizeCode(err).message} Spróbuj ponownie za chwilę.`
+      setServerError({ title: SAVE_FAILED_TITLE, body })
       setFocusSummaryNonce((n) => n + 1)
       return false
     } finally {
@@ -749,53 +767,79 @@ export default function CardWizard() {
 
                 {/* Four skeletons while generating, four thumbnails after — the grid never
                    changes size, so nothing on the screen jumps when the images arrive. */}
-                <div className="card-gen__grid" aria-live="polite" aria-busy={generating || undefined}>
+                {/* radiogroup, not a list of buttons: these are four options with exactly one
+                   chosen, which is what a screen reader should hear and what arrow keys should
+                   move between. The choice stays on screen after a click — it is a decision
+                   waiting for the save button, not an action that already happened. */}
+                <div
+                  className="card-gen__grid"
+                  role={variants.length > 0 && !generating ? 'radiogroup' : undefined}
+                  aria-label={variants.length > 0 && !generating ? 'Propozycje grafiki karty' : undefined}
+                  aria-live="polite"
+                  aria-busy={generating || undefined}
+                >
                   {generating
                     ? Array.from({ length: 4 }, (_, i) => <div key={i} className="card-gen__skeleton" />)
                     : variants.map((src, i) => (
                         <button
                           key={i}
                           type="button"
-                          className="card-gen__variant"
-                          disabled={applyingVariant !== null}
-                          aria-busy={applyingVariant === i || undefined}
-                          onClick={() => applyVariant(i)}
+                          role="radio"
+                          aria-checked={selectedVariant === i}
+                          className={
+                            selectedVariant === i
+                              ? 'card-gen__variant card-gen__variant--selected'
+                              : 'card-gen__variant'
+                          }
+                          disabled={preparingVariant || saving}
+                          onClick={() => selectVariant(i)}
                         >
                           <img src={src} alt={`Propozycja grafiki ${i + 1} z ${variants.length}`} />
+                          <span className="card-gen__check" aria-hidden="true">
+                            ✓
+                          </span>
                         </button>
                       ))}
                 </div>
 
                 {variants.length > 0 && !generating && (
-                  <button
-                    type="button"
-                    className="btn btn--ghost"
-                    disabled={applyingVariant !== null}
-                    // A fresh seed, same prompt: four different pictures rather than the same four.
-                    onClick={() => runGenerate(Math.floor(Math.random() * 1_000_000))}
-                  >
-                    Wygeneruj ponownie
-                  </button>
+                  <div className="card-gen__actions">
+                    <button
+                      type="button"
+                      className="btn btn--ghost"
+                      disabled={preparingVariant || saving}
+                      // A fresh seed, same prompt: four different pictures rather than the same four.
+                      onClick={() => runGenerate(Math.floor(Math.random() * 1_000_000))}
+                    >
+                      Wygeneruj ponownie
+                    </button>
+                    {cardImageUrl && (
+                      <button
+                        type="button"
+                        className="btn btn--ghost"
+                        disabled={preparingVariant || saving}
+                        onClick={clearCardImage}
+                      >
+                        Bez grafiki
+                      </button>
+                    )}
+                  </div>
                 )}
 
-                {cardImageUrl && (
-                  <button
-                    type="button"
-                    className="btn btn--ghost"
-                    disabled={applyingVariant !== null}
-                    aria-busy={applyingVariant === -1 || undefined}
-                    onClick={clearCardImage}
-                  >
+                {/* Only when there is no grid to hang it off — a merchant with a saved graphic
+                   who has not generated anything this session still needs a way to remove it. */}
+                {variants.length === 0 && !generating && cardImageUrl && (
+                  <button type="button" className="btn btn--ghost" disabled={saving} onClick={clearCardImage}>
                     Bez grafiki
                   </button>
                 )}
 
-                {/* The graphic is a file upload and saves itself; the colour it suggests is a
-                   form field and follows the screen's one save button, like every other field.
-                   Saying so here is cheaper than a merchant wondering why half of it stuck. */}
-                <p className="fieldset__hint">
-                  Wybrana grafika zapisuje się od razu. Kolor karty podpowiadamy na jej podstawie —
-                  możesz go zmienić, a zapisuje się razem z resztą formularza.
+                <p className="fieldset__hint" aria-live="polite">
+                  {pendingCardImage && 'cleared' in pendingCardImage
+                    ? 'Karta wróci do jednolitego koloru po zapisaniu zmian.'
+                    : selectedVariant !== null
+                      ? `Wybrana grafika nr ${selectedVariant + 1}. Zapisz zmiany, żeby trafiła na kartę.`
+                      : 'Kolor karty podpowiadamy na podstawie wybranej grafiki — możesz go potem zmienić. Grafika i kolor zapisują się razem z resztą formularza.'}
                 </p>
                 {cardImageError && (
                   <p className="fieldset__error" role="alert">
