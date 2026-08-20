@@ -4,38 +4,62 @@
 // Pure: no network, no state, no clock. The whole thing is a keyword table and a string
 // join, which is the point — see the ponytail note at the bottom.
 
+/** The two inks a pass can carry. Mirrors CARD_INK_* in the panel's contrast.ts. */
+export type CardInk = "#ffffff" | "#000000";
+
 /**
- * Composition rules appended to EVERY skeleton, never part of one.
+ * Rules appended to EVERY skeleton, whatever the ink.
  *
- * They are separate so that swapping a skeleton — which is expected, these are a first
- * draft — cannot drop them. Each rule exists because of how Apple actually draws a
- * storeCard, not because of taste:
+ * They are separate from the skeletons so that swapping one — which is expected, they are a
+ * first draft — cannot drop them. Each exists because of how Apple draws a storeCard:
  *
  *   - Wallet renders the pass's own text ON TOP of the strip. Any text the model paints
  *     collides with it.
  *   - The merchant's logo has its own slot in the header; a logo inside the graphic is a
  *     second, wrong logo.
- *   - The primary field (the balance) sits on the LEFT of the strip — confirmed on a real
- *     card on an iPhone — so that side has to stay quiet enough to read white text on.
- *     A scrim is burnt into the file as well; this rule is what makes the scrim subtle
- *     rather than a black bar.
  *   - Apple and Google crop the same file differently, so nothing that matters goes near
  *     an edge.
  */
-const COMPOSITION_RULES = [
+const SHARED_RULES = [
   "no text, no letters, no numbers, no writing of any kind",
   "no logos, no brand marks, no signage",
   "no faces, no people",
-  "the left third is calm and noticeably darker, free of detail — flat shadow or deep tone",
   "wide 21:8 banner composition, nothing important near any edge",
-  "muted restrained palette built on one dominant dark tone",
   "soft even lighting, photographic, shallow depth of field",
-].join(", ");
+];
+
+/**
+ * The half that depends on the ink the merchant chose.
+ *
+ * Wallet draws the balance on the LEFT of the strip in one colour, and that colour is now a
+ * choice rather than always white. So the picture has to move with it: white text wants a
+ * dark image and a dark quiet corner, black text wants a light one. Asking for "one dominant
+ * dark tone" regardless — which is what this file did until the ink became selectable — is
+ * how every card came out nearly black, including the ones about to carry black text.
+ *
+ * The burnt-in scrim (merchant_panel/src/lib/cardCanvas.ts) guarantees the quiet corner
+ * whatever the model returns; these lines only ask the model to make that scrim subtle
+ * rather than a bar across the image, and must flip with it.
+ */
+const TONE_RULES: Record<CardInk, string[]> = {
+  "#ffffff": [
+    "the left third is calm and noticeably darker, free of detail — flat shadow or deep tone",
+    "muted palette built on one dominant deep tone, low key",
+  ],
+  "#000000": [
+    "the left third is calm and noticeably lighter, free of detail — soft highlight or pale wash",
+    "bright airy palette built on one dominant pale tone, high key, plenty of light",
+  ],
+};
 
 type Category = {
   category: string;
   /** Matched against the normalised description as plain substrings. */
   match: string[];
+  /**
+   * The SUBJECT only. Tone belongs to TONE_RULES — a skeleton that says "dark" fights the
+   * ink rules half the time and is why "dark" used to appear three times in one prompt.
+   */
   skeleton: string;
 };
 
@@ -48,57 +72,57 @@ const CATEGORIES: Category[] = [
   {
     category: "kwiaciarnia",
     match: ["kwiat", "kwiaciar", "bukiet", "florys"],
-    skeleton: "dark moody florist's workbench, eucalyptus and deep red ranunculus lying loose on aged wood",
+    skeleton: "florist's workbench, eucalyptus and deep red ranunculus lying loose on aged wood",
   },
   {
     category: "fryzjer",
     match: ["fryzjer", "salon fryz", "wlos", "hair", "strzyz"],
-    skeleton: "quiet hair salon corner, brushed steel scissors and combs on a dark slate counter",
+    skeleton: "quiet hair salon corner, brushed steel scissors and combs on a slate counter",
   },
   {
     category: "barber",
     match: ["barber", "brod", "golen", "meski salon"],
-    skeleton: "vintage barbershop still life, straight razor and leather strop on dark walnut",
+    skeleton: "vintage barbershop still life, straight razor and leather strop on walnut",
   },
   {
     category: "kawiarnia",
     match: ["kawiar", "kawa", "cafe", "coffee", "espresso", "palarnia"],
-    skeleton: "espresso pouring into a small cup on a dark stone counter, roasted beans scattered, steam catching the light",
+    skeleton: "espresso pouring into a small cup on a stone counter, roasted beans scattered, steam catching the light",
   },
   {
     category: "restauracja",
     match: ["restaur", "bistro", "jadl", "kuchni", "obiad", "pizzeria", "pizza", "sushi", "burger"],
-    skeleton: "dim restaurant pass, herbs and cast iron on a dark worn table, warm rim light",
+    skeleton: "restaurant pass, fresh herbs and cast iron on a worn wooden table",
   },
   {
     category: "warsztat",
     match: ["warsztat", "mechanik", "samochod", "auto ", "opon", "serwis samochod", "lakiernik"],
-    skeleton: "workshop bench in low light, chrome wrenches and a torque tool on dark oiled steel",
+    skeleton: "workshop bench, chrome wrenches and a torque tool laid out on oiled steel",
   },
   {
     category: "silownia",
     match: ["silown", "gym", "fitness", "trening", "crossfit", "kulturyst"],
-    skeleton: "dark gym floor, knurled steel barbell and bumper plates, single hard light from the side",
+    skeleton: "gym floor, knurled steel barbell and bumper plates, single hard light from the side",
   },
   {
     category: "kosmetyczka",
     match: ["kosmetyc", "uroda", "beauty", "paznok", "manicure", "spa", "masaz", "rzes"],
-    skeleton: "calm spa still life, smooth dark stones, folded linen and a sprig of lavender, soft diffused light",
+    skeleton: "calm spa still life, smooth stones, folded linen and a sprig of lavender",
   },
   {
     category: "piekarnia",
     match: ["piekar", "cukier", "chleb", "ciast", "tort", "bakery", "bulk"],
-    skeleton: "rustic sourdough loaves cooling on dark steel, flour dust in low warm light",
+    skeleton: "rustic sourdough loaves cooling on a steel rack, flour dust hanging in the light",
   },
   {
     category: "zoologiczny",
     match: ["zoolog", "zwierz", "pies", "kot", "psi", "weteryn", "groomer"],
-    skeleton: "dark textured surface with a woven rope toy, leather collar and scattered kibble, soft top light",
+    skeleton: "textured surface with a woven rope toy, a leather collar and scattered kibble",
   },
   {
     category: "apteka",
     match: ["aptek", "zdrow", "farmac", "ziol", "suplement"],
-    skeleton: "apothecary shelf in low light, amber glass bottles and dried herbs on dark wood",
+    skeleton: "apothecary shelf, amber glass bottles and bunches of dried herbs on wood",
   },
 ];
 
@@ -106,7 +130,7 @@ const GENERIC: Category = {
   category: "generyczna",
   match: [],
   // `${topic}` is replaced with what the merchant typed.
-  skeleton: "dark atmospheric still life representing a small local business: ${topic}, objects of the trade arranged on a deep-toned surface",
+  skeleton: "atmospheric still life representing a small local business: ${topic}, objects of the trade arranged on a plain surface",
 };
 
 /**
@@ -120,7 +144,15 @@ function normalize(s: string): string {
     .replace(/[̀-ͯ]/g, "");
 }
 
-export function buildCardPrompt(description: string): { prompt: string; category: string } {
+/**
+ * @param ink the colour the pass will draw its text in. Anything other than `#000000` is
+ *   treated as white — the same fallback the PassKit adapter applies, so the picture and the
+ *   card can never disagree about which way round the contrast goes.
+ */
+export function buildCardPrompt(
+  description: string,
+  ink: string = "#ffffff",
+): { prompt: string; category: string } {
   const normalized = normalize(description);
   const hit = CATEGORIES.find((c) => c.match.some((m) => normalized.includes(m)));
 
@@ -131,8 +163,10 @@ export function buildCardPrompt(description: string): { prompt: string; category
     ? hit.skeleton
     : GENERIC.skeleton.replace("${topic}", description.trim() || "a small local shop");
 
+  const tone = TONE_RULES[ink === "#000000" ? "#000000" : "#ffffff"];
+
   return {
-    prompt: `${skeleton}. ${COMPOSITION_RULES}.`,
+    prompt: `${skeleton}. ${[...tone, ...SHARED_RULES].join(", ")}.`,
     category: (hit ?? GENERIC).category,
   };
 }

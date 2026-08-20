@@ -191,7 +191,12 @@ async function handleCardImage(
     );
   }
 
-  const { prompt, category } = buildCardPrompt(description);
+  // The ink comes from the FORM, not from the row: the merchant may have switched it and not
+  // saved yet, and the pictures have to match what they are looking at. Anything other than
+  // the two allowed values reads as white, exactly as the PassKit adapter does — the picture
+  // and the card must never disagree about which way round the contrast goes.
+  const ink = body?.ink === "#000000" ? "#000000" : "#ffffff";
+  const { prompt, category } = buildCardPrompt(description, ink);
 
   let images: string[];
   try {

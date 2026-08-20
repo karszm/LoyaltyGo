@@ -185,6 +185,8 @@ export default function CardWizard() {
   // was always going to wait for the save button anyway. ---
   const [businessDescription, setBusinessDescription] = useState('')
   const [variants, setVariants] = useState<string[]>([])
+  /** The ink the four on screen were generated for — a switch afterwards makes them stale. */
+  const [variantsInk, setVariantsInk] = useState<CardInk | null>(null)
   const [generating, setGenerating] = useState(false)
   const [selectedVariant, setSelectedVariant] = useState<number | null>(null)
   const [preparingVariant, setPreparingVariant] = useState(false)
@@ -392,13 +394,15 @@ export default function CardWizard() {
     }
     setGenerating(true)
     try {
-      const result = await generateCardImage(typed, seed)
+      const result = await generateCardImage(typed, values.ink, seed)
       setVariants(result.images)
+      setVariantsInk(values.ink)
     } catch (err) {
       // rate_limited and image_generation_failed both carry their own message from panel-api;
       // normalizeCode falls back for anything else.
       setCardImageError(normalizeCode(err).message)
       setVariants([])
+      setVariantsInk(null)
     } finally {
       setGenerating(false)
     }
@@ -416,7 +420,7 @@ export default function CardWizard() {
     setCardImageError(null)
     setPreparingVariant(true)
     try {
-      const { file, color } = await prepareCardImage(variants[index])
+      const { file, color } = await prepareCardImage(variants[index], values.ink)
       setPendingCardImage({ file, previewUrl: URL.createObjectURL(file) })
       setSelectedVariant(index)
       if (color) updateValue('color', color)
@@ -426,6 +430,20 @@ export default function CardWizard() {
       setPreparingVariant(false)
     }
   }
+
+  // The scrim is burnt into the file and points the OPPOSITE way for each ink, so a variant
+  // prepared while the text was white is actively wrong once the text is black — it darkens
+  // exactly the corner the black balance has to be read in. Re-prepare the chosen one.
+  //
+  // Deliberately not regenerating: the four pictures still show the right subject, and a fresh
+  // generation costs money and one of the merchant's twenty daily slots. The hint under the
+  // grid offers that instead of deciding it for them.
+  useEffect(() => {
+    if (selectedVariant === null || variants[selectedVariant] === undefined) return
+    void selectVariant(selectedVariant)
+    // selectVariant is recreated every render; re-running on the ink alone is the point.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.ink])
 
   /** Also pending: the card keeps its graphic until the save button says otherwise. */
   function clearCardImage() {
@@ -466,6 +484,7 @@ export default function CardWizard() {
       // The choice is the row's now, so the section has nothing left to hold.
       setPendingCardImage(null)
       setVariants([])
+      setVariantsInk(null)
       setSelectedVariant(null)
       if (userId) clearDraft(userId, DRAFT_KEY)
       // Provisioning runs once, at publication — so for an already-published program the save
@@ -843,6 +862,14 @@ export default function CardWizard() {
                         </button>
                       ))}
                 </div>
+
+                {variantsInk !== null && variantsInk !== values.ink && !generating && (
+                  <p className="fieldset__hint" role="status">
+                    Te propozycje powstały dla {variantsInk === CARD_INK_LIGHT ? 'białych' : 'czarnych'} napisów.
+                    Wybrana grafika jest już dopasowana do nowego koloru, ale nowa czwórka będzie lepsza —
+                    kliknij "Wygeneruj ponownie".
+                  </p>
+                )}
 
                 {variants.length > 0 && !generating && (
                   <div className="card-gen__actions">

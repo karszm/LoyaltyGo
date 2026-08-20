@@ -4,10 +4,7 @@
 // Pure: takes ImageData, returns a hex string or null. The canvas work lives in cardCanvas.ts;
 // keeping the sampling separate is what makes it checkable without a browser.
 
-import { contrastRatio } from './contrast'
-
-/** The pass draws its text white and cannot be told otherwise, so the colour must carry it. */
-const CARD_INK = '#ffffff'
+import { CARD_INK_LIGHT, contrastRatio, type CardInk } from './contrast'
 
 /**
  * Channel quantisation. 4 bits per channel — 16 levels — is coarse enough that "the same
@@ -22,19 +19,20 @@ function toHex(r: number, g: number, b: number): string {
 }
 
 /**
- * Returns the most common dark shade in `image`, as `#rrggbb`, or null when nothing usable
- * is there.
+ * Returns the most common shade in `image` that carries `ink` at WCAG AA, as `#rrggbb`, or
+ * null when nothing usable is there.
  *
- * Only shades that carry white text at WCAG AA are considered. That is not a nicety: the pass
- * renders its own labels and the balance in white and offers no way to change it, so a light
- * colour picked from a bright photo would produce a card whose text cannot be read at all.
- * The merchant can still override the result with the colour picker — the field is filled,
- * not locked.
+ * The ink is a parameter rather than a constant because the merchant chooses it. Sampling
+ * only dark shades — which is what this did while the pass was always white-on-dark — would
+ * hand a black-text card a near-black background and make it unreadable. Which end of the
+ * range is usable flips with the ink; the rule that the result must carry the text does not.
+ *
+ * The merchant can still override with the colour picker: the field is filled, not locked.
  *
  * Null means "leave the colour alone", which is also the answer when the canvas cannot be
  * read (a tainted canvas throws before this is ever called, see cardCanvas.ts).
  */
-export function dominantColor(image: ImageData, step = 4): string | null {
+export function dominantColor(image: ImageData, ink: CardInk = CARD_INK_LIGHT, step = 4): string | null {
   const counts = new Map<number, number>()
   const data = image.data
 
@@ -62,7 +60,7 @@ export function dominantColor(image: ImageData, step = 4): string | null {
     const g = ((key >> BUCKET_BITS) & 15) << BUCKET_SHIFT | half
     const b = (key & 15) << BUCKET_SHIFT | half
     const hex = toHex(r, g, b)
-    if (contrastRatio(hex, CARD_INK) < 4.5) continue
+    if (contrastRatio(hex, ink) < 4.5) continue
     best = hex
     bestCount = count
   }

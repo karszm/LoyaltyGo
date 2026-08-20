@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { contrastRatio } from './contrast'
+import { CARD_INK_DARK, CARD_INK_LIGHT, contrastRatio } from './contrast'
 import { dominantColor } from './dominantColor'
 
 /** Builds ImageData-shaped input from a list of [count, r, g, b] runs. No canvas involved. */
@@ -21,7 +21,8 @@ function imageOf(runs: Array<[number, number, number, number]>, alpha = 255): Im
 describe('dominantColor', () => {
   // step 1 so the whole synthetic row is read; the grid is a performance choice, not a
   // behavioural one.
-  const pick = (image: ImageData) => dominantColor(image, 1)
+  const pick = (image: ImageData) => dominantColor(image, CARD_INK_LIGHT, 1)
+  const pickForBlackText = (image: ImageData) => dominantColor(image, CARD_INK_DARK, 1)
 
   it('returns the most frequent dark shade', () => {
     const image = imageOf([
@@ -66,6 +67,30 @@ describe('dominantColor', () => {
       const result = pick(image)
       if (result !== null) expect(contrastRatio(result, '#ffffff')).toBeGreaterThanOrEqual(4.5)
     }
+  })
+
+  it('picks a LIGHT shade when the card carries black text', () => {
+    // The mirror image of the white-ink case. Sampling dark shades regardless — which is what
+    // this did while the pass was always white-on-dark — would hand a black-text card a
+    // near-black background and make it unreadable.
+    const image = imageOf([
+      [500, 0x1a, 0x1a, 0x1a],
+      [50, 0xf2, 0xee, 0xe4],
+    ])
+    const result = pickForBlackText(image)!
+    expect(contrastRatio(result, CARD_INK_DARK)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('the two inks disagree about the same picture, and each is right for its own text', () => {
+    const image = imageOf([
+      [200, 0x20, 0x30, 0x60],
+      [200, 0xf0, 0xea, 0xdd],
+    ])
+    const forWhite = pick(image)!
+    const forBlack = pickForBlackText(image)!
+    expect(forWhite).not.toBe(forBlack)
+    expect(contrastRatio(forWhite, CARD_INK_LIGHT)).toBeGreaterThanOrEqual(4.5)
+    expect(contrastRatio(forBlack, CARD_INK_DARK)).toBeGreaterThanOrEqual(4.5)
   })
 
   it('handles an empty image without throwing', () => {

@@ -8,20 +8,25 @@
 //   1136×432 because Flux requires dimensions divisible by 16 and 1136 is the first multiple
 //   above 1125. The surplus 11px comes off here.
 //
-//   The scrim. Apple draws the balance on top of the strip, on the left, in white, at a size
-//   it chooses — there is no field that controls any of that. So the left has to be dark
-//   enough to read on. The prompt asks the model for a calm left third, but a prompt is a
-//   request, not a guarantee, and a card whose balance is illegible is a broken card. The
-//   gradient is therefore BURNT INTO THE FILE: there is no CSS on a pass in Wallet, and the
-//   preview in the panel must show what the phone will show.
+//   The scrim. Apple draws the balance on top of the strip, on the left, at a size it chooses
+//   — there is no field that controls any of that. So the left has to contrast with the text.
+//   The prompt asks the model for a calm left third, but a prompt is a request, not a
+//   guarantee, and a card whose balance is illegible is a broken card. The gradient is
+//   therefore BURNT INTO THE FILE: there is no CSS on a pass in Wallet, and the preview in
+//   the panel must show what the phone will show.
+//
+//   Which way it goes follows the ink. White text needs the left darkened; black text needs it
+//   LIGHTENED, and darkening it would be precisely backwards — the same gradient that saves a
+//   white-text card destroys a black-text one.
 
+import { CARD_INK_LIGHT, type CardInk } from './contrast'
 import { dominantColor } from './dominantColor'
 
 /** Verified by execution: 1120×432 is rejected, 1125×432 is accepted. */
 export const STRIP_WIDTH = 1125
 export const STRIP_HEIGHT = 432
 
-/** How far across the strip the scrim reaches, and how dark it starts. */
+/** How far across the strip the scrim reaches, and how strong it starts. */
 const SCRIM_EXTENT = 0.55
 const SCRIM_ALPHA = 0.55
 
@@ -58,12 +63,18 @@ export function coverCrop(width: number, height: number): CropBox {
  * strip, and the card colour it would bias belongs to the area below the strip, where there
  * is no scrim at all.
  *
+ * `ink` decides both the direction of the scrim and which shades are eligible as the card
+ * colour — a black-text card wants a light picture and a light quiet corner.
+ *
  * `source` may be a `data:` URL, which is what the generation route returns. That matters
  * beyond convenience — a `data:` URL leaves the canvas unTAINTED, so the pixels can be read
  * back. A remote URL without CORS headers would taint it and `getImageData` would throw,
  * which is why the images are not passed through as links to the generator's own host.
  */
-export async function prepareCardImage(source: Blob | string): Promise<PreparedCardImage> {
+export async function prepareCardImage(
+  source: Blob | string,
+  ink: CardInk = CARD_INK_LIGHT,
+): Promise<PreparedCardImage> {
   const bitmap = await createImageBitmap(
     typeof source === 'string' ? await (await fetch(source)).blob() : source,
   )
@@ -82,14 +93,16 @@ export async function prepareCardImage(source: Blob | string): Promise<PreparedC
     // — the merchant keeps whatever colour they had.
     let color: string | null = null
     try {
-      color = dominantColor(ctx.getImageData(0, 0, STRIP_WIDTH, STRIP_HEIGHT))
+      color = dominantColor(ctx.getImageData(0, 0, STRIP_WIDTH, STRIP_HEIGHT), ink)
     } catch {
       color = null
     }
 
+    // Black scrim under white text, white scrim under black text.
+    const rgb = ink === CARD_INK_LIGHT ? '0, 0, 0' : '255, 255, 255'
     const gradient = ctx.createLinearGradient(0, 0, STRIP_WIDTH * SCRIM_EXTENT, 0)
-    gradient.addColorStop(0, `rgba(0, 0, 0, ${SCRIM_ALPHA})`)
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)')
+    gradient.addColorStop(0, `rgba(${rgb}, ${SCRIM_ALPHA})`)
+    gradient.addColorStop(1, `rgba(${rgb}, 0)`)
     ctx.fillStyle = gradient
     ctx.fillRect(0, 0, STRIP_WIDTH, STRIP_HEIGHT)
 
