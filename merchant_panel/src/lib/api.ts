@@ -94,8 +94,15 @@ export interface CardImageVariants {
 //
 // A seed makes "generate again" return a different four for the same description; leaving it
 // out lets the model pick, which is what the first click wants.
-export function generateCardImage(description: string, seed?: number): Promise<CardImageVariants> {
+export function generateCardImage(
+  description: string,
+  ink: string,
+  seed?: number,
+): Promise<CardImageVariants> {
+  // The ink comes from the form, not the saved row: the merchant may have switched it and not
+  // saved yet, and the four pictures have to match the card they are looking at. White text
+  // asks the model for a dark image, black text for a light one.
   return invoke<CardImageVariants>('/program/card-image', {
-    body: seed === undefined ? { description } : { description, seed },
+    body: seed === undefined ? { description, ink } : { description, ink, seed },
   })
 }
