@@ -8,18 +8,36 @@ Odwrotna kolejność daje działający panel wołający nieistniejącą trasę.
 
 ---
 
-## 0. Zanim ruszysz
+## 0. Najpierw: z którego katalogu
 
-Sprawdź, na czym stoi zdalna baza. To jedyny krok, który niczego nie zmienia:
+Supabase CLI czyta migracje i funkcje **z katalogu, w którym stoisz** — nie z gałęzi, którą
+masz na myśli. Praca powstała w worktree, więc główny checkout tych plików nie ma i wszystko
+poniżej trzeba uruchamiać stamtąd, gdzie one są.
 
 ```
-cd backend
+cd /Users/razor118/Documents/Projects/LoyaltyGo/.claude/worktrees/ai-card-image/backend
+git branch --show-current          # ma pokazać feat/ai-card-image
+ls supabase/migrations | tail -2   # ma pokazać 0013 i 0014
+```
+
+Albo — czyściej, jeśli PR jest już zmergowany — przełącz główny checkout na `main` i pracuj
+tam.
+
+Co się dzieje, gdy się pomylisz: `supabase db push` odpowiada **„Remote database is up to
+date"** i kończy z sukcesem, bo w tamtym katalogu faktycznie nie ma czego wypychać. To
+sukces, który niczego nie zrobił. Ta sama pomyłka przy `functions deploy` wgrywa **starą**
+`panel-api`, bez trasy generowania — i wykryjesz to dopiero 404-ką z punktu 3.
+
+Sprawdź teraz, na czym stoi zdalna baza. To jedyny krok, który niczego nie zmienia:
+
+```
 supabase link --project-ref gvliqomuymtdiaamzbdc
 supabase migration list
 ```
 
-Powinno pokazać `0001`–`0012` jako zastosowane, a `0013` i `0014` jako czekające. Jeśli
-którejś wcześniejszej brakuje, **zatrzymaj się** — ta gałąź zakłada, że reszta już stoi.
+Powinno pokazać `0001`–`0012` w obu kolumnach, a `0013` i `0014` **tylko w kolumnie `Local`**.
+Jeśli `0013`/`0014` nie ma tam w ogóle, jesteś w złym katalogu — wróć na początek tej sekcji.
+Jeśli brakuje którejś wcześniejszej, **zatrzymaj się**: ta gałąź zakłada, że reszta już stoi.
 
 ---
 
@@ -93,10 +111,10 @@ handlera, więc 404 tutaj oznacza starą wersję funkcji, nie literówkę w URL-
 ## 4. Panel
 
 Zmienne `VITE_*` są wkompilowywane przy budowaniu, więc panel trzeba **zbudować od nowa**,
-samo skopiowanie plików nie wystarczy.
+samo skopiowanie plików nie wystarczy. Znowu: z katalogu, w którym leży ta gałąź.
 
 ```
-cd merchant_panel
+cd ../merchant_panel   # w tym samym drzewie co punkt 0
 # .env.local (albo zmienne w hostingu) muszą wskazywać PRODUKCJĘ:
 #   VITE_SUPABASE_URL=https://gvliqomuymtdiaamzbdc.supabase.co
 #   VITE_SUPABASE_ANON_KEY=<anon key z panelu Supabase>
