@@ -17,6 +17,8 @@ import { hashProgramKey, resolveMerchant, serviceClient } from "../_shared/auth.
 import { jsonError, mapPgError, validationError } from "../_shared/errors.ts";
 import { fireAndForget, json, parseBody, preflight } from "../_shared/http.ts";
 import { createProgram, syncPassBalance, updateTemplateBranding } from "../_shared/adapters/passkit.ts";
+import { generateCardImages } from "../_shared/adapters/fal.ts";
+import { buildCardPrompt } from "../_shared/cardPrompt.ts";
 
 const PROGRAM_COLUMNS =
   "id, status, display_name, logo_url, background_color, description, points_per_pln, invite_code";
@@ -107,8 +109,13 @@ async function handleBrandingSync(
   sb: ReturnType<typeof serviceClient>,
   programId: string,
 ): Promise<Response> {
+  // The column list is explicit, so a new branding column reaches the card only if it is
+  // added HERE as well as to the Branding type. Leaving it out is silent: the sync returns
+  // `{synced: true}` and the card keeps its old graphic.
   const { data, error } = await sb.from("programs")
-    .select("status, display_name, logo_url, background_color, description, passkit_pass_template_id")
+    .select(
+      "status, display_name, logo_url, background_color, description, card_image_url, passkit_pass_template_id",
+    )
     .eq("id", programId).single();
   if (error || !data) return jsonError("not_found", "Nie znaleziono programu.", 404);
 
@@ -121,6 +128,7 @@ async function handleBrandingSync(
       logoUrl: (data.logo_url as string | null) ?? undefined,
       backgroundColor: (data.background_color as string | null) ?? undefined,
       description: (data.description as string | null) ?? undefined,
+      cardImageUrl: (data.card_image_url as string | null) ?? undefined,
     });
   } catch (err) {
     console.error("[panel-api] passkit updateTemplateBranding failed", err);
@@ -131,6 +139,79 @@ async function handleBrandingSync(
     );
   }
   return json({ synced: true }, 200);
+}
+
+// POST /program/card-image — generates four banner variants for the merchant to choose from.
+//
+// Generation only. Accepting a variant needs no route of its own: the panel uploads the file
+// it has already cropped and scrimmed straight to Storage (the logo path, because PostgREST
+// cannot take multipart), writes `card_image_url` through PostgREST, and calls the existing
+// /program/branding. No second place where branding can drift out of step.
+//
+// The category and the prompt are written HERE rather than by the panel. A prompt the browser
+// hands back is not a record of what went to the model, it is a string the browser chose —
+// and `card_image_prompt` exists to be exactly that record. Neither column is writable by
+// `authenticated` (0013).
+const MAX_GENERATIONS_PER_DAY = 20;
+const MAX_DESCRIPTION_LENGTH = 200;
+
+async function handleCardImage(
+  req: Request,
+  sb: ReturnType<typeof serviceClient>,
+  programId: string,
+): Promise<Response> {
+  const body = await parseBody(req);
+  const description = typeof body?.description === "string" ? body.description.trim() : "";
+  if (!description) {
+    return validationError("Opisz czym zajmuje się Twoja firma.", [
+      { field: "description", message: "opis jest wymagany" },
+    ]);
+  }
+  if (description.length > MAX_DESCRIPTION_LENGTH) {
+    return validationError("Opis jest za długi.", [
+      { field: "description", message: `maksymalnie ${MAX_DESCRIPTION_LENGTH} znaków` },
+    ]);
+  }
+
+  // Claim first, generate second. The claim is one statement that bumps and returns the
+  // counter, so two parallel clicks cannot both read "19" and both pass. Claiming before the
+  // call means a failed generation still costs the merchant one of their twenty — the
+  // alternative is a retry loop that costs us money on every failure, and twenty is generous.
+  const { data: claimed, error: claimError } = await sb.rpc("claim_image_generation", {
+    p_program_id: programId,
+  });
+  if (claimError) throw claimError;
+  if (typeof claimed !== "number") throw new Error(`claim_image_generation returned ${claimed}`);
+  if (claimed > MAX_GENERATIONS_PER_DAY) {
+    return jsonError(
+      "rate_limited",
+      "Dzienny limit generowania grafik wyczerpany. Spróbuj ponownie jutro.",
+      429,
+    );
+  }
+
+  const { prompt, category } = buildCardPrompt(description);
+
+  let images: string[];
+  try {
+    // A seed only when one is asked for: "generate again" sends a fresh one so the same
+    // description does not return the same four pictures.
+    const seed = typeof body?.seed === "number" && Number.isFinite(body.seed) ? body.seed : undefined;
+    images = await generateCardImages(prompt, seed);
+  } catch (err) {
+    // The message can carry fal's validation detail; it never carries the key (fal.ts).
+    console.error("[panel-api] fal generateCardImages failed", err);
+    return jsonError("image_generation_failed", "Nie udało się wygenerować grafik. Spróbuj ponownie.", 502);
+  }
+
+  // The audit record of what actually went to the model, for the four images just returned.
+  // A failure here must not cost the merchant their generation, so it is logged, not thrown.
+  const { error: writeError } = await sb.from("programs")
+    .update({ business_category: category, card_image_prompt: prompt })
+    .eq("id", programId);
+  if (writeError) console.error("[panel-api] card prompt audit write failed", writeError);
+
+  return json({ category, prompt, images }, 200);
 }
 
 async function persistPublish(
@@ -153,7 +234,9 @@ async function persistPublish(
 // POST /program/publish
 async function handlePublish(sb: ReturnType<typeof serviceClient>, programId: string): Promise<Response> {
   const { data: program } = await sb.from("programs")
-    .select(`${PROGRAM_COLUMNS}, passkit_program_id, passkit_template_id, passkit_pass_template_id`)
+    .select(
+      `${PROGRAM_COLUMNS}, passkit_program_id, passkit_template_id, passkit_pass_template_id, card_image_url`,
+    )
     .eq("id", programId).single();
   if (!program) throw new Error(`program ${programId} missing for resolved merchant`);
 
@@ -190,6 +273,9 @@ async function handlePublish(sb: ReturnType<typeof serviceClient>, programId: st
         logoUrl: (program.logo_url as string) ?? undefined,
         backgroundColor: (program.background_color as string | null) ?? undefined,
         description: (program.description as string | null) ?? undefined,
+        // A draft has no template yet, so a card image picked before publication is not
+        // synced anywhere — it rides in here, on the same path as the colour and the logo.
+        cardImageUrl: (program.card_image_url as string | null) ?? undefined,
       });
       passkitProgramId = provisioned.programId;
       passkitTemplateId = provisioned.templateId;
@@ -392,6 +478,7 @@ async function handleTransition(
 const KNOWN_PATHS = new Set([
   "/program/publish",
   "/program/branding",
+  "/program/card-image",
   "/program/key",
   "/program/suspend",
   "/program/resume",
@@ -439,6 +526,7 @@ Deno.serve(async (req) => {
     if (adjustmentMatch) return await handleAdjustment(req, sb, programId, adjustmentMatch[1]);
     if (path === "/program/publish") return await handlePublish(sb, programId);
     if (path === "/program/branding") return await handleBrandingSync(sb, programId);
+    if (path === "/program/card-image") return await handleCardImage(req, sb, programId);
     if (path === "/program/key") {
       return req.method === "GET" ? await handleGetKey(sb, programId) : await handleRotateKey(sb, programId);
     }
