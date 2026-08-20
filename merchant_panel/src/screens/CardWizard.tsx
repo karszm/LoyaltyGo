@@ -241,6 +241,7 @@ export default function CardWizard() {
   const colorInputRef = useRef<HTMLInputElement>(null)
   const rateInputRef = useRef<HTMLInputElement>(null)
   const descriptionInputRef = useRef<HTMLTextAreaElement>(null)
+  const businessInputRef = useRef<HTMLInputElement>(null)
   const errorSummaryRef = useRef<HTMLDivElement>(null)
   const fieldRefs = {
     name: nameInputRef,
@@ -372,6 +373,15 @@ export default function CardWizard() {
 
   async function runGenerate(seed?: number) {
     setCardImageError(null)
+    // Say what is missing rather than greying the button out. A disabled control that never
+    // states its condition reads as a broken feature — which is exactly how this one was read.
+    // The string is the one panel-api answers with for the same empty description, so the
+    // client and the server never explain the same rule two different ways (cf. §6.2's logo).
+    if (!businessDescription.trim()) {
+      setCardImageError('Opisz czym zajmuje się Twoja firma — jedno słowo wystarczy.')
+      businessInputRef.current?.focus()
+      return
+    }
     setGenerating(true)
     try {
       const result = await generateCardImage(businessDescription, seed)
@@ -758,6 +768,7 @@ export default function CardWizard() {
                 <div className="card-gen__ask">
                   <input
                     id="prog-business"
+                    ref={businessInputRef}
                     className="field"
                     type="text"
                     list="prog-business-categories"
@@ -766,6 +777,7 @@ export default function CardWizard() {
                     value={businessDescription}
                     onChange={(e) => setBusinessDescription(e.target.value)}
                     aria-describedby="prog-business-hint"
+                    aria-invalid={cardImageError ? 'true' : undefined}
                   />
                   <datalist id="prog-business-categories">
                     {BUSINESS_CATEGORIES.map((c) => (
@@ -775,7 +787,7 @@ export default function CardWizard() {
                   <button
                     type="button"
                     className="btn btn--ghost"
-                    disabled={generating || !businessDescription.trim()}
+                    disabled={generating || saving}
                     aria-busy={generating || undefined}
                     onClick={() => runGenerate()}
                   >
