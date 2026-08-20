@@ -349,31 +349,33 @@ p {
   text-decoration: none;
 }
 
-.wordmark-mark {
-  position: relative;
-  display: inline-block;
-  width: 1.75rem;
-  height: 1.35rem;
+.wordmark-logo {
+  height: 1.75rem;
+  width: auto;
 }
 
-.wordmark-mark i {
-  position: absolute;
-  top: 0;
-  width: 0.9rem;
-  height: 1.35rem;
-  border-radius: var(--radius-control);
-  background: var(--ink);
-  transform: rotate(-18deg);
+/* The footer is always dark (--dark-surface), so it hard-codes the dark file; only the header
+   pair switches with the theme. */
+.wordmark-logo--dark {
+  display: none;
 }
 
-.wordmark-mark i:first-child {
-  left: 0.1rem;
+:root[data-theme="dark"] .wordmark-logo--light {
+  display: none;
 }
 
-.wordmark-mark i:last-child {
-  right: 0.1rem;
-  background: var(--accent);
-  transform: rotate(18deg);
+:root[data-theme="dark"] .wordmark-logo--dark {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .wordmark-logo--light {
+    display: none;
+  }
+
+  :root:not([data-theme="light"]) .wordmark-logo--dark {
+    display: block;
+  }
 }
 
 .main-nav {
@@ -1220,10 +1222,6 @@ p {
   grid-template-columns: 1.2fr 1fr auto;
   align-items: end;
   gap: 3rem;
-}
-
-.site-footer .wordmark-mark i:first-child {
-  background: var(--dark-ink);
 }
 
 .site-footer p {

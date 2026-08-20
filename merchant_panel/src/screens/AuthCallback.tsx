@@ -49,7 +49,7 @@ export default function AuthCallback() {
       <div className="auth">
         <div className="auth__col">
           <p className="wordmark">
-            Loyalty<span className="wordmark-go">Go</span>
+            <img className="wordmark-logo" src="/logo-dark.png" alt="LoyaltyGo" width="610" height="160" />
           </p>
           {/* Revealed only after 400ms (CSS animation-delay) -- a session that resolves faster
               never shows this at all; a slow one gets a sentence instead of a blank screen.

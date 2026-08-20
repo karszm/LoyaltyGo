@@ -216,7 +216,7 @@ export default function Login() {
       <div className="auth">
         <div className="auth__col">
           <p className="wordmark">
-            Loyalty<span className="wordmark-go">Go</span>
+            <img className="wordmark-logo" src="/logo-dark.png" alt="LoyaltyGo" width="610" height="160" />
           </p>
 
           {banner && (
