@@ -537,9 +537,15 @@ export async function updateBalance(memberId: string, balance: number): Promise<
   // PUT /members/member — route confirmed live (401 without auth). A flat top-level
   // `points` field on the Member body (not nested under a points/balance object) is
   // confirmed from PassKit's own custom-fields example (help.passkit.com/en/articles/3991200:
-  // `"points": 1000` alongside `externalId`/`tierId`). UNVERIFIED: whether PUT here
-  // *replaces* the member (requiring more fields than just id+points) or *patches* only the
-  // given fields — that needs a real authenticated call to settle; see task-8-report.md.
+  // `"points": 1000` alongside `externalId`/`tierId`).
+  //
+  // SETTLED 2026-08-20 (findings §12): PUT **patches**, it does not replace. A live probe sent
+  // `{id, points}` against a real member and read it back — the balance changed and
+  // `externalId` and `person` both survived. Sending only these two fields is correct.
+  //
+  // What this does NOT do is refresh a card already in someone's Wallet. PassKit stores the
+  // new balance; delivery to the device is a push, and while the account issues test passes
+  // under `pass.io.passkit.dev` that push is PassKit's dev infrastructure. See findings §12.
   await passkitRequest("PUT", "/members/member", { id: memberId, points: balance });
 }
 
