@@ -975,11 +975,14 @@ dialog.confirm::backdrop {
   position: static;
   padding: 0 16px 4px;
 }
+/* Follows the chosen ink, like every other piece of text on the card — a hardcoded white here
+   would have left the balance label unreadable the moment a merchant picked black text. */
 .card-preview__balance-label {
   font-size: 17px;
   font-weight: 400;
   letter-spacing: 0;
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--card-ink-2);
+  opacity: 0.95;
 }
 /* 58px is Wallet's own sizing of the primary field. It cannot be set, so it is not softened
    here either — see CardPreview.tsx's header comment. */
@@ -1248,4 +1251,46 @@ dialog.confirm::backdrop {
   .card-gen__skeleton {
     animation: none;
   }
+}
+
+/* Ink switch (CardWizard.tsx) — two named options, not a toggle: a checkbox would have to call
+   one of white/black "off". Segmented so both are visible at once and the chosen one is legible
+   without reading the label, which matters when the labels ARE colours. */
+.ink-switch {
+  display: inline-flex;
+  padding: 3px;
+  gap: 3px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+}
+.ink-switch__option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  block-size: 38px;
+  padding-inline: var(--space-6);
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius-lg) - 3px);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 14px;
+  cursor: pointer;
+}
+.ink-switch__option:hover {
+  color: var(--text-1);
+}
+/* The wash + weight + border do the work together; --accent stays a fill/focus colour and is
+   never used as text in this panel (styles.css header note). */
+.ink-switch__option--on {
+  border-color: var(--border-strong);
+  background: var(--bg-raised);
+  color: var(--text-1);
+  font-weight: 590;
+}
+.ink-switch__chip {
+  inline-size: 16px;
+  block-size: 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
 }

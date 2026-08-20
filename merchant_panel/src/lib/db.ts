@@ -57,11 +57,12 @@ export interface Program {
   points_per_pln: number
   invite_code: string | null
   card_image_url: string | null
+  text_color: string | null
 }
 
 const MERCHANT_COLUMNS = 'id, email, contact_email, company_name, created_at'
 const PROGRAM_COLUMNS =
-  'id, status, display_name, logo_url, background_color, description, points_per_pln, invite_code, card_image_url'
+  'id, status, display_name, logo_url, background_color, description, points_per_pln, invite_code, card_image_url, text_color'
 
 // RLS scopes both tables to exactly the caller's own row (merchants.auth_user_id = auth.uid(),
 // programs.merchant_id unique per merchant) — no .eq() needed, there is only ever one row to see.
@@ -97,6 +98,8 @@ export function updateProgram(programId: string, patch: {
   points_per_pln?: number
   /** null clears the graphic — "Bez grafiki" — and the card goes back to a flat colour. */
   card_image_url?: string | null
+  /** '#ffffff' or '#000000'; the database check constraint rejects anything else. */
+  text_color?: string
 }): Promise<Program> {
   return unwrap(
     supabase.from('programs').update(patch).eq('id', programId).select(PROGRAM_COLUMNS).single(),

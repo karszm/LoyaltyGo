@@ -32,3 +32,28 @@ export function contrastRatio(hexA: string, hexB: string): number {
 export function meetsAA(ratio: number, large = false): boolean {
   return ratio >= (large ? 3 : 4.5)
 }
+
+/** The two inks a Wallet pass can carry. Not a free colour: the merchant picks a side. */
+export const CARD_INK_LIGHT = '#ffffff'
+export const CARD_INK_DARK = '#000000'
+export type CardInk = typeof CARD_INK_LIGHT | typeof CARD_INK_DARK
+
+/** Whichever of the two reads better on `background`. */
+export function preferredInk(background: string): CardInk {
+  return contrastRatio(CARD_INK_LIGHT, background) >= contrastRatio(CARD_INK_DARK, background)
+    ? CARD_INK_LIGHT
+    : CARD_INK_DARK
+}
+
+/**
+ * The ink to use after the merchant changes the card colour: their own choice, unless that
+ * choice has stopped being readable on the new background — then the other one.
+ *
+ * Deliberately not "always the better contrast". A merchant who picked black text and then
+ * nudges the background should keep black text; flipping it under them on every small edit
+ * would make the control feel broken. This only intervenes when the current ink fails AA,
+ * which is the case the merchant cannot be left in: a near-black card with black text.
+ */
+export function inkAfterBackgroundChange(current: CardInk, background: string): CardInk {
+  return meetsAA(contrastRatio(current, background)) ? current : preferredInk(background)
+}

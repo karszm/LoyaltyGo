@@ -10,20 +10,17 @@
 //
 // Two things here are deliberately not "nicer than the real thing":
 //
-//   1. The ink is a fixed white. The real pass renders the merchant's own text white and
-//      offers no way to change it — brand.ts's deriveInk exists for program_page's own
-//      rendering, not for the physical pass. If this preview derived a readable ink, a
-//      merchant could pick a light colour, see a readable preview, and still ship an
-//      unreadable card to every customer (task-13-design.md §3.3).
+//   1. The ink is whatever the merchant CHOSE — white or black — never a value this preview
+//      derives for itself. The pass draws one colour for its labels and values, taken from
+//      the template, so the preview can be exact here; what it must not do is compute a
+//      third, cleverer shade the way brand.ts's deriveInk does for program_page. That would
+//      show a readable preview for a card that ships unreadable (task-13-design.md §3.3).
 //   2. The balance is large and the value sits above the label. That is Wallet's choice, not
 //      a design decision — it sizes the primary field itself and there is no field that
 //      controls it. Drawing it smaller here would flatter a card that will not look like that.
 import type { CSSProperties } from 'react'
+import { CARD_INK_LIGHT, type CardInk } from '../lib/contrast'
 import { HEX_COLOR_RE } from '../lib/validate'
-
-// See the header comment. White is never optimistic: deriveInk always picks
-// max(whiteContrast, blackContrast), so a colour that reads here reads everywhere.
-const CARD_INK = '#ffffff'
 
 // Copied as a literal, not imported — merchant_panel and program_page are separate Vite apps
 // (same pattern as lib/validate.ts's EMAIL_RE). This is brand.ts's CARD_EDGE_COLOR: a fixed light
@@ -54,9 +51,18 @@ interface CardPreviewProps {
   logoUrl: string | null
   /** The chosen banner, already cropped and scrimmed. Null renders the card without a strip. */
   cardImageUrl?: string | null
+  /** The merchant's choice of ink. Defaults to white, which is what every card carried before
+   *  it was a choice. */
+  textColor?: CardInk
 }
 
-export function CardPreview({ displayName, backgroundColor, logoUrl, cardImageUrl = null }: CardPreviewProps) {
+export function CardPreview({
+  displayName,
+  backgroundColor,
+  logoUrl,
+  cardImageUrl = null,
+  textColor = CARD_INK_LIGHT,
+}: CardPreviewProps) {
   const bg = HEX_COLOR_RE.test(backgroundColor) ? backgroundColor : FALLBACK_BACKGROUND
   const monogram = deriveMonogram(displayName)
 
@@ -64,7 +70,12 @@ export function CardPreview({ displayName, backgroundColor, logoUrl, cardImageUr
     <div
       className="card-preview"
       style={
-        { '--card-bg': bg, '--card-ink': CARD_INK, '--card-ink-2': CARD_INK, '--card-edge': CARD_EDGE_COLOR } as CSSProperties
+        {
+          '--card-bg': bg,
+          '--card-ink': textColor,
+          '--card-ink-2': textColor,
+          '--card-edge': CARD_EDGE_COLOR,
+        } as CSSProperties
       }
     >
       {/* Wallet darkens the band above the strip. PassKit keeps that under

@@ -125,6 +125,12 @@ export type Branding = {
    * loyalty pass gets, and Apple draws the primary field on top of it.
    */
   cardImageUrl?: string;
+  /**
+   * `#ffffff` or `#000000` — the colour the pass draws its labels and values in. Two options,
+   * not a free colour: a third shade is only ever a new way to make the card unreadable.
+   * Absent means white, which is what every template carried before this was a choice.
+   */
+  textColor?: string;
 };
 
 // Fetches an image and returns it base64-encoded, ready for `POST /images`.
@@ -266,11 +272,14 @@ async function applyBranding(tpl: Record<string, any>, branding: Branding): Prom
   // putting them under `data` produced a 200 and a template that silently kept the
   // blueprint's colours — no error, no warning, wrong card. `data` holds only `dataFields`
   // and `dataCollectionPageSettings`.
+  // VERIFIED LIVE 2026-08-20: a light card with #000000 labels and values round-trips
+  // unchanged. "Always white" was our own choice, never a platform limit.
+  const ink = branding.textColor === "#000000" ? "#000000" : "#ffffff";
   tpl.colors = {
     ...(tpl.colors ?? {}),
     ...(branding.backgroundColor ? { backgroundColor: branding.backgroundColor } : {}),
-    labelColor: "#ffffff",
-    textColor: "#ffffff",
+    labelColor: ink,
+    textColor: ink,
   };
 
   if (branding.logoUrl) {

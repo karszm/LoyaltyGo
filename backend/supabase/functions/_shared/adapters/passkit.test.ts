@@ -277,6 +277,41 @@ Deno.test("live: applyBranding sets STORE_CARD, QR and moves the balance onto th
   );
 });
 
+Deno.test("live: the ink is the merchant's choice, applied to labels and values alike", async () => {
+  // "Always white" was our own decision, not a platform limit — labelColor/textColor are
+  // ordinary template fields, and a light card with black text round-trips (verified live).
+  await withFetch(
+    [new Response(EXISTING_NDJSON, { status: 200 }), new Response("{}", { status: 200 })],
+    async (calls) => {
+      await updateTemplateBranding("existing-tpl", {
+        displayName: "Kwiaciarnia Ala",
+        backgroundColor: "#f5f0e8",
+        textColor: "#000000",
+      });
+      const put = JSON.parse(calls[1].body!);
+      assertEquals(put.colors.backgroundColor, "#f5f0e8");
+      assertEquals(put.colors.labelColor, "#000000");
+      assertEquals(put.colors.textColor, "#000000");
+    },
+  );
+});
+
+Deno.test("live: anything other than the two inks falls back to white rather than reaching the card", async () => {
+  // The database constrains this to two values, but the adapter is the last gate before a
+  // colour reaches a customer's phone and does not get to assume its caller checked.
+  for (const textColor of [undefined, "#ffffff", "#00ff00", "white", ""]) {
+    await withFetch(
+      [new Response(EXISTING_NDJSON, { status: 200 }), new Response("{}", { status: 200 })],
+      async (calls) => {
+        await updateTemplateBranding("existing-tpl", { displayName: "x", textColor });
+        const put = JSON.parse(calls[1].body!);
+        assertEquals(put.colors.labelColor, "#ffffff", `textColor ${JSON.stringify(textColor)}`);
+        assertEquals(put.colors.textColor, "#ffffff", `textColor ${JSON.stringify(textColor)}`);
+      },
+    );
+  }
+});
+
 Deno.test("live: a rejected card image degrades to a card without one — it must not fail publication", async () => {
   await withFetch(
     [

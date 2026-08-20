@@ -114,7 +114,7 @@ async function handleBrandingSync(
   // `{synced: true}` and the card keeps its old graphic.
   const { data, error } = await sb.from("programs")
     .select(
-      "status, display_name, logo_url, background_color, description, card_image_url, passkit_pass_template_id",
+      "status, display_name, logo_url, background_color, description, card_image_url, text_color, passkit_pass_template_id",
     )
     .eq("id", programId).single();
   if (error || !data) return jsonError("not_found", "Nie znaleziono programu.", 404);
@@ -129,6 +129,7 @@ async function handleBrandingSync(
       backgroundColor: (data.background_color as string | null) ?? undefined,
       description: (data.description as string | null) ?? undefined,
       cardImageUrl: (data.card_image_url as string | null) ?? undefined,
+      textColor: (data.text_color as string | null) ?? undefined,
     });
   } catch (err) {
     console.error("[panel-api] passkit updateTemplateBranding failed", err);
@@ -235,7 +236,7 @@ async function persistPublish(
 async function handlePublish(sb: ReturnType<typeof serviceClient>, programId: string): Promise<Response> {
   const { data: program } = await sb.from("programs")
     .select(
-      `${PROGRAM_COLUMNS}, passkit_program_id, passkit_template_id, passkit_pass_template_id, card_image_url`,
+      `${PROGRAM_COLUMNS}, passkit_program_id, passkit_template_id, passkit_pass_template_id, card_image_url, text_color`,
     )
     .eq("id", programId).single();
   if (!program) throw new Error(`program ${programId} missing for resolved merchant`);
@@ -276,6 +277,7 @@ async function handlePublish(sb: ReturnType<typeof serviceClient>, programId: st
         // A draft has no template yet, so a card image picked before publication is not
         // synced anywhere — it rides in here, on the same path as the colour and the logo.
         cardImageUrl: (program.card_image_url as string | null) ?? undefined,
+        textColor: (program.text_color as string | null) ?? undefined,
       });
       passkitProgramId = provisioned.programId;
       passkitTemplateId = provisioned.templateId;

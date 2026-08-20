@@ -21,7 +21,14 @@ import { generateCardImage, publishProgram, syncBranding } from '../lib/api'
 import { normalizeCode, type ErrorField } from '../lib/errors'
 import { clearDraft, loadDraft, saveDraft } from '../lib/formDraft'
 import { pointsForAmount, pointsPerPlnToRatePer100, ratePer100ToPointsPerPln, formatMoney } from '../lib/format'
-import { contrastRatio, meetsAA } from '../lib/contrast'
+import {
+  CARD_INK_DARK,
+  CARD_INK_LIGHT,
+  contrastRatio,
+  inkAfterBackgroundChange,
+  meetsAA,
+  type CardInk,
+} from '../lib/contrast'
 import { isValidHexColor } from '../lib/validate'
 import { copyToClipboard, mapPublishFieldErrors, brandingSyncMessage } from '../lib/publish'
 
@@ -59,7 +66,7 @@ const SVG_MESSAGE =
   'Plików SVG nie przyjmujemy. Karta w telefonie potrzebuje zwykłego obrazka, a plik SVG potrafi ukryć w sobie kod. Poproś grafika o wersję PNG z przezroczystym tłem.'
 const UPLOAD_FAILED_MESSAGE = 'Nie udało się wysłać logo. Spróbuj ponownie. Poprzednie logo pozostaje bez zmian.'
 const CONTRAST_WARNING =
-  'Na tym kolorze biały tekst będzie trudny do odczytania, a jasne logo może zniknąć. Możesz zapisać ten kolor. Karta Twoich klientów będzie wyglądać dokładnie tak jak na podglądzie.'
+  'Na tym kolorze wybrany kolor napisów będzie trudny do odczytania, a logo może zniknąć. Możesz zapisać ten kolor. Karta Twoich klientów będzie wyglądać dokładnie tak jak na podglądzie.'
 
 // Two different failure shapes share this one error-summary slot, and docs/design/panel-shell.md
 // §5.8's title was fixed text until this task's review -- a single title cannot honestly cover
@@ -78,6 +85,8 @@ interface ServerErrorState {
 interface FieldValues {
   name: string
   color: string
+  /** '#ffffff' or '#000000' — see contrast.ts. A form field like the colour, saved with it. */
+  ink: CardInk
   ratePer100: string
   description: string
 }
@@ -89,6 +98,7 @@ function baselineValues(program: Program): FieldValues {
   return {
     name: program.display_name ?? '',
     color: program.background_color ?? FALLBACK_BACKGROUND,
+    ink: program.text_color === CARD_INK_DARK ? CARD_INK_DARK : CARD_INK_LIGHT,
     ratePer100: String(pointsPerPlnToRatePer100(program.points_per_pln)),
     description: program.description ?? '',
   }
@@ -291,13 +301,22 @@ export default function CardWizard() {
     setConfirmedRetry(false)
     setValues((prev) => {
       const next = { ...prev, [key]: value }
+      // Changing the card colour can strand the ink: black text on a near-black card is the
+      // case the merchant cannot be left in, and it is exactly what picking a black background
+      // produces. Only steps in when the current ink actually fails AA, so a deliberate choice
+      // that still reads is never overruled — see inkAfterBackgroundChange.
+      if (key === 'color' && isValidHexColor(next.color)) {
+        next.ink = inkAfterBackgroundChange(prev.ink, next.color)
+      }
       if (userId) saveDraft(userId, DRAFT_KEY, next)
       return next
     })
   }
 
   const previewColor = isValidHexColor(values.color) ? values.color : FALLBACK_BACKGROUND
-  const contrastWarning = !meetsAA(contrastRatio('#ffffff', previewColor))
+  // Measured against the ink the merchant actually chose, not against white — otherwise a card
+  // that reads perfectly well in black text would still be flagged.
+  const contrastWarning = !meetsAA(contrastRatio(values.ink, previewColor))
   const ratePerPln = ratePer100ToPointsPerPln(Number(values.ratePer100) || 0)
 
   // task-13-design.md §10 point 2's isDirty, computed inline rather than exposed (see the
@@ -309,6 +328,7 @@ export default function CardWizard() {
   const isDirty =
     values.name !== serverBaseline.name ||
     values.color !== serverBaseline.color ||
+    values.ink !== serverBaseline.ink ||
     values.ratePer100 !== serverBaseline.ratePer100 ||
     values.description !== serverBaseline.description ||
     pendingCardImage !== null
@@ -420,6 +440,7 @@ export default function CardWizard() {
       await updateProgram(program.id, {
         display_name: values.name.trim(),
         background_color: values.color,
+        text_color: values.ink,
         description: values.description,
         points_per_pln: ratePer100ToPointsPerPln(Number(values.ratePer100)),
         ...cardImagePatch,
@@ -600,6 +621,7 @@ export default function CardWizard() {
               backgroundColor={previewColor}
               logoUrl={logoUrl}
               cardImageUrl={cardImageUrl}
+              textColor={values.ink}
             />
             {/* aria-live container always mounted (task-13-design.md §4.3 point 3); the styled
                warning paragraph itself only exists while contrast actually fails. */}
@@ -881,6 +903,42 @@ export default function CardWizard() {
                     {errors.color}
                   </p>
                 )}
+              </div>
+
+              {/* Two options, not a colour picker: the pass draws one colour for its labels and
+                 values, and a third shade is only ever a new way to make the card unreadable.
+                 A radiogroup rather than a checkbox — "white or black" is a choice between two
+                 named things, and a checkbox would have to call one of them "off". */}
+              <div className="fieldset">
+                <span id="prog-ink-label" className="fieldset__label">
+                  Kolor napisów
+                </span>
+                <div role="radiogroup" aria-labelledby="prog-ink-label" aria-describedby="prog-ink-hint" className="ink-switch">
+                  {([
+                    [CARD_INK_LIGHT, 'Białe'],
+                    [CARD_INK_DARK, 'Czarne'],
+                  ] as const).map(([ink, label]) => (
+                    <button
+                      key={ink}
+                      type="button"
+                      role="radio"
+                      aria-checked={values.ink === ink}
+                      className={values.ink === ink ? 'ink-switch__option ink-switch__option--on' : 'ink-switch__option'}
+                      onClick={() => updateValue('ink', ink)}
+                    >
+                      <span
+                        className="ink-switch__chip"
+                        aria-hidden="true"
+                        style={{ background: ink, borderColor: ink === CARD_INK_LIGHT ? 'transparent' : 'var(--border-strong)' }}
+                      />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p id="prog-ink-hint" className="fieldset__hint">
+                  Kolor etykiet i salda na karcie. Przy bardzo ciemnym lub bardzo jasnym tle
+                  przestawimy go za Ciebie, żeby dało się go przeczytać — potem możesz zmienić.
+                </p>
               </div>
             </div>
 
