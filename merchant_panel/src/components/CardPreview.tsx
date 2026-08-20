@@ -125,10 +125,12 @@ export function CardPreview({
         </div>
       </div>
 
-      {/* The barcode is a placeholder: PassKit sets it (QR), the merchant chooses nothing here.
-          Shown because a card without it looks unlike the thing in the customer's phone. */}
+      {/* A placeholder, and deliberately a real QR rather than a drawn approximation of one:
+          it is the same file the issued-card preview uses, so the block occupies the space a
+          scannable code actually occupies. PassKit sets the real one from the membership id —
+          the merchant chooses nothing here, which is why it is aria-hidden. */}
       <div className="card-preview__barcode" aria-hidden="true">
-        <div className="card-preview__barcode-plate" />
+        <img className="card-preview__barcode-img" src="/qr-preview.svg" alt="" />
       </div>
     </div>
   )

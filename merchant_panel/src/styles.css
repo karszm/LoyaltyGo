@@ -1036,15 +1036,15 @@ dialog.confirm::backdrop {
   border-radius: 8px;
   background: #fff;
 }
-.card-preview__barcode-plate {
+/* 118px is the size measured off the issued card. The white plate stays white whatever the
+   card colour is: a QR is only scannable against its own quiet zone, which is what Wallet
+   draws too. */
+.card-preview__barcode-img {
+  display: block;
   width: 118px;
   height: 118px;
   margin-inline: auto;
-  border-radius: 2px;
-  background:
-    repeating-linear-gradient(90deg, #3c3c43 0 4px, transparent 4px 8px),
-    repeating-linear-gradient(0deg, #3c3c43 0 4px, transparent 4px 8px);
-  opacity: 0.55;
+  image-rendering: pixelated; /* keeps the modules square instead of blurring them */
 }
 
 /* Contrast warning — .error-summary's grammar (§5.8) at a smaller scale (task-13-design.md §4.3):

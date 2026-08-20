@@ -373,18 +373,26 @@ export default function CardWizard() {
 
   async function runGenerate(seed?: number) {
     setCardImageError(null)
+    // The input element, not the state, is the source of truth at click time. Safari does not
+    // reliably fire an input event when a value is chosen from a <datalist> dropdown, so the
+    // field can read "kwiaciarnia" while React still holds ''. Trusting the state there meant
+    // the click hit the guard below, which focused the field and re-rendered it back to empty —
+    // the field visibly cleared itself and nothing generated, in Safari only.
+    const typed = (businessInputRef.current?.value ?? businessDescription).trim()
+    if (typed !== businessDescription) setBusinessDescription(typed)
+
     // Say what is missing rather than greying the button out. A disabled control that never
     // states its condition reads as a broken feature — which is exactly how this one was read.
     // The string is the one panel-api answers with for the same empty description, so the
     // client and the server never explain the same rule two different ways (cf. §6.2's logo).
-    if (!businessDescription.trim()) {
+    if (!typed) {
       setCardImageError('Opisz czym zajmuje się Twoja firma — jedno słowo wystarczy.')
       businessInputRef.current?.focus()
       return
     }
     setGenerating(true)
     try {
-      const result = await generateCardImage(businessDescription, seed)
+      const result = await generateCardImage(typed, seed)
       setVariants(result.images)
     } catch (err) {
       // rate_limited and image_generation_failed both carry their own message from panel-api;
