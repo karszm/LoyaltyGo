@@ -7,7 +7,7 @@ Deno.env.delete("PASSKIT_PASS_TYPE_IDENTIFIER");
 Deno.env.set("PASSKIT_TEMPLATE_ID", "blueprint-1");
 
 const passkit = await import("./passkit.ts");
-const { createProgram, enrolMember, updateBalance, updateTemplate } = passkit;
+const { createProgram, enrolMember, updateBalance, updateTemplate, updateTemplateBranding } = passkit;
 
 // ---- stub-mode behaviour (must stay exactly as-is: every existing smoke/test run depends
 // on these deterministic values and on never touching the network in this mode) ----
@@ -93,20 +93,47 @@ async function decodeAndVerifyPKAuth(authHeader: string, secret: string) {
 // One NDJSON line per template, which is what GET /templates actually answers with — not a
 // JSON array. `blueprint-1` is the id createTemplateFor looks for (PASSKIT_TEMPLATE_ID); the
 // other line is there to prove it picks by id rather than taking the first template it sees.
+// Field shape mirrors the live blueprint: a data field is keyed by `uniqueName`, its Apple
+// placement lives under appleWalletFieldRenderOptions.positionSettings.section, and the
+// blueprint parks the balance in HEADER_FIELDS — where no strip is ever drawn behind it.
+function blueprintTemplate(id: string): Record<string, unknown> {
+  return {
+    id,
+    name: "Blueprint",
+    createdAt: "2026-01-01T00:00:00Z",
+    ownerUsername: "someone",
+    revision: 7,
+    colors: { backgroundColor: "#000000", labelColor: "#111111", textColor: "#222222" },
+    imageIds: { logo: "old-logo", appleLogo: "old-apple-logo" },
+    barcode: { payload: "${pid}", format: "PDF417", altText: "${pid}" },
+    appleWalletSettings: { passType: "GENERIC", logoText: "", useAutomaticColors: false },
+    data: {
+      dataFields: [
+        {
+          uniqueName: "members.member.points",
+          label: "Points",
+          appleWalletFieldRenderOptions: {
+            textAlignment: "RIGHT",
+            positionSettings: { section: "HEADER_FIELDS", priority: 0 },
+            changeMessage: "You now have %@ points!",
+          },
+        },
+        {
+          uniqueName: "person.displayName",
+          label: "Name",
+          appleWalletFieldRenderOptions: {
+            textAlignment: "LEFT",
+            positionSettings: { section: "SECONDARY_FIELDS", priority: 0 },
+          },
+        },
+      ],
+    },
+  };
+}
+
 const BLUEPRINT_NDJSON = [
   JSON.stringify({ result: { template: { id: "other-template", name: "not ours" } } }),
-  JSON.stringify({
-    result: {
-      template: {
-        id: "blueprint-1",
-        name: "Blueprint",
-        createdAt: "2026-01-01T00:00:00Z",
-        ownerUsername: "someone",
-        revision: 7,
-        colors: { backgroundColor: "#000000", labelColor: "#111111", textColor: "#222222" },
-      },
-    },
-  }),
+  JSON.stringify({ result: { template: blueprintTemplate("blueprint-1") } }),
 ].join("\n");
 
 // createProgram makes FOUR calls, in this order: the program, then GET /templates +
@@ -173,6 +200,124 @@ Deno.test("live: createProgram creates the program, clones the blueprint templat
       timezone: "Europe/Warsaw",
     });
   });
+});
+
+// ---- the card image and the template corrections it depends on ----
+//
+// Driven through updateTemplateBranding rather than createProgram: it exercises the same
+// applyBranding with far fewer surrounding calls, so an assertion failure points at the
+// branding logic instead of at call-index arithmetic.
+
+// GET /templates, then (per image) a fetch of the file itself + one POST /images per slot,
+// then PUT /template. `existing-tpl` is the merchant's own template being re-branded.
+const EXISTING_NDJSON = JSON.stringify({ result: { template: blueprintTemplate("existing-tpl") } });
+
+function pngResponse(): Response {
+  return new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), { status: 200 });
+}
+
+Deno.test("live: applyBranding uploads the card image into BOTH strip and hero from a single fetch", async () => {
+  await withFetch(
+    [
+      new Response(EXISTING_NDJSON, { status: 200 }),
+      pngResponse(),
+      new Response(JSON.stringify({ strip: "strip-id" }), { status: 200 }),
+      new Response(JSON.stringify({ hero: "hero-id" }), { status: 200 }),
+      new Response("{}", { status: 200 }),
+    ],
+    async (calls) => {
+      await updateTemplateBranding("existing-tpl", {
+        displayName: "Kwiaciarnia Ala",
+        cardImageUrl: "https://storage.example/card-images/m1/card-1.png",
+      });
+
+      // The file is fetched ONCE and encoded once, then posted to each slot — a strip upload
+      // fills only `strip`, a hero upload only `hero`, so one call cannot serve both.
+      assertEquals(calls[1].url, "https://storage.example/card-images/m1/card-1.png");
+      assertEquals(calls.filter((c) => c.url.endsWith("/images")).length, 2);
+      assertEquals(Object.keys(JSON.parse(calls[2].body!).imageData), ["strip"]);
+      assertEquals(Object.keys(JSON.parse(calls[3].body!).imageData), ["hero"]);
+      assertEquals(JSON.parse(calls[2].body!).imageData.strip, JSON.parse(calls[3].body!).imageData.hero);
+
+      const put = JSON.parse(calls[4].body!);
+      assertEquals(calls[4].method, "PUT");
+      assertEquals(put.imageIds.strip, "strip-id");
+      assertEquals(put.imageIds.hero, "hero-id");
+      // The logo ids the blueprint already carried must survive an image-only update.
+      assertEquals(put.imageIds.logo, "old-logo");
+    },
+  );
+});
+
+Deno.test("live: applyBranding sets STORE_CARD, QR and moves the balance onto the strip — with or without an image", async () => {
+  await withFetch(
+    [new Response(EXISTING_NDJSON, { status: 200 }), new Response("{}", { status: 200 })],
+    async (calls) => {
+      await updateTemplateBranding("existing-tpl", { displayName: "Kwiaciarnia Ala" });
+      const put = JSON.parse(calls[1].body!);
+
+      // Unconditional: STORE_CARD is the correct type for a loyalty card, not a switch tied
+      // to having a graphic. A GENERIC pass renders no strip at all.
+      assertEquals(put.appleWalletSettings.passType, "STORE_CARD");
+      assertEquals(put.appleWalletSettings.logoText, "Kwiaciarnia Ala");
+      assertEquals(put.barcode.format, "QR");
+      // Other appleWalletSettings keys must survive the spread.
+      assertEquals(put.appleWalletSettings.useAutomaticColors, false);
+
+      // The primary field is the only one Apple draws on the strip; the blueprint parks the
+      // balance in HEADER_FIELDS. Left, because that is where Wallet puts it on a real card.
+      const points = put.data.dataFields.find((f: Record<string, any>) => f.uniqueName === "members.member.points");
+      assertEquals(points.appleWalletFieldRenderOptions.positionSettings.section, "PRIMARY_FIELDS");
+      assertEquals(points.appleWalletFieldRenderOptions.textAlignment, "LEFT");
+      assertEquals(points.appleWalletFieldRenderOptions.changeMessage, "You now have %@ points!");
+      // Siblings are left exactly where they were.
+      const name = put.data.dataFields.find((f: Record<string, any>) => f.uniqueName === "person.displayName");
+      assertEquals(name.appleWalletFieldRenderOptions.positionSettings.section, "SECONDARY_FIELDS");
+    },
+  );
+});
+
+Deno.test("live: a rejected card image degrades to a card without one — it must not fail publication", async () => {
+  await withFetch(
+    [
+      new Response(EXISTING_NDJSON, { status: 200 }),
+      pngResponse(),
+      // What an unknown/rejected slot actually answers: 200 with nothing minted.
+      new Response("{}", { status: 200 }),
+      new Response("{}", { status: 200 }),
+    ],
+    async (calls) => {
+      await updateTemplateBranding("existing-tpl", {
+        displayName: "Kwiaciarnia Ala",
+        cardImageUrl: "https://storage.example/card-images/m1/card-1.png",
+      });
+      const put = JSON.parse(calls[calls.length - 1].body!);
+      assertEquals(put.imageIds.strip, undefined);
+      assertEquals(put.imageIds.hero, undefined);
+      // The rest of the branding still reaches the card.
+      assertEquals(put.appleWalletSettings.passType, "STORE_CARD");
+      assertEquals(put.name, "Kwiaciarnia Ala");
+    },
+  );
+});
+
+Deno.test("live: an unreachable card image degrades the same way", async () => {
+  await withFetch(
+    [
+      new Response(EXISTING_NDJSON, { status: 200 }),
+      new Response("nope", { status: 404 }),
+      new Response("{}", { status: 200 }),
+    ],
+    async (calls) => {
+      await updateTemplateBranding("existing-tpl", {
+        displayName: "Kwiaciarnia Ala",
+        cardImageUrl: "https://storage.example/card-images/m1/gone.png",
+      });
+      const put = JSON.parse(calls[calls.length - 1].body!);
+      assertEquals(put.imageIds.strip, undefined);
+      assertEquals(put.appleWalletSettings.passType, "STORE_CARD");
+    },
+  );
 });
 
 Deno.test("live: createProgram sends passTypeIdentifier + status when PASSKIT_PASS_TYPE_IDENTIFIER is set", async () => {

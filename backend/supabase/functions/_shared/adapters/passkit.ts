@@ -109,63 +109,106 @@ function requireId(data: unknown, op: string): string {
   return id;
 }
 
+// The blueprint's balance field, keyed by `uniqueName` — the identifier PassKit uses for a
+// data field (`fieldName`/`path` do not exist). Confirmed against the live blueprint.
+const POINTS_FIELD = "members.member.points";
+
 export type Branding = {
   displayName: string;
   logoUrl?: string;
   backgroundColor?: string;
   description?: string;
+  /**
+   * The AI-generated (or merchant-chosen) banner. ONE file feeding two slots: Apple's
+   * `strip` and Google's `hero`. A storeCard has no background image at all — `background.png`
+   * exists only for eventTicket — so the strip under the header is the single bitmap a
+   * loyalty pass gets, and Apple draws the primary field on top of it.
+   */
+  cardImageUrl?: string;
 };
 
-// Uploads a merchant's logo to PassKit and returns the image ids it minted.
+// Fetches an image and returns it base64-encoded, ready for `POST /images`.
 //
-// VERIFIED LIVE 2026-08-16. Shape lessons, each of which cost a probe:
+// Split out from the upload itself so one file can feed two slots (strip + hero) without
+// being fetched and encoded twice.
+async function fetchImageBase64(url: string): Promise<string> {
+  // Local dev only: Edge Functions run inside a container, where 127.0.0.1 is the container
+  // itself, not the host — fetching a locally-stored image dies with "Connection refused".
+  // LOGO_PUBLIC_ORIGIN/LOGO_INTERNAL_ORIGIN rewrite it to something reachable from in there.
+  // In production these are real public URLs and neither var is set.
+  // NB: the names deliberately avoid a SUPABASE_ prefix — the CLI reserves that prefix and
+  // silently drops such vars from --env-file, which is exactly how this first failed. They
+  // are named for the logo because that came first; they rewrite any Storage origin, and the
+  // card-images bucket sits on the same one.
+  const publicOrigin = Deno.env.get("LOGO_PUBLIC_ORIGIN");
+  const internalOrigin = Deno.env.get("LOGO_INTERNAL_ORIGIN");
+  const fetchUrl = publicOrigin && internalOrigin && url.startsWith(publicOrigin)
+    ? internalOrigin + url.slice(publicOrigin.length)
+    : url;
+  const res = await fetch(fetchUrl);
+  if (!res.ok) throw new Error(`image fetch failed: ${res.status} ${url}`);
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(binary);
+}
+
+// Mints PassKit image ids for one slot and returns whatever ids came back.
+//
+// VERIFIED LIVE 2026-08-16 (logo) and 2026-08-19 (strip/hero). Shape lessons, each of which
+// cost a probe:
 //   - `imageData` is an OBJECT, not a base64 string. A bare string fails with
 //     `proto: syntax error (line 1:14)` — that message means "wrong JSON shape", not
 //     "bad image".
 //   - The key inside it is the SLOT name: `{ imageData: { logo: "<base64>" } }`.
 //   - PassKit derives several slots from one upload: a `logo` upload comes back with both
-//     `logo` and `appleLogo` ids filled in.
-//   - **Minimum size for `logo` is 660×660.** Smaller images are rejected outright
-//     (`image width of [300px], is smaller than the minimum width of 660px`). Our Storage
-//     bucket enforces type and byte size but NOT dimensions, so a merchant can upload a
-//     perfectly valid 300×300 PNG that PassKit will refuse.
+//     `logo` and `appleLogo` ids filled in. A `strip` upload fills only `strip`, and a `hero`
+//     upload only `hero` — hence one call per slot for the card image.
+//   - **An unknown slot name answers 200 with an EMPTY body and mints nothing.** `heroImage`
+//     (a plausible guess) does exactly that. So the caller must assert an id came back;
+//     trusting the status code here buys a card with no image and no error anywhere.
+//   - Minimum sizes are enforced and differ per slot: `logo` needs 660px of WIDTH (not a
+//     square — a 1980×660 wordmark passes and renders three times larger on the card),
+//     `strip` needs at least 1125×432 (1120×432 is rejected outright).
+async function mintImage(base64: string, slot: string): Promise<Record<string, string>> {
+  const ids = await passkitRequest("POST", "/images", {
+    imageData: { [slot]: base64 },
+  }) as Record<string, string> | null;
+  if (!ids || !ids[slot]) {
+    throw new Error(`passkit: upload to slot "${slot}" returned no id (unknown slot name?)`);
+  }
+  return ids;
+}
+
+// Uploads a merchant's logo and returns the image ids it minted, or null on any failure.
 //
-// Returns null on any failure. That is deliberate: a logo that PassKit rejects must not
-// fail the whole publication — the merchant still gets a working card in their colour.
-// The failure is logged loudly because it is otherwise invisible to them.
+// Null rather than a throw is deliberate: a logo that PassKit rejects must not fail the
+// whole publication — the merchant still gets a working card in their colour. The failure
+// is logged loudly because it is otherwise invisible to them.
 async function uploadLogo(logoUrl: string): Promise<{ logo: string; appleLogo: string } | null> {
   try {
-    // Local dev only: Edge Functions run inside a container, where 127.0.0.1 is the container
-    // itself, not the host — fetching a locally-stored logo dies with "Connection refused".
-    // LOGO_PUBLIC_ORIGIN/LOGO_INTERNAL_ORIGIN rewrite it to something reachable from in there.
-    // In production the logo is a real public URL and neither var is set.
-    // NB: the names deliberately avoid a SUPABASE_ prefix — the CLI reserves that prefix and
-    // silently drops such vars from --env-file, which is exactly how this first failed.
-    const publicOrigin = Deno.env.get("LOGO_PUBLIC_ORIGIN");
-    const internalOrigin = Deno.env.get("LOGO_INTERNAL_ORIGIN");
-    const fetchUrl = publicOrigin && internalOrigin && logoUrl.startsWith(publicOrigin)
-      ? internalOrigin + logoUrl.slice(publicOrigin.length)
-      : logoUrl;
-    const res = await fetch(fetchUrl);
-    if (!res.ok) {
-      console.error("[passkit] logo fetch failed", res.status, logoUrl);
-      return null;
-    }
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    let binary = "";
-    for (let i = 0; i < bytes.length; i += 0x8000) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-    }
-    const ids = await passkitRequest("POST", "/images", {
-      imageData: { logo: btoa(binary) },
-    }) as Record<string, string>;
-    if (!ids.logo) {
-      console.error("[passkit] logo upload returned no id");
-      return null;
-    }
+    const ids = await mintImage(await fetchImageBase64(logoUrl), "logo");
     return { logo: ids.logo, appleLogo: ids.appleLogo || ids.logo };
   } catch (err) {
     console.error("[passkit] logo upload failed", err);
+    return null;
+  }
+}
+
+// Uploads the card banner into BOTH slots it has to fill: Apple's `strip` and Google's
+// `hero`. Same bytes, two uploads, because one upload only ever fills its own slot.
+//
+// Same degradation as the logo: null on failure, so the card still publishes in its colour.
+async function uploadCardImage(imageUrl: string): Promise<{ strip: string; hero: string } | null> {
+  try {
+    const base64 = await fetchImageBase64(imageUrl);
+    const strip = await mintImage(base64, "strip");
+    const hero = await mintImage(base64, "hero");
+    return { strip: strip.strip, hero: hero.hero };
+  } catch (err) {
+    console.error("[passkit] card image upload failed", err);
     return null;
   }
 }
@@ -237,6 +280,53 @@ async function applyBranding(tpl: Record<string, any>, branding: Branding): Prom
     }
   }
 
+  if (branding.cardImageUrl) {
+    const ids = await uploadCardImage(branding.cardImageUrl);
+    if (ids) {
+      tpl.imageIds = { ...(tpl.imageIds ?? {}), strip: ids.strip, hero: ids.hero };
+    }
+  }
+
+  // The blueprint is a GENERIC pass, and **a generic Apple pass does not render a strip at
+  // all** — uploading the image would change nothing on the phone, with no error to show for
+  // it. STORE_CARD is set UNCONDITIONALLY, card image or not: it is the correct pass type for
+  // a loyalty card, not a feature switch.
+  //
+  // VERIFIED LIVE by readback. NEVER `LOYALTY` or `STORECARD`: PassKit answers 200 to both
+  // and quietly stores `APPLE_NOT_SUPPORTED`, which is a dead pass with a healthy status code.
+  tpl.appleWalletSettings = {
+    ...(tpl.appleWalletSettings ?? {}),
+    passType: "STORE_CARD",
+    logoText: branding.displayName,
+  };
+
+  // The blueprint carries PDF417. A loyalty card is scanned at a till, and the merchant's own
+  // scanner reads QR — verified accepted by readback.
+  tpl.barcode = { ...(tpl.barcode ?? {}), format: "QR" };
+
+  // The primary field is the ONLY one Apple draws on top of the strip, and the blueprint keeps
+  // the balance in HEADER_FIELDS — where the graphic would sit behind nothing at all. Wallet
+  // left-aligns it (confirmed on a real card on an iPhone, docs/passkit-live-findings.md §8),
+  // which is why the scrim burnt into the image goes on the left.
+  //
+  // Wallet draws the value above the label and picks the font size itself; there is no field
+  // to control that. The balance is therefore large, by Apple's choice, not ours.
+  const points = (tpl.data?.dataFields as Record<string, any>[] | undefined)
+    ?.find((f) => f.uniqueName === POINTS_FIELD);
+  if (points) {
+    points.appleWalletFieldRenderOptions = {
+      ...(points.appleWalletFieldRenderOptions ?? {}),
+      textAlignment: "LEFT",
+      positionSettings: {
+        ...(points.appleWalletFieldRenderOptions?.positionSettings ?? {}),
+        section: "PRIMARY_FIELDS",
+      },
+    };
+  } else {
+    // Not fatal — the card still publishes — but it means the blueprint changed shape under
+    // us and the balance is sitting wherever the blueprint left it.
+    console.error(`[passkit] blueprint has no ${POINTS_FIELD} field; balance not moved to the strip`);
+  }
 }
 
 // Re-applies branding to an EXISTING template. PUT /template verified live 2026-08-16:
