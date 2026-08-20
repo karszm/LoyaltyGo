@@ -274,11 +274,21 @@ async function applyBranding(tpl: Record<string, any>, branding: Branding): Prom
   // and `dataCollectionPageSettings`.
   // VERIFIED LIVE 2026-08-20: a light card with #000000 labels and values round-trips
   // unchanged. "Always white" was our own choice, never a platform limit.
+  //
+  // `colors` carries SIX keys, not three — the blueprint also has `foregroundColor`,
+  // `stripColor` and `footerBackgroundColor`, all empty. `foregroundColor` is Apple's own
+  // name for the colour of field VALUES, and leaving it empty is why the balance stayed
+  // white on a real card while the labels followed labelColor: we were setting `textColor`,
+  // which looks like the same thing and is not the key Apple reads.
+  //
+  // `stripColor` and `footerBackgroundColor` stay untouched — we have no evidence of what
+  // they do here, and a guessed colour on a customer's card is worse than an empty field.
   const ink = branding.textColor === "#000000" ? "#000000" : "#ffffff";
   tpl.colors = {
     ...(tpl.colors ?? {}),
     ...(branding.backgroundColor ? { backgroundColor: branding.backgroundColor } : {}),
     labelColor: ink,
+    foregroundColor: ink,
     textColor: ink,
   };
 

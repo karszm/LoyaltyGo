@@ -358,3 +358,40 @@ Pozostałe pola zostały tam, gdzie były: przestawienie jednego pola nie przeta
 
 Szablon sondy: `0BDnighIkpWfAee4YapBe7` (`PROBE primary-fields`). Zostaje na koncie na zawsze,
 jak każdy inny — `DELETE /template` nadal nie istnieje.
+
+## 11. `colors` MA SZEŚĆ PÓL, NIE TRZY — I NIE TO USTAWIALIŚMY (2026-08-20)
+
+Objaw zgłoszony z prawdziwej karty w Wallet: **saldo zostaje białe, choć pozostałe pola
+reagują na zmianę koloru.**
+
+Odczyt wzorca pokazuje, że `colors` niesie sześć kluczy, a my ustawialiśmy trzy:
+
+```json
+{
+  "backgroundColor": "#F8D419",
+  "labelColor": "#000000",
+  "textColor": "#000000",
+  "stripColor": "",
+  "foregroundColor": "",          ← nigdy nie ustawiane
+  "footerBackgroundColor": ""
+}
+```
+
+`foregroundColor` to **własna nazwa Apple'a na kolor wartości pól** — czyli salda. `labelColor`
+odpowiada za etykiety i ten ustawialiśmy, dlatego etykiety reagowały. `textColor` wygląda na
+to samo co `foregroundColor` i nim nie jest; przyjmuje się, utrzymuje w readbacku i nie robi
+tego, po co go ustawialiśmy.
+
+To ta sama pułapka co `imageData` z nieistniejącą nazwą slotu (§8): **pole o wiarygodnej
+nazwie, które przechodzi bez błędu i nie robi nic.** Readback niczego tu nie wykrywa — wraca
+dokładnie to, co wysłaliśmy. Wykryła to dopiero karta w telefonie.
+
+Sonda `2xDeALsXMomUBUmOVZxQZl` (`PROBE foregroundColor`): `foregroundColor` i `stripColor`
+przyjęte i utrzymane obok pozostałych ustawień.
+
+`stripColor` i `footerBackgroundColor` zostawiamy puste — nie wiemy, co robią, a zgadnięty
+kolor na karcie klienta jest gorszy niż pole puste.
+
+**Niezweryfikowane:** że ustawienie `foregroundColor` faktycznie zmienia kolor salda na
+urządzeniu. Wiemy, że PassKit je przyjmuje i że dotąd było puste, co jest spójne z objawem.
+Rozstrzyga oględziny karty na iPhonie po wdrożeniu.

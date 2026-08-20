@@ -291,6 +291,8 @@ Deno.test("live: the ink is the merchant's choice, applied to labels and values 
       const put = JSON.parse(calls[1].body!);
       assertEquals(put.colors.backgroundColor, "#f5f0e8");
       assertEquals(put.colors.labelColor, "#000000");
+      // The one Apple actually reads for field values — the balance stayed white without it.
+      assertEquals(put.colors.foregroundColor, "#000000");
       assertEquals(put.colors.textColor, "#000000");
     },
   );
@@ -306,6 +308,7 @@ Deno.test("live: anything other than the two inks falls back to white rather tha
         await updateTemplateBranding("existing-tpl", { displayName: "x", textColor });
         const put = JSON.parse(calls[1].body!);
         assertEquals(put.colors.labelColor, "#ffffff", `textColor ${JSON.stringify(textColor)}`);
+        assertEquals(put.colors.foregroundColor, "#ffffff", `textColor ${JSON.stringify(textColor)}`);
         assertEquals(put.colors.textColor, "#ffffff", `textColor ${JSON.stringify(textColor)}`);
       },
     );
