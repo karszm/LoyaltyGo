@@ -27,10 +27,16 @@ export const IMAGE_COUNT = 4;
  * a `data:` URL does not expire, so the merchant can leave the screen open for an hour and
  * still pick one; it needs no CORS headers, so the panel can draw it on a canvas and read the
  * pixels back (a tainted canvas would break both the crop and the colour); and it leaves no
- * three unchosen variants sitting in anyone's storage. The cost is a response around a
- * megabyte, which is the right trade for a screen used once per program.
+ * three unchosen variants sitting in anyone's storage.
  *
  * `sync_mode` is what makes fal inline the bytes instead of answering with links.
+ *
+ * VERIFIED LIVE 2026-08-20, one image, 3.3s: `sync_mode: true` does return a `data:` URL,
+ * 1136×432 is accepted and comes back at exactly that size — and the bytes are **JPEG**, not
+ * PNG (`data:image/jpeg;base64,…`). Nothing downstream cares: the browser decodes either and
+ * re-encodes to PNG on the canvas. Size is ~575 KB per image, so a four-image response is
+ * about 2.3 MB — the right trade for a screen used once per program, but not the "about a
+ * megabyte" this comment claimed before anyone had run it.
  *
  * Throws on any failure. The caller turns that into a 502 the merchant can retry — unlike the
  * card image on an already-published pass, there is nothing here to degrade to.

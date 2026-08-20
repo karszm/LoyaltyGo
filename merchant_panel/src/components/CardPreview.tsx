@@ -72,13 +72,19 @@ export function CardPreview({ displayName, backgroundColor, logoUrl, cardImageUr
           carries the same gradient. */}
       <div className="card-preview__header">
         <div className="card-preview__logo">
-          {/* Monogram always renders underneath, exactly like ProgramCard.astro (that file's own
-             comment explains why: no onerror handling is possible under a CSP script-src, so the
-             monogram has to be a permanent layer, not a JS-swapped fallback). */}
-          <span className="card-preview__monogram" aria-hidden="true">
-            {monogram}
-          </span>
-          {logoUrl && <img className="card-preview__logo-img" src={logoUrl} alt="" />}
+          {/* Either/or, not layered. It used to render the monogram underneath the logo, hidden
+              by an opaque plate, so that a logo which failed to LOAD still showed something
+              (no onerror handling is possible under a CSP script-src). That plate only stayed
+              invisible while the card was one flat colour; the header's darkening gradient
+              turned it into a visible lighter box behind every transparent logo. A real pass
+              draws no monogram anyway — it shows the logo or nothing. */}
+          {logoUrl ? (
+            <img className="card-preview__logo-img" src={logoUrl} alt="" />
+          ) : (
+            <span className="card-preview__monogram" aria-hidden="true">
+              {monogram}
+            </span>
+          )}
         </div>
         {/* logoText on the real pass. */}
         {displayName.trim() !== '' && <p className="card-preview__name">{displayName}</p>}

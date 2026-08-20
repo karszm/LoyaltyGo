@@ -900,26 +900,33 @@ dialog.confirm::backdrop {
 }
 /* Apple's logo slot is 160×50pt. A 660×660 square comes back 50×50pt; the same wordmark at
    1980×660 comes back 150×50pt — which is why logoCanvas fills the height, not a square. */
+/* The box is as wide as the logo, not a fixed square: a wordmark is now the shape we ask for,
+   and pinning a width here is what let the image spill over the name. Height is fixed instead,
+   which is the dimension Apple's slot actually constrains. */
 .card-preview__logo {
-  position: relative;
+  display: flex;
   flex: 0 0 auto;
-  width: 36px;
+  align-items: center;
   height: 36px;
+  min-width: 36px;
+  max-width: 170px;
 }
 .card-preview__logo-img {
-  position: absolute;
-  inset: 0;
+  display: block;
   width: auto;
   max-width: 170px;
   height: 100%;
   object-fit: contain;
-  background: var(--card-bg); /* opaque: covers the monogram, matches the real Wallet pass */
 }
+/* Shown only when there is no logo. It used to render underneath one, hidden by an opaque
+   plate — that plate was invisible while the card was a flat colour, and became a lighter
+   rectangle the moment the header gained its darkening gradient. A real pass draws no
+   monogram at all, so "instead of" is also the more faithful arrangement. */
 .card-preview__monogram {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
+  width: 36px;
   height: 100%;
   font-size: 20px;
   font-weight: 590;
