@@ -864,29 +864,53 @@ dialog.confirm::backdrop {
    This is the one shadowed object in the whole panel (§5.2) and it must sit directly on --bg,
    never inside a .panel: the edge ring's alpha is solved against #08090a specifically (brand.ts's
    CARD_EDGE_COLOR), and a --bg-raised surface underneath breaks that (task-13-design.md §3.2). */
+/* Proportions are the issued card's, measured off a real .pkpass on an iPhone
+   (docs/design/wallet-preview/issued-card.html): at 375px wide the strip is 375×144, which is
+   the 1125×432 file at exactly 1/3. No aspect-ratio on the card itself any more — a storeCard
+   is as tall as its contents, and pinning 8/5 would misreport how much room the strip takes.
+   The type is Apple's system stack, not the panel's, for the same reason the geometry is
+   copied rather than restyled: this is a picture of someone else's rendering. */
 .card-preview {
-  width: min(100%, 380px);
-  aspect-ratio: 8 / 5;
+  width: min(100%, 375px);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding: var(--space-8);
-  border-radius: var(--radius-2xl);
+  overflow: hidden;
+  border-radius: 14px;
   background: var(--card-bg);
+  color: var(--card-ink);
+  font:
+    15px/1.3 -apple-system,
+    BlinkMacSystemFont,
+    'SF Pro Text',
+    'Helvetica Neue',
+    sans-serif;
   box-shadow:
     0 0 0 1px var(--card-edge),
     0 2px 5px rgba(10, 8, 24, 0.5),
     0 18px 36px -14px rgba(18, 14, 40, 0.6);
 }
+/* Wallet darkens the band above the strip. PassKit keeps that under
+   appleWalletSettings.suppressHeaderDarkening and we do not switch it on. */
+.card-preview__header {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 14px 10px;
+  background: linear-gradient(rgba(0, 0, 0, 0.24), rgba(0, 0, 0, 0.06));
+}
+/* Apple's logo slot is 160×50pt. A 660×660 square comes back 50×50pt; the same wordmark at
+   1980×660 comes back 150×50pt — which is why logoCanvas fills the height, not a square. */
 .card-preview__logo {
   position: relative;
-  width: 48px;
-  height: 48px;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
 }
 .card-preview__logo-img {
   position: absolute;
   inset: 0;
-  width: 100%;
+  width: auto;
+  max-width: 170px;
   height: 100%;
   object-fit: contain;
   background: var(--card-bg); /* opaque: covers the monogram, matches the real Wallet pass */
@@ -897,43 +921,120 @@ dialog.confirm::backdrop {
   justify-content: center;
   width: 100%;
   height: 100%;
-  font-size: 26px;
+  font-size: 20px;
   font-weight: 590;
   color: var(--card-ink);
-}
-.card-preview__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
 }
 .card-preview__name {
-  font-size: 17px;
-  font-weight: 590;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
   letter-spacing: -0.01em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   color: var(--card-ink);
 }
+/* 144px = 432 / 3. The image is the only bitmap a storeCard gets: there is no background
+   image for this pass style, background.png exists for eventTicket only. */
+.card-preview__strip {
+  position: relative;
+  height: 144px;
+}
+.card-preview__strip-img {
+  display: block;
+  width: 100%;
+  height: 144px;
+  object-fit: cover;
+}
+/* Without a graphic the primary field sits straight on the card colour — shorter, because
+   there is no strip to fill. */
+.card-preview__strip--bare {
+  height: auto;
+  padding-block-start: 6px;
+}
+/* Left, value above label: what Wallet does, confirmed on the issued card. The scrim burnt
+   into the file is what keeps this readable over an arbitrary photograph. */
 .card-preview__balance {
+  position: absolute;
+  inset-block-end: 12px;
+  inset-inline: 16px;
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  flex-direction: column-reverse;
+  gap: 0;
+}
+.card-preview__strip--bare .card-preview__balance {
+  position: static;
+  padding: 0 16px 4px;
 }
 .card-preview__balance-label {
-  font-size: 12px;
-  font-weight: 590;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--card-ink-2);
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: rgba(255, 255, 255, 0.95);
 }
+/* 58px is Wallet's own sizing of the primary field. It cannot be set, so it is not softened
+   here either — see CardPreview.tsx's header comment. */
 .card-preview__balance-value {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 28px;
-  font-weight: 590;
+  font-size: 58px;
+  font-weight: 300;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
   color: var(--card-ink);
 }
 .card-preview__balance-unit {
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 22px;
+  font-weight: 300;
+  opacity: 0.9;
+}
+.card-preview__rows {
+  display: flex;
+  gap: 18px;
+  padding: 14px 16px 4px;
+}
+.card-preview__field {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.card-preview__field:last-child {
+  align-items: flex-end;
+  text-align: right;
+}
+.card-preview__field-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--card-ink-2);
+  opacity: 0.75;
+}
+.card-preview__field-value {
+  font-size: 19px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--card-ink);
+}
+/* Placeholder only: PassKit sets the barcode (QR) and the merchant picks nothing here. Shown
+   because a card without it reads as a different object than the one in the customer's phone. */
+.card-preview__barcode {
+  margin: 14px 14px 16px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #fff;
+}
+.card-preview__barcode-plate {
+  width: 118px;
+  height: 118px;
+  margin-inline: auto;
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(90deg, #3c3c43 0 4px, transparent 4px 8px),
+    repeating-linear-gradient(0deg, #3c3c43 0 4px, transparent 4px 8px);
+  opacity: 0.55;
 }
 
 /* Contrast warning — .error-summary's grammar (§5.8) at a smaller scale (task-13-design.md §4.3):
@@ -1042,5 +1143,69 @@ dialog.confirm::backdrop {
     border: 0;
     border-radius: 0;
     break-inside: avoid;
+  }
+}
+
+/* Card graphic generator (CardWizard.tsx). The description field and its button sit on one
+   row; the four variants below keep the strip's own 21:8 so the merchant judges them at the
+   shape they will actually appear in. */
+.card-gen__ask {
+  display: flex;
+  gap: var(--space-5);
+  align-items: center;
+}
+.card-gen__ask .field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.card-gen__ask .btn {
+  flex: 0 0 auto;
+}
+/* Two columns, not four: at 21:8 a quarter-width thumbnail is too small to judge, and this
+   panel is ~380px wide in the two-column layout. */
+.card-gen__grid:not(:empty) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  margin-block-start: var(--space-6);
+}
+.card-gen__variant,
+.card-gen__skeleton {
+  aspect-ratio: 21 / 8;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.card-gen__variant {
+  padding: 0;
+  border: 1px solid transparent;
+  background: var(--bg);
+  cursor: pointer;
+}
+.card-gen__variant:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+.card-gen__variant:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.card-gen__variant img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Same footprint as a variant, so nothing on the screen moves when the images land. */
+.card-gen__skeleton {
+  background: var(--bg-raised);
+  animation: card-gen-pulse 1.4s ease-in-out infinite;
+}
+@keyframes card-gen-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-gen__skeleton {
+    animation: none;
   }
 }

@@ -80,3 +80,22 @@ export function adjustPoints(memberId: string, delta: number, description: strin
 export function syncBranding(): Promise<{ synced: boolean }> {
   return invoke<{ synced: boolean }>('/program/branding')
 }
+
+export interface CardImageVariants {
+  category: string
+  prompt: string
+  /** Four `data:` URLs. Nothing is stored until the merchant picks one. */
+  images: string[]
+}
+
+// Generation only. Accepting a variant needs no call here: the panel uploads the file it has
+// already cropped and scrimmed to Storage, writes `card_image_url`, and calls syncBranding —
+// the same path the logo takes.
+//
+// A seed makes "generate again" return a different four for the same description; leaving it
+// out lets the model pick, which is what the first click wants.
+export function generateCardImage(description: string, seed?: number): Promise<CardImageVariants> {
+  return invoke<CardImageVariants>('/program/card-image', {
+    body: seed === undefined ? { description } : { description, seed },
+  })
+}

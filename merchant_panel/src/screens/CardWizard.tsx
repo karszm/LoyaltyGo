@@ -14,9 +14,10 @@ import { Link } from 'react-router-dom'
 import { useProgram } from '../lib/program'
 import { useSession } from '../lib/session'
 import { CardPreview, deriveMonogram, FALLBACK_BACKGROUND } from '../components/CardPreview'
-import { getProgram, updateProgram, uploadLogo, LogoUploadError, type Program } from '../lib/db'
+import { getProgram, updateProgram, uploadCardImage, uploadLogo, LogoUploadError, type Program } from '../lib/db'
 import { prepareLogo } from '../lib/logoCanvas'
-import { publishProgram, syncBranding } from '../lib/api'
+import { prepareCardImage } from '../lib/cardCanvas'
+import { generateCardImage, publishProgram, syncBranding } from '../lib/api'
 import { normalizeCode, type ErrorField } from '../lib/errors'
 import { clearDraft, loadDraft, saveDraft } from '../lib/formDraft'
 import { pointsForAmount, pointsPerPlnToRatePer100, ratePer100ToPointsPerPln, formatMoney } from '../lib/format'
@@ -34,6 +35,21 @@ const RATE_MAX = 10000
 // bucket itself (allowed_mime_types, file_size_limit) is the real gate, see uploadLogo (db.ts).
 const ACCEPTED_LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp']
 const LOGO_MAX_BYTES = 1_048_576
+
+const BUSINESS_DESCRIPTION_MAX = 200
+// The datalist the merchant can pick from. Mirrors CATEGORY_NAMES in the backend's
+// cardPrompt.ts — typing anything else is fine, it just falls to the generic prompt.
+const BUSINESS_CATEGORIES = [
+  'kwiaciarnia', 'fryzjer', 'barber', 'kawiarnia', 'restauracja', 'warsztat',
+  'silownia', 'kosmetyczka', 'piekarnia', 'zoologiczny', 'apteka',
+]
+
+// Same two-shape split as the logo (§6.2): the bucket refusing the file itself, versus the
+// request not completing.
+const CARD_IMAGE_REJECTED =
+  'Tej grafiki nie udało się zapisać. Wybierz inną albo spróbuj wygenerować nowe. Poprzednia grafika pozostaje bez zmian.'
+const CARD_IMAGE_FAILED =
+  'Nie udało się zapisać grafiki. Spróbuj ponownie. Poprzednia grafika pozostaje bez zmian.'
 
 // Client-side rejection and bucket rejection deliberately share this exact string (§6.2): the
 // merchant never gets two different explanations of the same rule.
@@ -150,6 +166,16 @@ export default function CardWizard() {
   const [logoUrl, setLogoUrl] = useState(program.logo_url)
   const [uploading, setUploading] = useState(false)
   const [logoError, setLogoError] = useState<string | null>(null)
+
+  // --- Card graphic. Saved immediately, like the logo and for the same reason: it is a file
+  // upload, not a form field, and there is nothing sensible for "Zapisz zmiany" to do with a
+  // picture that is already in Storage. ---
+  const [cardImageUrl, setCardImageUrl] = useState(program.card_image_url)
+  const [businessDescription, setBusinessDescription] = useState('')
+  const [variants, setVariants] = useState<string[]>([])
+  const [generating, setGenerating] = useState(false)
+  const [applyingVariant, setApplyingVariant] = useState<number | null>(null)
+  const [cardImageError, setCardImageError] = useState<string | null>(null)
 
   const [errors, setErrors] = useState<FieldErrors>({})
   const [saving, setSaving] = useState(false)
@@ -293,6 +319,85 @@ export default function CardWizard() {
       setLogoError(err instanceof LogoUploadError && err.rejected ? REJECTED_MESSAGE : UPLOAD_FAILED_MESSAGE)
     } finally {
       setUploading(false)
+    }
+  }
+
+  async function runGenerate(seed?: number) {
+    setCardImageError(null)
+    setGenerating(true)
+    try {
+      const result = await generateCardImage(businessDescription, seed)
+      setVariants(result.images)
+    } catch (err) {
+      // rate_limited and image_generation_failed both carry their own message from panel-api;
+      // normalizeCode falls back for anything else.
+      setCardImageError(normalizeCode(err).message)
+      setVariants([])
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  /**
+   * Accepting a variant. The order matters and is the logo's: prepare the file, upload it, write
+   * the row, and only then move what the merchant sees. A failure at any step leaves the
+   * previous graphic on the card rather than showing one that was never stored.
+   *
+   * The colour follows the image because the card is one object — but only as a suggestion:
+   * the picker is not disabled and dominantColor returns null rather than a bad guess.
+   */
+  async function applyVariant(index: number) {
+    setCardImageError(null)
+    setApplyingVariant(index)
+    try {
+      const { file, color } = await prepareCardImage(variants[index])
+      const url = await uploadCardImage(merchant.id, file)
+      await updateProgram(program.id, { card_image_url: url })
+      setCardImageUrl(url)
+      if (color) updateValue('color', color)
+      await pushBranding()
+      reload()
+    } catch (err) {
+      setCardImageError(
+        err instanceof LogoUploadError && err.rejected ? CARD_IMAGE_REJECTED : CARD_IMAGE_FAILED,
+      )
+    } finally {
+      setApplyingVariant(null)
+    }
+  }
+
+  async function clearCardImage() {
+    setCardImageError(null)
+    setApplyingVariant(-1)
+    try {
+      await updateProgram(program.id, { card_image_url: null })
+      setCardImageUrl(null)
+      setVariants([])
+      await pushBranding()
+      reload()
+    } catch {
+      setCardImageError(CARD_IMAGE_FAILED)
+    } finally {
+      setApplyingVariant(null)
+    }
+  }
+
+  /**
+   * Pushes the row's branding onto the PassKit template, exactly as runSave does — including
+   * the `{synced: false}` case, which is a 200 and not a thrown error, and is the silent-failure
+   * shape this project has been bitten by before.
+   *
+   * Only for a published program: a draft has no template yet, so there is nothing to push and
+   * the graphic rides in at publication instead. Either way the row IS saved by the time this
+   * runs, so a failure here says the card lags, never that the image did not save.
+   */
+  async function pushBranding() {
+    if (program.status !== 'published') return
+    try {
+      const message = brandingSyncMessage(await syncBranding())
+      if (message) setCardImageError(`${BRANDING_LAG_TITLE} ${message}`)
+    } catch (err) {
+      setCardImageError(`${BRANDING_LAG_TITLE} ${normalizeCode(err).message}`)
     }
   }
 
@@ -472,7 +577,12 @@ export default function CardWizard() {
             <h2 id="preview-title" style={{ fontSize: 13, lineHeight: '19.5px', color: 'var(--text-3)', marginBlockEnd: 'var(--space-6)' }}>
               Podgląd karty
             </h2>
-            <CardPreview displayName={values.name} backgroundColor={previewColor} logoUrl={logoUrl} />
+            <CardPreview
+              displayName={values.name}
+              backgroundColor={previewColor}
+              logoUrl={logoUrl}
+              cardImageUrl={cardImageUrl}
+            />
             {/* aria-live container always mounted (task-13-design.md §4.3 point 3); the styled
                warning paragraph itself only exists while contrast actually fails. */}
             <div aria-live="polite">
@@ -560,7 +670,10 @@ export default function CardWizard() {
                   </label>
                 </div>
                 <p id="prog-logo-hint" className="fieldset__hint">
-                  PNG, JPG lub WEBP, do 1 MB. Najlepiej kwadratowe, z przezroczystym tłem, w kolorze kontrastującym z kolorem karty. Karta w portfelu wymaga kwadratu 660×660, więc mniejsze i podłużne logo dopasujemy za Ciebie — wyśrodkujemy je na przezroczystym kwadracie, nic nie przytniemy.
+                  PNG, JPG lub WEBP, do 1 MB. Najlepiej z przezroczystym tłem, w kolorze
+                  kontrastującym z kolorem karty. Miejsce na logo w portfelu jest podłużne, więc
+                  poziomy znak z nazwą wypada tam najlepiej — dopasujemy go za Ciebie, nic nie
+                  przytniemy. Kwadratowe logo też przejdzie, tylko zajmie mniej miejsca.
                 </p>
                 <p className="fieldset__hint">Logo zapisuje się od razu po wysłaniu.</p>
                 {!logoUrl && <p className="fieldset__hint">Bez logo na karcie pojawia się pierwsza litera nazwy.</p>}
@@ -592,6 +705,101 @@ export default function CardWizard() {
                 {errors.name && (
                   <p id="prog-name-error" className="fieldset__error" role="alert">
                     {errors.name}
+                  </p>
+                )}
+              </div>
+
+              {/* Above the colour on purpose: once there is a graphic, the colour is derived
+                 from it rather than chosen first. */}
+              <div className="fieldset">
+                <label className="fieldset__label" htmlFor="prog-business">
+                  Grafika karty
+                </label>
+                <div className="card-gen__ask">
+                  <input
+                    id="prog-business"
+                    className="field"
+                    type="text"
+                    list="prog-business-categories"
+                    maxLength={BUSINESS_DESCRIPTION_MAX}
+                    placeholder="Czym zajmuje się Twoja firma?"
+                    value={businessDescription}
+                    onChange={(e) => setBusinessDescription(e.target.value)}
+                    aria-describedby="prog-business-hint"
+                  />
+                  <datalist id="prog-business-categories">
+                    {BUSINESS_CATEGORIES.map((c) => (
+                      <option key={c} value={c} />
+                    ))}
+                  </datalist>
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    disabled={generating || !businessDescription.trim()}
+                    aria-busy={generating || undefined}
+                    onClick={() => runGenerate()}
+                  >
+                    {generating ? 'Generuję…' : 'Wygeneruj grafikę'}
+                  </button>
+                </div>
+                <p id="prog-business-hint" className="fieldset__hint">
+                  Jedno zdanie wystarczy. Na tej podstawie przygotujemy cztery propozycje paska
+                  graficznego na karcie — wybierasz jedną kliknięciem.
+                </p>
+
+                {/* Four skeletons while generating, four thumbnails after — the grid never
+                   changes size, so nothing on the screen jumps when the images arrive. */}
+                <div className="card-gen__grid" aria-live="polite" aria-busy={generating || undefined}>
+                  {generating
+                    ? Array.from({ length: 4 }, (_, i) => <div key={i} className="card-gen__skeleton" />)
+                    : variants.map((src, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          className="card-gen__variant"
+                          disabled={applyingVariant !== null}
+                          aria-busy={applyingVariant === i || undefined}
+                          onClick={() => applyVariant(i)}
+                        >
+                          <img src={src} alt={`Propozycja grafiki ${i + 1} z ${variants.length}`} />
+                        </button>
+                      ))}
+                </div>
+
+                {variants.length > 0 && !generating && (
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    disabled={applyingVariant !== null}
+                    // A fresh seed, same prompt: four different pictures rather than the same four.
+                    onClick={() => runGenerate(Math.floor(Math.random() * 1_000_000))}
+                  >
+                    Wygeneruj ponownie
+                  </button>
+                )}
+
+                {cardImageUrl && (
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    disabled={applyingVariant !== null}
+                    aria-busy={applyingVariant === -1 || undefined}
+                    onClick={clearCardImage}
+                  >
+                    Bez grafiki
+                  </button>
+                )}
+
+                {/* The graphic is a file upload and saves itself; the colour it suggests is a
+                   form field and follows the screen's one save button, like every other field.
+                   Saying so here is cheaper than a merchant wondering why half of it stuck. */}
+                <p className="fieldset__hint">
+                  Wybrana grafika zapisuje się od razu. Kolor karty podpowiadamy na jej podstawie —
+                  możesz go zmienić, a zapisuje się razem z resztą formularza.
+                </p>
+                {cardImageError && (
+                  <p className="fieldset__error" role="alert">
+                    {cardImageError}
                   </p>
                 )}
               </div>
