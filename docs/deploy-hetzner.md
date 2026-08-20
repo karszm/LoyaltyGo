@@ -87,10 +87,11 @@ Domeny: `loyaltygo.pl` → landing, `app.loyaltygo.pl` → panel merchanta.
 
 ## 1. Serwer Hetzner — przygotowanie
 
-Załóżmy świeży Ubuntu 24.04 na Hetznerze, dostęp jako `root` przez SSH.
+Serwer: **`89.167.3.247`** (Hetzner). Świeży Ubuntu 24.04, dostęp jako `root` przez SSH przy
+pierwszej konfiguracji; potem wyłącznie jako `deploy`.
 
 ```bash
-ssh root@<IP-SERWERA>
+ssh root@89.167.3.247
 
 # nowy user, bez roota na stałe
 adduser deploy
@@ -118,8 +119,10 @@ W panelu domeny (u rejestratora `loyaltygo.pl`) dodaj rekordy A wskazujące na I
 
 | Host | Typ | Wartość |
 |---|---|---|
-| `@` | A | `<IP-SERWERA>` |
-| `app` | A | `<IP-SERWERA>` |
+| `@` | A | `89.167.3.247` |
+| `app` | A | `89.167.3.247` |
+
+Sprawdzenie, że wskazuje tam, gdzie ma: `dig +short app.loyaltygo.pl` → `89.167.3.247`.
 
 `karta` **nie** wskazuje tu — to Cloudflare, osobna konfiguracja poza tym dokumentem.
 
@@ -149,7 +152,7 @@ przykładowej domeny w produkcyjnym HTML).
 ```bash
 npm ci
 npm run build          # -> dist/
-rsync -avz --delete dist/ deploy@<IP-SERWERA>:/var/www/loyaltygo-landing/
+rsync -avz --delete dist/ deploy@89.167.3.247:/var/www/loyaltygo-landing/
 ```
 
 ### 3.2 `merchant_panel`
@@ -162,7 +165,7 @@ VITE_SUPABASE_ANON_KEY=<anon-key>
 EOF
 npm ci
 npm run build           # -> dist/
-rsync -avz --delete dist/ deploy@<IP-SERWERA>:/var/www/loyaltygo-panel/
+rsync -avz --delete dist/ deploy@89.167.3.247:/var/www/loyaltygo-panel/
 ```
 
 Na serwerze najpierw stwórz katalogi i daj `nginx` prawa czytania:
