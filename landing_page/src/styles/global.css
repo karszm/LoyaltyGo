@@ -350,30 +350,9 @@ p {
 }
 
 .wordmark-mark {
-  position: relative;
   display: inline-block;
   width: 1.75rem;
-  height: 1.35rem;
-}
-
-.wordmark-mark i {
-  position: absolute;
-  top: 0;
-  width: 0.9rem;
-  height: 1.35rem;
-  border-radius: var(--radius-control);
-  background: var(--ink);
-  transform: rotate(-18deg);
-}
-
-.wordmark-mark i:first-child {
-  left: 0.1rem;
-}
-
-.wordmark-mark i:last-child {
-  right: 0.1rem;
-  background: var(--accent);
-  transform: rotate(18deg);
+  height: auto;
 }
 
 .main-nav {
@@ -1220,10 +1199,6 @@ p {
   grid-template-columns: 1.2fr 1fr auto;
   align-items: end;
   gap: 3rem;
-}
-
-.site-footer .wordmark-mark i:first-child {
-  background: var(--dark-ink);
 }
 
 .site-footer p {
