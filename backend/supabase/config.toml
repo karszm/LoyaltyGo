@@ -390,7 +390,18 @@ enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
 # `per_worker` (default) — enables hot reload during local development.
 # `oneshot` — fallback mode if hot reload causes issues (e.g. in large repos or with symlinks).
-policy = "per_worker"
+#
+# `oneshot`, because `per_worker` reuses one worker across requests against a CUMULATIVE wall
+# clock budget, and /program/card-image spends ~6s of it per call waiting on the image model.
+# A handful of generations exhausts the budget, the runtime logs "early termination has been
+# triggered" and tears the worker down — and whatever request lands during the teardown gets no
+# response at all. In the browser that surfaces as "Nie udało się połączyć z serwerem", i.e. a
+# network failure for a call the server never got to answer. Observed three times in one
+# testing session before the cause was found.
+#
+# Cost: no hot reload for Edge Functions — restart `supabase functions serve` after editing one.
+# Local development only; deployed functions are unaffected by this file.
+policy = "oneshot"
 # Port to attach the Chrome inspector for debugging edge functions.
 inspector_port = 8083
 # The Deno major version to use.

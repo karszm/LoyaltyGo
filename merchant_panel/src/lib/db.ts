@@ -56,11 +56,13 @@ export interface Program {
   description: string | null
   points_per_pln: number
   invite_code: string | null
+  card_image_url: string | null
+  text_color: string | null
 }
 
 const MERCHANT_COLUMNS = 'id, email, contact_email, company_name, created_at'
 const PROGRAM_COLUMNS =
-  'id, status, display_name, logo_url, background_color, description, points_per_pln, invite_code'
+  'id, status, display_name, logo_url, background_color, description, points_per_pln, invite_code, card_image_url, text_color'
 
 // RLS scopes both tables to exactly the caller's own row (merchants.auth_user_id = auth.uid(),
 // programs.merchant_id unique per merchant) — no .eq() needed, there is only ever one row to see.
@@ -94,6 +96,10 @@ export function updateProgram(programId: string, patch: {
   background_color?: string
   description?: string
   points_per_pln?: number
+  /** null clears the graphic — "Bez grafiki" — and the card goes back to a flat colour. */
+  card_image_url?: string | null
+  /** '#ffffff' or '#000000'; the database check constraint rejects anything else. */
+  text_color?: string
 }): Promise<Program> {
   return unwrap(
     supabase.from('programs').update(patch).eq('id', programId).select(PROGRAM_COLUMNS).single(),
@@ -138,6 +144,24 @@ export async function uploadLogo(merchantId: string, file: File): Promise<string
     throw new LogoUploadError(error instanceof StorageApiError)
   }
   return supabase.storage.from(LOGO_BUCKET).getPublicUrl(path).data.publicUrl
+}
+
+const CARD_IMAGE_BUCKET = 'card-images'
+
+/**
+ * Uploads the chosen card banner, already cropped to 1125×432 and scrimmed by cardCanvas.ts.
+ * Always a PNG, so no extension table: the canvas produces nothing else.
+ *
+ * Same contract as {@link uploadLogo} — a fresh key every time, never an overwrite (the bucket
+ * has no UPDATE policy, and an overwrite would swap the file out from under a card already
+ * pointing at it), and `programs.card_image_url` is left to the caller so a failed upload
+ * leaves the previous graphic in place.
+ */
+export async function uploadCardImage(merchantId: string, file: File): Promise<string> {
+  const path = `${merchantId}/card-${Date.now()}.png`
+  const { error } = await supabase.storage.from(CARD_IMAGE_BUCKET).upload(path, file)
+  if (error) throw new LogoUploadError(error instanceof StorageApiError)
+  return supabase.storage.from(CARD_IMAGE_BUCKET).getPublicUrl(path).data.publicUrl
 }
 
 // Bootstrap (task 12) — a merchant who has just authenticated has neither row yet:

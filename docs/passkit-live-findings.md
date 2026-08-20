@@ -235,3 +235,126 @@ Funkcje brzegowe działają w kontenerze, więc `127.0.0.1:54321` wskazuje na ni
 hosta — pobranie logo z lokalnego magazynu kończy się `Connection refused`.
 `LOGO_PUBLIC_ORIGIN` + `LOGO_INTERNAL_ORIGIN` przepisują adres na
 `http://host.docker.internal:54321`. Na produkcji żadna z tych zmiennych nie jest ustawiona.
+
+## 8. KARTA ZE STRIPEM I LOGO MERCHANTA — WYDANA I OGLĄDNIĘTA NA IPHONE (2026-08-19)
+
+Wszystko w tej sekcji jest ustalone wykonaniem: żywe wywołania do konta pub1, pobrany
+`.pkpass` rozpakowany i przeczytany, karta dodana do Wallet na telefonie i oglądnięta.
+Podgląd zbudowany z tych samych plików: `docs/design/wallet-preview/issued-card.html`.
+Wydane artefakty: szablon `6JF6xOh1Ow18jB4VwI8qmV`, program `3gQ8OZsJjBeML5kqoZWhZq`,
+członkostwo `5WXgFk6TInWhKkobttcuzy`.
+
+### Slots obrazów
+
+`POST /images` przyjmuje `strip`, `hero`, `background`, `banner` — każdy zwraca id w polu
+o nazwie slotu. **Nazwa slotu, której PassKit nie zna (np. `heroImage`), daje 200 i nie
+mintuje nic** — kolejna cicha porażka w tym API. Dlatego kod musi asertować, że id wróciło,
+a nie zakładać sukces po statusie.
+
+`imageIds.strip` i `imageIds.hero` ustawione na szablonie utrzymują się w readbacku
+z `GET /templates`.
+
+### `passType` — wzorzec konta był ślepą uliczką
+
+`appleWalletSettings.passType` na wzorcu `7fgTknS8aCzsviSchQz4mE` to **`GENERIC`**, a generic
+pass Apple'a **nie renderuje stripa w ogóle**. Wgranie grafiki na takim szablonie nie zmienia
+niczego na telefonie i nie daje przy tym żadnego błędu.
+
+`"STORE_CARD"` jest przyjmowany i utrzymuje się w readbacku. **`"LOYALTY"` i `"STORECARD"`
+dają 200 i po cichu zapisują `APPLE_NOT_SUPPORTED`** — trzecia cicha pułapka tego API.
+
+### Co jest w prawdziwym `.pkpass`
+
+| Element | Wartość |
+|---|---|
+| styl | `storeCard` |
+| `strip.png` / `@2x` / `@3x` | obecne, `@3x` = **1125×432** bajt w bajt jak wgrany plik |
+| `primaryFields` | `members.member.points`, `value: 1250`, `PKTextAlignmentLeft` |
+| `logo.png` / `@3x` | obecne, wymiary zależą od kształtu wgranego pliku — patrz niżej |
+| `logoText` | ustawiany z `appleWalletSettings.logoText`, **Wallet go rysuje** obok logo |
+| `backgroundColor` | `rgb(28,65,73)` z `colors.backgroundColor` |
+| barcode | `PKBarcodeFormatQR` — `barcode.format: "QR"` przyjęte, wzorzec miał PDF417 |
+| `pl.lproj/pass.strings` | etykiety i wartości po polsku, UTF-16 |
+| `organizationName` | **„LoyaltyGo" z konta**, nie nazwa merchanta — do ustawiania na szablonie |
+| `expirationDate` | **+2 dni** i `backFields` z zastrzeżeniem testowym PassKita (skutek `PROJECT_DRAFT`) |
+
+Uwaga do dokumentacji Apple: `logoText` jest tam opisany jako działający tylko dla poster
+event ticketów. Na `storeCard` wydanym przez PassKita **działa** — sprawdzone na urządzeniu.
+
+### Pole punktów musi zmienić sekcję
+
+Wzorzec trzyma `members.member.points` w `HEADER_FIELDS`. Przy stripie to jest złe miejsce:
+**pole główne jest jedynym, które Wallet rysuje na grafice**, i `storeCard` ma dokładnie
+jedno takie pole. Przełożenie na `PRIMARY_FIELDS` + `textAlignment: "LEFT"` daje saldo na
+stripie, wyrównane do lewej.
+
+Wallet rysuje **wartość NAD etykietą** i bez wersalików, w swoim własnym, bardzo dużym
+rozmiarze. **Rozmiaru czcionki nie da się zadać** — nie ma na to pola ani w PassKicie, ani
+w `pass.json`. Jedyne dźwignie to zawartość tego pola i to, czy pole główne w ogóle istnieje.
+
+### Logo: kwadrat marnuje dwie trzecie miejsca
+
+Slot logo Apple'a to **160×50 pt**, czyli prostokąt.
+
+| Wgrany plik | `logo@3x` w `.pkpass` | Na karcie |
+|---|---|---|
+| 660×660 (kwadrat, jak dziś robi `logoCanvas.ts`) | 150×150 | 50×50 pt |
+| 1980×660 (ten sam wordmark, szeroki) | 450×150 | **150×50 pt** |
+
+PassKit pilnuje **minimalnej szerokości 660 px**, nie kwadratowości — plik 1980×660 przeszedł
+bez zastrzeżeń. Wniosek dla kodu: `logoCanvas.ts` ma dopasowywać logo do **wysokości 660**
+przy szerokości od 660 do 1980, zamiast wpisywać je w kwadrat. Wordmark małej firmy —
+najczęstszy przypadek — zyskuje na karcie trzykrotnie.
+
+### Aktualizacja szablonu po wydaniu karty
+
+`PUT /template` z nowym `imageIds.logo` działa: ponownie pobrany `.pkpass` tego samego
+członkostwa niesie nowe logo. **Niezweryfikowane pozostaje, czy karta już zainstalowana na
+telefonie sama się odświeży** — to ta sama luka, co przy zmianie koloru, i zależy od
+powiadomień wypychanych przez Apple.
+
+### Czego nadal nie ma
+
+`DELETE /template/...` nie istnieje (404). Szablony z sond i eksperymentów zostają na koncie
+na zawsze — dziś jest ich kilkanaście, wszystkie w `PROJECT_DRAFT`.
+
+## 9. ZAPIS POLA GŁÓWNEGO PRZEZ API — SPRAWDZONY READBACKIEM (2026-08-20)
+
+§8 pokazał, **co** trzeba zmienić w szablonie, oglądając wydaną kartę. Nie mówił, czy da się to
+zmienić **naszym kodem**: kartę z §8 obejrzano, ale zapis pola głównego przez API pozostawał
+założeniem. A akurat tu PassKit ma udokumentowany zwyczaj odpowiadania 200 i cichego zapisania
+czegoś innego (`passType: LOYALTY` → `APPLE_NOT_SUPPORTED`, §8). Sonda: klon wzorca,
+`POST /template`, `GET /templates` i porównanie.
+
+### Pole danych ma `uniqueName`, nie `fieldName` ani `path`
+
+Klucz pola w `data.dataFields[]` to **`uniqueName`**, a pole punktów nazywa się dokładnie
+`members.member.points`. Pól `fieldName` ani `path` w ogóle nie ma. Umiejscowienie na passie
+Apple'a siedzi w `appleWalletFieldRenderOptions.positionSettings.section`, a wyrównanie
+w `appleWalletFieldRenderOptions.textAlignment`.
+
+Wzorzec konta przed zmianą:
+
+| `uniqueName` | sekcja | wyrównanie |
+|---|---|---|
+| `members.program.name` | `FIELD_SECTION_DO_NOT_USE` | `TEXT_ALIGNMENT_DO_NOT_USE` |
+| `members.member.points` | **`HEADER_FIELDS`** | `RIGHT` |
+| `person.displayName` | `SECONDARY_FIELDS` | `LEFT` |
+| `members.tier.name` | `SECONDARY_FIELDS` | `RIGHT` |
+| `universal.info` | `BACK_FIELDS` | `TEXT_ALIGNMENT_DO_NOT_USE` |
+
+### Cztery zapisy naraz, wszystkie utrzymane w readbacku
+
+| Zapis | Readback |
+|---|---|
+| `appleWalletSettings.passType = "STORE_CARD"` | `STORE_CARD` |
+| `barcode.format = "QR"` | `QR` |
+| `members.member.points` → `positionSettings.section = "PRIMARY_FIELDS"` | `PRIMARY_FIELDS` |
+| `members.member.points` → `textAlignment = "LEFT"` | `LEFT` |
+
+Enumy są gołe (`PRIMARY_FIELDS`, `LEFT`), bez prefiksów w rodzaju `TEXT_ALIGNMENT_LEFT` —
+w odróżnieniu od wartości „pustych", które prefiks mają (`TEXT_ALIGNMENT_DO_NOT_USE`).
+Pozostałe pola zostały tam, gdzie były: przestawienie jednego pola nie przetasowuje sąsiadów.
+
+Szablon sondy: `0BDnighIkpWfAee4YapBe7` (`PROBE primary-fields`). Zostaje na koncie na zawsze,
+jak każdy inny — `DELETE /template` nadal nie istnieje.

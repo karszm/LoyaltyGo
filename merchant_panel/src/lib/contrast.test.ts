@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { contrastRatio, meetsAA } from './contrast'
+import {
+  CARD_INK_DARK,
+  CARD_INK_LIGHT,
+  contrastRatio,
+  inkAfterBackgroundChange,
+  meetsAA,
+  preferredInk,
+} from './contrast'
 
 describe('contrastRatio', () => {
   it('white on black is the maximum, 21:1', () => {
@@ -54,5 +61,48 @@ describe('meetsAA', () => {
   it('3:1 passes for large text / UI components, 2.9:1 does not', () => {
     expect(meetsAA(3, true)).toBe(true)
     expect(meetsAA(2.9, true)).toBe(false)
+  })
+})
+
+describe('preferredInk', () => {
+  it('picks the ink that reads better on each extreme', () => {
+    expect(preferredInk('#000000')).toBe(CARD_INK_LIGHT)
+    expect(preferredInk('#ffffff')).toBe(CARD_INK_DARK)
+  })
+})
+
+describe('inkAfterBackgroundChange', () => {
+  it('flips to white when the merchant picks a near-black card', () => {
+    // The case in the brief: a black background must not keep black text.
+    expect(inkAfterBackgroundChange(CARD_INK_DARK, '#080808')).toBe(CARD_INK_LIGHT)
+    expect(inkAfterBackgroundChange(CARD_INK_DARK, '#000000')).toBe(CARD_INK_LIGHT)
+  })
+
+  it('flips to black when the card becomes very light', () => {
+    expect(inkAfterBackgroundChange(CARD_INK_LIGHT, '#ffffff')).toBe(CARD_INK_DARK)
+    expect(inkAfterBackgroundChange(CARD_INK_LIGHT, '#f5f0e8')).toBe(CARD_INK_DARK)
+  })
+
+  it('leaves a readable choice alone instead of chasing the best contrast', () => {
+    // White on this reads well enough, and the merchant chose it. Flipping here would make the
+    // control feel like it fights back on every small edit.
+    const bg = '#595959'
+    expect(meetsAA(contrastRatio(CARD_INK_LIGHT, bg))).toBe(true)
+    expect(inkAfterBackgroundChange(CARD_INK_LIGHT, bg)).toBe(CARD_INK_LIGHT)
+  })
+
+  it('is stable: applying it twice changes nothing more', () => {
+    for (const bg of ['#080808', '#ffffff', '#0f5132', '#f5f0e8', '#595959']) {
+      const once = inkAfterBackgroundChange(CARD_INK_LIGHT, bg)
+      expect(inkAfterBackgroundChange(once, bg)).toBe(once)
+    }
+  })
+
+  it('never leaves an unreadable pair when one of the two would do', () => {
+    for (const bg of ['#000000', '#ffffff', '#0f5132', '#f5f0e8', '#123456', '#eeeeee']) {
+      const ink = inkAfterBackgroundChange(CARD_INK_DARK, bg)
+      const best = Math.max(contrastRatio(CARD_INK_LIGHT, bg), contrastRatio(CARD_INK_DARK, bg))
+      if (meetsAA(best)) expect(meetsAA(contrastRatio(ink, bg))).toBe(true)
+    }
   })
 })
