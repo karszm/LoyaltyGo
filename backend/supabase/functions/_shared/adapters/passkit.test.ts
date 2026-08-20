@@ -4,6 +4,7 @@ Deno.env.set("PASSKIT_MODE", "stub");
 Deno.env.set("PASSKIT_API_KEY", "test-api-key");
 Deno.env.set("PASSKIT_API_SECRET", "test-api-secret");
 Deno.env.delete("PASSKIT_PASS_TYPE_IDENTIFIER");
+Deno.env.set("PASSKIT_TEMPLATE_ID", "blueprint-1");
 
 const passkit = await import("./passkit.ts");
 const { createProgram, enrolMember, updateBalance, updateTemplate } = passkit;
@@ -13,7 +14,11 @@ const { createProgram, enrolMember, updateBalance, updateTemplate } = passkit;
 
 Deno.test("stub: createProgram returns deterministic ids without a network call", async () => {
   const result = await createProgram({ displayName: "Kawiarnia Test" });
-  assertEquals(result, { programId: "stub-program-id", templateId: "stub-template-id" });
+  assertEquals(result, {
+    programId: "stub-program-id",
+    templateId: "stub-template-id",
+    passTemplateId: "stub-pass-template-id",
+  });
 });
 
 Deno.test("stub: enrolMember returns deterministic ids/urls without a network call", async () => {
@@ -56,14 +61,16 @@ function withFetch<T>(responses: Response[], fn: (calls: CapturedRequest[]) => P
   });
 }
 
-// Decodes a `PKAuth <jwt>` Authorization header and independently recomputes its HMAC
-// signature (rather than hardcoding a golden token, which would break on every run since
-// exp/iat are wall-clock-dependent) to prove the signing math — not just the shape — is
-// correct.
+// Decodes an Authorization header and independently recomputes its HMAC signature (rather
+// than hardcoding a golden token, which would break on every run since exp/iat are
+// wall-clock-dependent) to prove the signing math — not just the shape — is correct.
+//
+// The header carries a BARE JWT: a `PKAuth ` prefix makes PassKit base64-decode
+// "PKAuth eyJ…" and fail with `illegal base64 data at input byte 6`. Asserted here so the
+// prefix cannot creep back in — that mistake costs a 401 that reads like bad credentials.
 async function decodeAndVerifyPKAuth(authHeader: string, secret: string) {
-  assertMatch(authHeader, /^PKAuth /);
-  const jwt = authHeader.slice("PKAuth ".length);
-  const [headerB64, payloadB64, sigB64] = jwt.split(".");
+  assertMatch(authHeader, /^eyJ[\w-]+\.[\w-]+\.[\w-]+$/);
+  const [headerB64, payloadB64, sigB64] = authHeader.split(".");
   const pad = (s: string) => s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - s.length % 4) % 4);
   const header = JSON.parse(atob(pad(headerB64)));
   const payload = JSON.parse(atob(pad(payloadB64)));
@@ -83,52 +90,105 @@ async function decodeAndVerifyPKAuth(authHeader: string, secret: string) {
   return { header, payload };
 }
 
-Deno.test("live: createProgram sends POST /members/program then POST /members/tier with a valid PKAuth JWT", async () => {
-  await withFetch(
-    [
-      new Response(JSON.stringify({ id: "prog-123" }), { status: 200 }),
-      new Response(JSON.stringify({ id: "tier-456" }), { status: 200 }),
-    ],
-    async (calls) => {
-      const result = await createProgram({ displayName: "Kawiarnia Test", description: "punkty za kawę" });
-      assertEquals(result, { programId: "prog-123", templateId: "tier-456" });
-      assertEquals(calls.length, 2);
-
-      assertEquals(calls[0].url, "https://api.pub1.passkit.io/members/program");
-      assertEquals(calls[0].method, "POST");
-      assertEquals(calls[0].headers["content-type"], "application/json");
-      // No PASSKIT_PASS_TYPE_IDENTIFIER set -> no passTypeIdentifier/status sent (description
-      // has no confirmed field name on Program, so it's dropped rather than guessed).
-      assertEquals(JSON.parse(calls[0].body!), { name: "Kawiarnia Test" });
-      const { header, payload } = await decodeAndVerifyPKAuth(calls[0].headers["authorization"], "test-api-secret");
-      assertEquals(header, { alg: "HS256", typ: "JWT" });
-      assertEquals(payload.key, "test-api-key");
-      assertEquals(payload.method, "POST");
-      assertEquals(payload.url, "https://api.pub1.passkit.io/members/program");
-      assertEquals(payload.exp - payload.iat, 30);
-      assertEquals(payload.signature, await sha256HexForTest(calls[0].body!));
-
-      assertEquals(calls[1].url, "https://api.pub1.passkit.io/members/tier");
-      assertEquals(calls[1].method, "POST");
-      assertEquals(JSON.parse(calls[1].body!), { id: "default", programId: "prog-123", tierIndex: 0, name: "default" });
+// One NDJSON line per template, which is what GET /templates actually answers with — not a
+// JSON array. `blueprint-1` is the id createTemplateFor looks for (PASSKIT_TEMPLATE_ID); the
+// other line is there to prove it picks by id rather than taking the first template it sees.
+const BLUEPRINT_NDJSON = [
+  JSON.stringify({ result: { template: { id: "other-template", name: "not ours" } } }),
+  JSON.stringify({
+    result: {
+      template: {
+        id: "blueprint-1",
+        name: "Blueprint",
+        createdAt: "2026-01-01T00:00:00Z",
+        ownerUsername: "someone",
+        revision: 7,
+        colors: { backgroundColor: "#000000", labelColor: "#111111", textColor: "#222222" },
+      },
     },
-  );
+  }),
+].join("\n");
+
+// createProgram makes FOUR calls, in this order: the program, then GET /templates +
+// POST /template (createTemplateFor clones the account blueprint into a per-merchant
+// template), then the tier that binds the two together.
+function createProgramResponses(): Response[] {
+  return [
+    new Response(JSON.stringify({ id: "prog-123" }), { status: 200 }),
+    new Response(BLUEPRINT_NDJSON, { status: 200 }),
+    new Response(JSON.stringify({ id: "tpl-789" }), { status: 200 }),
+    new Response(JSON.stringify({ id: "tier-456" }), { status: 200 }),
+  ];
+}
+
+Deno.test("live: createProgram creates the program, clones the blueprint template, then binds them with a tier", async () => {
+  await withFetch(createProgramResponses(), async (calls) => {
+    const result = await createProgram({ displayName: "Kawiarnia Test", description: "punkty za kawę" });
+    assertEquals(result, { programId: "prog-123", templateId: "tier-456", passTemplateId: "tpl-789" });
+    assertEquals(calls.length, 4);
+
+    assertEquals(calls[0].url, "https://api.pub1.passkit.io/members/program");
+    assertEquals(calls[0].method, "POST");
+    assertEquals(calls[0].headers["content-type"], "application/json");
+    // No PASSKIT_PASS_TYPE_IDENTIFIER set -> no passTypeIdentifier/status sent (description
+    // has no confirmed field name on Program, so it's dropped rather than guessed).
+    assertEquals(JSON.parse(calls[0].body!), { name: "Kawiarnia Test" });
+    const { header, payload } = await decodeAndVerifyPKAuth(calls[0].headers["authorization"], "test-api-secret");
+    assertEquals(header, { alg: "HS256", typ: "JWT" });
+    // Claim names and lifetime are the ones corrected against a live 401: `uid`, not `key`,
+    // and an hour, not 30 seconds. `url`/`method` were invented and are asserted absent so
+    // they cannot creep back in.
+    assertEquals(payload.uid, "test-api-key");
+    assertEquals(payload.key, undefined);
+    assertEquals(payload.url, undefined);
+    assertEquals(payload.method, undefined);
+    assertEquals(payload.exp - payload.iat, 3600);
+    assertEquals(payload.signature, await sha256HexForTest(calls[0].body!));
+
+    assertEquals(calls[1].url, "https://api.pub1.passkit.io/templates");
+    assertEquals(calls[1].method, "GET");
+
+    // The clone carries the merchant's branding and drops the blueprint's identity, so the
+    // POST mints a new template instead of trying to overwrite the account's own.
+    assertEquals(calls[2].url, "https://api.pub1.passkit.io/template");
+    assertEquals(calls[2].method, "POST");
+    const cloned = JSON.parse(calls[2].body!);
+    assertEquals(cloned.id, undefined);
+    assertEquals(cloned.createdAt, undefined);
+    assertEquals(cloned.ownerUsername, undefined);
+    assertEquals(cloned.name, "Kawiarnia Test");
+    assertEquals(cloned.description, "punkty za kawę");
+    assertEquals(cloned.revision, 1);
+    assertEquals(cloned.colors.labelColor, "#ffffff");
+    assertEquals(cloned.colors.textColor, "#ffffff");
+
+    assertEquals(calls[3].url, "https://api.pub1.passkit.io/members/tier");
+    assertEquals(calls[3].method, "POST");
+    assertEquals(JSON.parse(calls[3].body!), {
+      id: "default",
+      programId: "prog-123",
+      tierIndex: 1,
+      name: "default",
+      passTemplateId: "tpl-789",
+      timezone: "Europe/Warsaw",
+    });
+  });
 });
 
 Deno.test("live: createProgram sends passTypeIdentifier + status when PASSKIT_PASS_TYPE_IDENTIFIER is set", async () => {
   Deno.env.set("PASSKIT_PASS_TYPE_IDENTIFIER", "pass.pl.loyaltygo.test");
   try {
     await withFetch(
-      [
-        new Response(JSON.stringify({ id: "prog-123" }), { status: 200 }),
-        new Response(JSON.stringify({ id: "tier-456" }), { status: 200 }),
-      ],
+      createProgramResponses(),
       async (calls) => {
         await createProgram({ displayName: "Kawiarnia Test" });
+        // `status` is two INDEPENDENT dimensions and PassKit rejects the call unless both
+        // are present — it reports them one at a time, so sending only PROJECT_PUBLISHED
+        // fails with a message about the other dimension entirely.
         assertEquals(JSON.parse(calls[0].body!), {
           name: "Kawiarnia Test",
           passTypeIdentifier: "pass.pl.loyaltygo.test",
-          status: ["PROJECT_PUBLISHED"],
+          status: ["PROJECT_PUBLISHED", "PROJECT_ACTIVE_FOR_OBJECT_CREATION"],
         });
       },
     );
@@ -254,7 +314,10 @@ Deno.test("live: never logs the api key, secret, or signed token", async () => {
   }
   const all = logged.join("\n");
   assert(!all.includes("test-api-secret"), "must never log the api secret");
-  assert(!all.includes("PKAuth "), "must never log the signed Authorization header/token");
+  assert(!all.includes("test-api-key"), "must never log the api key");
+  // The token is a bare JWT, so there is no `PKAuth ` marker to grep for — the constant
+  // base64 of `{"alg":"HS256","typ":"JWT"}` is what every signed token starts with.
+  assert(!all.includes("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"), "must never log the signed token");
 });
 
 async function sha256HexForTest(s: string): Promise<string> {
