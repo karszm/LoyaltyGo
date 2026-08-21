@@ -2,6 +2,11 @@
   "name": "loyaltygo",
   "compatibility_date": "2025-08-12",
   "assets": {
-    "directory": "./dist"
+    "directory": "./dist",
+    // Jeden kanoniczny kształt URL-a: /sciezka zwraca 200, /sciezka/ i
+    // /sciezka/index.html przekierowują (307) na wersję bez ukośnika.
+    "html_handling": "drop-trailing-slash",
+    // Bez tego (default "none") dist/404.html jest ignorowane.
+    "not_found_handling": "404-page"
   }
 }
