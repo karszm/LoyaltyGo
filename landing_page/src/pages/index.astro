@@ -3,16 +3,16 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import FooterLegal from "../components/FooterLegal.astro";
 import { COMPANY } from "../lib/company";
 
-const pageTitle = "LoyaltyGo | Klienci, którzy chcą do Ciebie wracać";
+const pageTitle = "Program lojalnościowy w Apple i Google Wallet | LoyaltyGo";
 const pageDescription =
-  "Program lojalnościowy w Apple Wallet i Google Wallet dla małych firm. Bez dodatkowej aplikacji, sprzętu i wdrożenia IT.";
+  "Program lojalnościowy w Apple Wallet i Google Wallet dla małych firm. Klient nie instaluje aplikacji, Ty nie kupujesz sprzętu. Uruchom w kilka minut.";
 
 const merchantAppUrl = "https://app.loyaltygo.pl";
 
 const benefits = [
   {
     title: "Klient nie potrzebuje aplikacji",
-    text: "Karta trafia do aplikacji portfel(Wallet), obok biletów i kart, których już używa.",
+    text: "Karta trafia do aplikacji portfel (Wallet), obok biletów i kart, których już używa.",
   },
   {
     title: "Nie potrzebujesz sprzętu",
@@ -20,7 +20,7 @@ const benefits = [
   },
   {
     title: "Uruchamiasz po swojemu, szybciej niż myślisz",
-    text: "Twój program może być gotowy w zaledwie kilka kliknięć.",
+    text: "Konfiguracja programu w panelu zajmuje około 5 minut.",
   },
 ];
 
@@ -28,7 +28,7 @@ const steps = [
   {
     action: "Zaproś",
     title: "Jeden QR przy kasie",
-    text: "Klient skanuje kod aparatem, podaje imię i e-mail, a karta trafia prosto do jego Wallet.",
+    text: "Klient skanuje kod aparatem, podaje imię, nazwisko i e-mail, a karta trafia prosto do jego Wallet.",
     detail: "Bez pobierania aplikacji",
     tone: "light",
   },
@@ -49,7 +49,7 @@ const steps = [
 ];
 
 const customerBenefits = [
-  ["Bez haseł", "Jeden skan, imię i e-mail. To cały onboarding."],
+  ["Bez haseł", "Jeden skan i trzy pola. To cały onboarding."],
   ["Saldo zawsze pod ręką", "Punkty aktualizują się po każdej zarejestrowanej wizycie."],
   ["Oferta bez szukania", "Kupon jest widoczny bezpośrednio na karcie w Wallet."],
   ["Jedna firma, jedna karta", "Dane i punkty pozostają w programie konkretnego miejsca."],
@@ -182,6 +182,7 @@ const faqLd = {
       <div class="hero-copy">
         <h1 data-hero-item>Klienci, którzy chcą do Ciebie wracać.</h1>
         <p class="hero-lead" data-hero-item>
+          Program lojalnościowy w Apple Wallet i Google Wallet dla salonów, gabinetów i kawiarni.
           Zamień każdą płatność w początek relacji, która nie wymaga dodatkowego wysiłku.
         </p>
         <div class="hero-actions" data-hero-item>
@@ -228,6 +229,8 @@ const faqLd = {
       <figure class="story-media reveal reveal--late">
         <img
           src="/images/salon-owner.webp"
+          srcset="/images/salon-owner-512.webp 512w, /images/salon-owner-768.webp 768w, /images/salon-owner.webp 1098w"
+          sizes="(max-width: 56rem) min(100vw - 2rem, 36rem), min(746px, 54vw)"
           width="1098"
           height="1408"
           alt="Właścicielka salonu przy recepcji między wizytami"
