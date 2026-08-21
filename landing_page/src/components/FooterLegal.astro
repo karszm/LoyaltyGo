@@ -1,0 +1,12 @@
+---
+// Identyfikacja usługodawcy w stopce: sygnał E-E-A-T i wymóg art. 5 ustawy
+// o świadczeniu usług drogą elektroniczną. Wchodzi do kolumny z wordmarkiem,
+// bo .footer-grid ma trzy jawne kolumny i czwarte dziecko by je rozjechało.
+import { COMPANY } from "../lib/company";
+---
+
+<p class="footer-legal">
+  {COMPANY.legalName}<br />
+  {COMPANY.street}, {COMPANY.postalCode} {COMPANY.city}<br />
+  NIP {COMPANY.nip} · REGON {COMPANY.regon}
+</p>
