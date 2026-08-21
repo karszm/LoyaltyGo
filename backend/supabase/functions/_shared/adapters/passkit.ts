@@ -113,6 +113,11 @@ function requireId(data: unknown, op: string): string {
 // data field (`fieldName`/`path` do not exist). Confirmed against the live blueprint.
 const POINTS_FIELD = "members.member.points";
 
+// The blueprint's tier field, drawn on the front of the pass as `TIER / default` — every
+// program has exactly one tier ("default", see createProgram), so the field only ever shows
+// that word. Removed from the clone; tiers are not a feature we expose.
+const TIER_FIELD = "members.tier.name";
+
 export type Branding = {
   displayName: string;
   logoUrl?: string;
@@ -322,6 +327,13 @@ async function applyBranding(tpl: Record<string, any>, branding: Branding): Prom
   // The blueprint carries PDF417. A loyalty card is scanned at a till, and the merchant's own
   // scanner reads QR — verified accepted by readback.
   tpl.barcode = { ...(tpl.barcode ?? {}), format: "QR" };
+
+  // The blueprint puts the tier next to the customer's name (SECONDARY_FIELDS on Apple,
+  // LOYALTY_REWARDS_TIER on Google) and every program we create has exactly one tier called
+  // "default" — so the field reads `TIER / default` on every card ever issued. Dropped from
+  // the clone entirely rather than hidden per platform: one filter covers both wallets.
+  const fields = tpl.data?.dataFields as Record<string, any>[] | undefined;
+  if (fields) tpl.data.dataFields = fields.filter((f) => f.uniqueName !== TIER_FIELD);
 
   // The primary field is the ONLY one Apple draws on top of the strip, and the blueprint keeps
   // the balance in HEADER_FIELDS — where the graphic would sit behind nothing at all. Wallet
@@ -537,9 +549,15 @@ export async function updateBalance(memberId: string, balance: number): Promise<
   // PUT /members/member — route confirmed live (401 without auth). A flat top-level
   // `points` field on the Member body (not nested under a points/balance object) is
   // confirmed from PassKit's own custom-fields example (help.passkit.com/en/articles/3991200:
-  // `"points": 1000` alongside `externalId`/`tierId`). UNVERIFIED: whether PUT here
-  // *replaces* the member (requiring more fields than just id+points) or *patches* only the
-  // given fields — that needs a real authenticated call to settle; see task-8-report.md.
+  // `"points": 1000` alongside `externalId`/`tierId`).
+  //
+  // SETTLED 2026-08-20 (findings §12): PUT **patches**, it does not replace. A live probe sent
+  // `{id, points}` against a real member and read it back — the balance changed and
+  // `externalId` and `person` both survived. Sending only these two fields is correct.
+  //
+  // What this does NOT do is refresh a card already in someone's Wallet. PassKit stores the
+  // new balance; delivery to the device is a push, and while the account issues test passes
+  // under `pass.io.passkit.dev` that push is PassKit's dev infrastructure. See findings §12.
   await passkitRequest("PUT", "/members/member", { id: memberId, points: balance });
 }
 

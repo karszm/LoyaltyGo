@@ -395,3 +395,61 @@ kolor na karcie klienta jest gorszy niż pole puste.
 **Niezweryfikowane:** że ustawienie `foregroundColor` faktycznie zmienia kolor salda na
 urządzeniu. Wiemy, że PassKit je przyjmuje i że dotąd było puste, co jest spójne z objawem.
 Rozstrzyga oględziny karty na iPhonie po wdrożeniu.
+
+## 12. KARTY NIE AKTUALIZUJĄ SIĘ, BO SĄ WYDAWANE JAKO PASSY TESTOWE PASSKITA (2026-08-20)
+
+Objaw: zmiana punktów nie dociera do karty w Wallet. Nic po naszej stronie nie zawiodło —
+sprawdzone od końca do końca.
+
+### Nasza połowa działa, cała
+
+Sonda zbudowała własny program, tier i członka na żywym koncie, po czym wykonała dokładnie to
+wywołanie, które robi `updateBalance`:
+
+```
+PUT /members/member  {id, points: 777}  → 200
+odczyt po:  points 100 → 777            ✅
+            externalId przetrwał        ✅
+            person przetrwał            ✅
+```
+
+To **zamyka założenie, które kod sam oznaczał jako UNVERIFIED**: `PUT /members/member` **łata**
+członka, nie zastępuje go. Wysyłanie samego `{id, points}` jest poprawne i nie gubi pozostałych
+pól.
+
+Osobno sprawdzone: `PUT /template` (ścieżka synchronizacji brandingu, dotąd testowana wyłącznie
+na podmienionym `fetch`) zwraca 200 i utrzymuje zapisane kolory.
+
+### Gdzie łańcuch się urywa
+
+Pobrany `.pkpass` testowego członka:
+
+| Pole | Wartość |
+|---|---|
+| `passTypeIdentifier` | **`pass.io.passkit.dev`** |
+| `teamIdentifier` | `SSUX2R6S8X` (PassKita) |
+| `webServiceURL` | `https://europe-west1-passkit-io.cloudfunctions.net/pfr` |
+| `backFields[]` | zawiera pole **`pktest`** z `legal.label` |
+
+Karty **nie są wydawane pod naszym `pass.pl.loyaltygo.card`**, tylko pod deweloperskim
+identyfikatorem PassKita, z ich zespołem i ich certyfikatem. Wszystkie programy na koncie stoją
+w `PROJECT_DRAFT`, a `passTypeIdentifier` wraca pusty nawet wtedy, gdy go wysyłamy — własny
+identyfikator wymaga wgrania certyfikatu Apple do PassKita, czego konto jeszcze nie ma.
+
+`webServiceURL` **jest obecny**, więc mechanizm aktualizacji istnieje w pliku. Dostarczenie
+powiadomienia idzie jednak przez infrastrukturę testową PassKita i nie jest czymś, na co nasz
+kod ma wpływ.
+
+### Wniosek
+
+To nie jest regresja i nie da się tego naprawić kodem. To punkt 1 z listy otwartych spraw
+(`docs/stan-implementacji.md`): **konto PassKita nie jest dopuszczone do produkcji.**
+Konsekwencje, teraz zmierzone, a nie przewidywane:
+
+- passy są testowe (`pktest`, dev identyfikator),
+- w `PROJECT_DRAFT` kasują się po około dwóch dniach — stąd „działało, a potem przestało",
+- aktualizacje zainstalowanej karty zależą od pushy PassKita w trybie deweloperskim.
+
+Odblokowanie: dopuszczenie konta do produkcji i wgranie certyfikatu Pass Type ID, po czym
+`PASSKIT_PROJECT_STATUS=PROJECT_PUBLISHED`. Dopóki tego nie ma, jedyny wiarygodny sposób
+zobaczenia aktualnego stanu karty to **pobranie passa od nowa**, nie oglądanie zainstalowanego.
