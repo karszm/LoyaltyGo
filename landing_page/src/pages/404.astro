@@ -1,0 +1,28 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const pageTitle = "Nie znaleziono strony | LoyaltyGo";
+const pageDescription = "Ten adres nie istnieje albo się zmienił.";
+---
+
+<BaseLayout title={pageTitle} description={pageDescription} noindex>
+  <a class="skip-link" href="#main">Przejdź do treści</a>
+
+  <header class="legal-header">
+    <div class="section-shell legal-header-inner">
+      <a class="wordmark" href="/" aria-label="LoyaltyGo, strona główna">
+        <img class="wordmark-logo wordmark-logo--light" src="/images/logo-light.png" alt="" width="599" height="160" />
+        <img class="wordmark-logo wordmark-logo--dark" src="/images/logo-dark.png" alt="" width="610" height="160" />
+      </a>
+      <a class="legal-back-link" href="/">Wróć do strony głównej</a>
+    </div>
+  </header>
+
+  <main id="main" class="privacy-main">
+    <header class="privacy-hero section-shell">
+      <h1>Nie znaleziono strony</h1>
+      <p>Ten adres nie istnieje albo się zmienił.</p>
+      <p><a class="button" href="/">Wróć na stronę główną</a></p>
+    </header>
+  </main>
+</BaseLayout>
