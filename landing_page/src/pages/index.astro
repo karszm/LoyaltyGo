@@ -1,5 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import FooterLegal from "../components/FooterLegal.astro";
+import { COMPANY } from "../lib/company";
 
 const pageTitle = "LoyaltyGo | Klienci, którzy chcą do Ciebie wracać";
 const pageDescription =
@@ -86,9 +88,71 @@ const faqs = [
     "Tak. Karty są przygotowane dla Apple Wallet i Google Wallet. Integracja z SoftPOS w pierwszej wersji korzysta z SDK iOS.",
   ],
 ];
+
+// --- Dane strukturalne -------------------------------------------------------
+// FAQPage nie daje już wyników rozszerzonych w SERP-ie dla stron komercyjnych
+// (Google wyciął to w 2023). Wartość jest w jednoznacznym parowaniu
+// pytanie -> odpowiedź, które modele językowe wyciągają chętniej niż prozę.
+const ORG_ID = `${COMPANY.url}/#organization`;
+
+const orgLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": ORG_ID,
+  name: COMPANY.brand,
+  legalName: COMPANY.legalName,
+  url: COMPANY.url,
+  logo: `${COMPANY.url}/images/logo-dark.png`,
+  email: COMPANY.email,
+  taxID: COMPANY.nip,
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: COMPANY.street,
+    postalCode: COMPANY.postalCode,
+    addressLocality: COMPANY.city,
+    addressCountry: COMPANY.country,
+  },
+  // sameAs: dopisać, gdy powstaną realne profile (LinkedIn, katalogi SaaS).
+  // To one sklejają "LoyaltyGo" w encję; pusta tablica nic nie wnosi.
+};
+
+const appLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: COMPANY.brand,
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web, iOS, Android",
+  description: pageDescription,
+  url: COMPANY.url,
+  publisher: { "@id": ORG_ID },
+  featureList: [
+    "Karta lojalnościowa w Apple Wallet i Google Wallet",
+    "Onboarding klienta przez statyczny kod QR",
+    "Naliczanie punktów z aplikacji SoftPOS przez SDK",
+    "Kupony i oferty widoczne na karcie",
+    "Panel merchanta z własnym brandingiem karty",
+  ],
+  // offers: dodać razem ze stroną /cennik.
+};
+
+const faqLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map(([question, answer]) => ({
+    "@type": "Question",
+    name: question,
+    acceptedAnswer: { "@type": "Answer", text: answer },
+  })),
+};
 ---
 
 <BaseLayout title={pageTitle} description={pageDescription}>
+  <Fragment slot="head">
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(orgLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(appLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(faqLd)} />
+  </Fragment>
+
   <a class="skip-link" href="#main">Przejdź do treści</a>
 
   <header class="site-header" data-header>
@@ -380,6 +444,7 @@ const faqs = [
           <img class="wordmark-logo" src="/images/logo-dark.png" alt="" width="610" height="160" />
         </a>
         <p>Lojalność w Wallet. Prostszy powrót klienta.</p>
+        <FooterLegal />
       </div>
       <nav aria-label="Linki w stopce">
         <a href="#jak-dziala">Jak działa</a>
