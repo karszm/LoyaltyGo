@@ -262,6 +262,17 @@ otp_expiry = 3600
 subject = "Twój link i kod logowania do LoyaltyGo"
 content_path = "./supabase/templates/magic_link.html"
 
+# Login.tsx leaves `shouldCreateUser` at its default (true), so a brand-new address does NOT get
+# the magic_link template above -- GoTrue sends the CONFIRMATION ("Confirm signup") template for
+# the first-ever authentication of an e-mail. Its built-in body renders only
+# {{ .ConfirmationURL }}, so without the override below the six-digit code never reaches the
+# mailbox of the one user who needs it most: the merchant registering for the first time. Same
+# silent failure as the magic_link case -- /otp returns 200, the code field on /login is simply
+# unfillable. This clause is load-bearing, not decorative.
+[auth.email.template.confirmation]
+subject = "Twój link i kod pierwszego logowania do LoyaltyGo"
+content_path = "./supabase/templates/confirmation.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true

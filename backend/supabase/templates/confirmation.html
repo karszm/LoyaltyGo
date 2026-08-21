@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Bliźniak confirmation.html. Oba maile mają być tym samym mailem z inną pierwszą linijką:
+<!-- Bliźniak magic_link.html. Oba maile mają być tym samym mailem z inną pierwszą linijką:
      różnią się WYŁĄCZNIE preheaderem, nagłówkiem, akapitem wstępu i napisem na przycisku.
      Każdą zmianę układu, koloru czy stopki nanieś w obu plikach — GoTrue nie ma include'ów,
      więc spójność trzyma się tu na dyscyplinie, nie na wspólnym pliku. -->
@@ -9,7 +9,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
     <meta name="supported-color-schemes" content="light" />
-    <title>Twój link i kod logowania do LoyaltyGo</title>
+    <title>Twoje pierwsze logowanie do LoyaltyGo</title>
     <style>
       /* Gmail, Apple Mail i Outlook.com czytają ten blok; Outlook desktop go ignoruje i zostaje
          przy stylach inline poniżej — dlatego tu są wyłącznie zawężenia na wąskim ekranie. */
@@ -25,7 +25,7 @@
     <!-- Podgląd na liście wiadomości: powtarza to, po co ten mail przyszedł, zamiast pierwszego
          zdania nagłówka. -->
     <div style="display:none; max-height:0; overflow:hidden; opacity:0; mso-hide:all;">
-      Link do logowania i sześciocyfrowy kod. Ważne godzinę.
+      Link do pierwszego logowania i sześciocyfrowy kod. Ważne godzinę.
     </div>
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
@@ -61,7 +61,7 @@
               <td class="pad h1" style="padding:24px 32px 0 32px;
                   font-family:'Avenir Next',Avenir,'Segoe UI',Helvetica,Arial,sans-serif;
                   font-size:26px; line-height:1.2; font-weight:700; letter-spacing:-0.02em; color:#081d4c;">
-                Zaloguj się do panelu
+                Twoje pierwsze logowanie
               </td>
             </tr>
 
@@ -69,8 +69,8 @@
               <td class="pad" style="padding:12px 32px 0 32px;
                   font-family:'Avenir Next',Avenir,'Segoe UI',Helvetica,Arial,sans-serif;
                   font-size:16px; line-height:24px; color:#5e6370;">
-                Kliknij poniżej, aby wejść do panelu na tym urządzeniu. Ten link
-                i kod należą do konta {{ .Email }}.
+                Adres {{ .Email }} jeszcze nie ma konta w LoyaltyGo. Kliknij poniżej —
+                konto powstanie w tej chwili i od razu wejdziesz do panelu, na tym urządzeniu.
               </td>
             </tr>
 
@@ -84,7 +84,7 @@
                    font-family:'Avenir Next',Avenir,'Segoe UI',Helvetica,Arial,sans-serif;
                    font-size:15px; font-weight:700; line-height:20px; letter-spacing:-0.01em;
                    text-decoration:none; padding:14px 24px; border-radius:999px;">
-                  Zaloguj się
+                  Utwórz konto i zaloguj się
                 </a>
               </td>
             </tr>
@@ -149,7 +149,7 @@
                   font-family:'Avenir Next',Avenir,'Segoe UI',Helvetica,Arial,sans-serif;
                   font-size:12px; line-height:17px; color:#5e6370;">
                 Nie zamawiałeś/aś tej wiadomości? Ktoś podał ten adres w panelu LoyaltyGo.
-                Zignoruj ją — bez kliknięcia nikt się nie zaloguje.
+                Zignoruj ją — bez kliknięcia konto nie powstanie.
               </td>
             </tr>
             <tr>
