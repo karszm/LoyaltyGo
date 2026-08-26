@@ -1,0 +1,13 @@
+# Jedyny katalog z nazwami zawierającymi hash — jedyny, gdzie immutable jest bezpieczne.
+# public/images/* ma nazwy niezahaszowane, więc zostaje przy domyślnym
+# max-age=0, must-revalidate + ETag (tanie 304).
+/_astro/*
+  Cache-Control: public, max-age=31556952, immutable
+
+# Wartości za program_page/src/middleware.ts. Bez CSP: landing ma inline script
+# przełączający motyw, więc CSP wymagałby 'unsafe-inline' (bezwartościowe) albo
+# hashy aktualizowanych przy każdej zmianie tego skryptu.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY

@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import FooterLegal from "../components/FooterLegal.astro";
 
 const pageTitle = "Polityka prywatności | LoyaltyGo";
 const pageDescription =
@@ -130,12 +131,13 @@ const pageDescription =
           <img class="wordmark-logo" src="/images/logo-dark.png" alt="" width="610" height="160" />
         </a>
         <p>Lojalność w Wallet. Prostszy powrót klienta.</p>
+        <FooterLegal />
       </div>
       <nav aria-label="Linki w stopce">
         <a href="/">Strona główna</a>
         <a href="/polityka-prywatnosci" aria-current="page">Prywatność</a>
         <a href="mailto:kontakt@loyaltygo.pl">Kontakt</a>
-        <a href="/panel">Panel merchanta</a>
+        <a href="https://app.loyaltygo.pl">Panel merchanta</a>
       </nav>
       <p class="copyright">© {new Date().getFullYear()} LoyaltyGo</p>
     </div>

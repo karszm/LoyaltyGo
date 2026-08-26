@@ -36,3 +36,6 @@ src/plugins/impeccable-live.client.ts
 # impeccable-live-ignore-end
 
 .env
+
+# wrangler dev cache
+.wrangler/
