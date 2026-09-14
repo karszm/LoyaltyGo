@@ -1,7 +1,7 @@
 // MemberDetail.tsx — /klienci/:id. Composition top to bottom: back link, h1 (customer name),
 // meta line (balance, e-mail, joined date), the manual points-adjustment form, and the
-// customer's own transaction history — the same columns as /transakcje (transactionColumns)
-// minus the redundant client column.
+// customer's own transaction history — the same columns as /transakcje
+// (MEMBER_TRANSACTION_COLUMNS) minus the redundant client column.
 //
 // The adjustment form is ALWAYS rendered for an existing customer, transactions or not:
 // "adding a customer's first points by hand" is exactly the no-transactions case.
@@ -16,7 +16,7 @@ import { formatDate, formatPointsDelta } from '../lib/format'
 import { DataTable, SkeletonRows } from '../components/DataTable'
 import { Empty } from '../components/Empty'
 import { DraftGate } from '../components/DraftGate'
-import { transactionColumns } from './Transactions'
+import { MEMBER_TRANSACTION_COLUMNS as COLUMNS } from './Transactions'
 
 const DRAFT_GATE_NOTE =
   'Link zapraszający i kod QR nie istnieją, dopóki program nie zostanie opublikowany, więc nikt nie może jeszcze dołączyć.'
@@ -36,8 +36,6 @@ const sectionTitleStyle = {
   fontWeight: 590,
   color: 'var(--text-1)',
 } as const
-
-const COLUMNS = transactionColumns(false)
 
 export default function MemberDetail() {
   const { program } = useProgram()

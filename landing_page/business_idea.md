@@ -78,7 +78,7 @@ Baza i logika: merchanci, programy, członkowie, transakcje, oferty i ich realiz
 Osobna aplikacja frontendowa (React lub inny framework SPA), integrująca się z backendem Supabase przez API/SDK. Supabase pełni rolę wyłącznie backendu — nie hostuje frontu. Zakres v1:
 
 - rejestracja i logowanie merchanta (self-service z landinga) — **bez haseł**: link lub kod jednorazowy na adres e-mail albo konto Apple / Google; rejestracja i logowanie to ta sama ścieżka, konto powstaje przy pierwszym udanym uwierzytelnieniu,
-- kreator karty lojalnościowej: nazwa firmy, logo, kolory, opis — mapowane na template passkit.com,
+- kreator karty lojalnościowej: nazwa firmy, logo, kolory, opis oraz generowane przez FLUX.2 branżowe tło `strip.png` — mapowane na template passkit.com; prompt i zasady eksportu opisuje `docs/flux-wallet-backgrounds.md`,
 - konfiguracja przelicznika punktów (punkty za 1 zł),
 - lista klientów lojalnościowych: kto dołączył, saldo punktów, data ostatniej transakcji,
 - zarządzanie ofertami: tworzenie kuponów jednorazowych,

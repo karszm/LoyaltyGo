@@ -1,6 +1,5 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import FooterLegal from "../components/FooterLegal.astro";
 import { COMPANY } from "../lib/company";
 
 const pageTitle = "Program lojalnościowy w Apple i Google Wallet | LoyaltyGo";
@@ -100,18 +99,9 @@ const orgLd = {
   "@type": "Organization",
   "@id": ORG_ID,
   name: COMPANY.brand,
-  legalName: COMPANY.legalName,
   url: COMPANY.url,
   logo: `${COMPANY.url}/images/logo-dark.png`,
   email: COMPANY.email,
-  taxID: COMPANY.nip,
-  address: {
-    "@type": "PostalAddress",
-    streetAddress: COMPANY.street,
-    postalCode: COMPANY.postalCode,
-    addressLocality: COMPANY.city,
-    addressCountry: COMPANY.country,
-  },
   // sameAs: dopisać, gdy powstaną realne profile (LinkedIn, katalogi SaaS).
   // To one sklejają "LoyaltyGo" w encję; pusta tablica nic nie wnosi.
 };
@@ -447,7 +437,6 @@ const faqLd = {
           <img class="wordmark-logo" src="/images/logo-dark.png" alt="" width="610" height="160" />
         </a>
         <p>Lojalność w Wallet. Prostszy powrót klienta.</p>
-        <FooterLegal />
       </div>
       <nav aria-label="Linki w stopce">
         <a href="#jak-dziala">Jak działa</a>

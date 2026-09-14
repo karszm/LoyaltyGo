@@ -373,9 +373,24 @@ Deno.test("live: createProgram sends passTypeIdentifier + status when PASSKIT_PA
   Deno.env.set("PASSKIT_PASS_TYPE_IDENTIFIER", "pass.pl.loyaltygo.test");
   try {
     await withFetch(
-      createProgramResponses(),
+      [
+        new Response(JSON.stringify({ id: "prog-123" }), { status: 200 }),
+        // The read-back: PassKit confirms it applied both the status and the pass type id.
+        new Response(
+          JSON.stringify({
+            status: ["PROJECT_PUBLISHED", "PROJECT_ACTIVE_FOR_OBJECT_CREATION"],
+            passTypeIdentifier: "pass.pl.loyaltygo.test",
+          }),
+          { status: 200 },
+        ),
+        new Response(BLUEPRINT_NDJSON, { status: 200 }),
+        new Response(JSON.stringify({ id: "tpl-789" }), { status: 200 }),
+        new Response(JSON.stringify({ id: "tier-456" }), { status: 200 }),
+      ],
       async (calls) => {
         await createProgram({ displayName: "Kawiarnia Test" });
+        assertEquals(calls[1].method, "GET");
+        assertEquals(calls[1].url, "https://api.pub1.passkit.io/members/program/prog-123");
         // `status` is two INDEPENDENT dimensions and PassKit rejects the call unless both
         // are present — it reports them one at a time, so sending only PROJECT_PUBLISHED
         // fails with a message about the other dimension entirely.
@@ -384,6 +399,39 @@ Deno.test("live: createProgram sends passTypeIdentifier + status when PASSKIT_PA
           passTypeIdentifier: "pass.pl.loyaltygo.test",
           status: ["PROJECT_PUBLISHED", "PROJECT_ACTIVE_FOR_OBJECT_CREATION"],
         });
+      },
+    );
+  } finally {
+    Deno.env.delete("PASSKIT_PASS_TYPE_IDENTIFIER");
+  }
+});
+
+// The failure this guards against is not hypothetical: on 2026-08-20 a live publication sent
+// a pass type id the account did not have, PassKit answered 200, stored an empty
+// passTypeIdentifier and a PROJECT_DRAFT status, and our side reported the programme as
+// published. Draft passes are garbage-collected, so the merchant's cards would have died.
+Deno.test("live: createProgram throws when PassKit silently ignores status/passTypeIdentifier", async () => {
+  Deno.env.set("PASSKIT_PASS_TYPE_IDENTIFIER", "pass.pl.loyaltygo.test");
+  try {
+    await withFetch(
+      [
+        new Response(JSON.stringify({ id: "prog-123" }), { status: 200 }),
+        new Response(
+          JSON.stringify({
+            status: ["PROJECT_ACTIVE_FOR_OBJECT_CREATION", "PROJECT_DRAFT"],
+            passTypeIdentifier: "",
+          }),
+          { status: 200 },
+        ),
+      ],
+      async (calls) => {
+        await assertRejects(
+          () => createProgram({ displayName: "Kawiarnia Test" }),
+          Error,
+          "nie przyjął konfiguracji",
+        );
+        // Nothing downstream ran: no template was cloned, no tier was created.
+        assertEquals(calls.length, 2);
       },
     );
   } finally {

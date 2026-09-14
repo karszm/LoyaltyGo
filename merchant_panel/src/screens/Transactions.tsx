@@ -36,13 +36,6 @@ const counterStyle = {
   color: 'var(--text-3)',
 } as const
 
-// Shared with MemberDetail.tsx (which drops the redundant client column on a single
-// customer's history) — the two lists must read identically or a merchant comparing them
-// would suspect different data.
-export function transactionColumns(includeClient: boolean): DataTableColumn<TransactionRow>[] {
-  return includeClient ? COLUMNS : COLUMNS.filter((c) => c.key !== 'client')
-}
-
 const COLUMNS: DataTableColumn<TransactionRow>[] = [
   {
     key: 'date',
@@ -197,6 +190,11 @@ const COLUMNS: DataTableColumn<TransactionRow>[] = [
       ),
   },
 ]
+
+// Shared with MemberDetail.tsx, which drops the redundant client column on a single
+// customer's history — the two lists must read identically or a merchant comparing them
+// would suspect different data.
+export const MEMBER_TRANSACTION_COLUMNS = COLUMNS.filter((c) => c.key !== 'client')
 
 export default function Transactions() {
   const { program } = useProgram()

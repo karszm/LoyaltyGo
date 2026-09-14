@@ -449,15 +449,6 @@ select.field {
   outline-color: var(--text-1); /* violet ring on violet fill is invisible */
 }
 
-.btn--danger {
-  background: transparent;
-  border: 1px solid var(--border-strong);
-  color: var(--red);
-}
-.btn--danger:hover {
-  border-color: var(--red);
-}
-
 .btn[disabled] {
   opacity: 0.45;
   cursor: not-allowed;
@@ -468,24 +459,6 @@ select.field {
 }
 .btn--full {
   inline-size: 100%;
-}
-
-/* ------------------------------------------------------------------ */
-/* Metric (panel-shell-design.md §5.6)                                                          */
-/* ------------------------------------------------------------------ */
-
-.metric__value {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 28px;
-  line-height: 36px;
-  font-weight: 640;
-  color: var(--text-1);
-}
-.metric__label {
-  font-size: 12px;
-  line-height: 16.8px;
-  color: var(--text-3);
 }
 
 /* ------------------------------------------------------------------ */

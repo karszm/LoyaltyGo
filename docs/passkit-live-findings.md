@@ -396,60 +396,44 @@ kolor na karcie klienta jest gorszy niż pole puste.
 urządzeniu. Wiemy, że PassKit je przyjmuje i że dotąd było puste, co jest spójne z objawem.
 Rozstrzyga oględziny karty na iPhonie po wdrożeniu.
 
-## 12. KARTY NIE AKTUALIZUJĄ SIĘ, BO SĄ WYDAWANE JAKO PASSY TESTOWE PASSKITA (2026-08-20)
+## 8. `passTypeIdentifier` — PassKit MILCZĄCO wyrzuca nieznaną wartość (2026-08-20)
 
-Objaw: zmiana punktów nie dociera do karty w Wallet. Nic po naszej stronie nie zawiodło —
-sprawdzone od końca do końca.
+Objaw, który kosztował sesję debugowania: panel publikuje program, PassKit odpowiada `200`,
+a w jego panelu projekt stoi jako **Draft**. Powtórne "go live" z UI PassKita nie przełącza
+projektu, tylko **tworzy jego kopię** — stąd dwa identyczne projekty o tej samej minucie
+utworzenia (`Live` + `Draft`).
 
-### Nasza połowa działa, cała
-
-Sonda zbudowała własny program, tier i członka na żywym koncie, po czym wykonała dokładnie to
-wywołanie, które robi `updateBalance`:
+Przyczyna: wysyłaliśmy `passTypeIdentifier: pass.pl.loyaltygo.card`, którego **na koncie nie
+ma**. PassKit nie zgłasza błędu — zapisuje puste pole:
 
 ```
-PUT /members/member  {id, points: 777}  → 200
-odczyt po:  points 100 → 777            ✅
-            externalId przetrwał        ✅
-            person przetrwał            ✅
+POST /members/program   {passTypeIdentifier: "pass.pl.loyaltygo.card",
+                         status: ["PROJECT_PUBLISHED", "PROJECT_ACTIVE_FOR_OBJECT_CREATION"]}
+  -> 200 {"id":"3adSJfXVRizzxQKokgmfZG"}
+GET  /members/program/3adSJfXVRizzxQKokgmfZG
+  -> 200 {"status":["PROJECT_ACTIVE_FOR_OBJECT_CREATION","PROJECT_DRAFT"],
+          "passTypeIdentifier":""}
 ```
 
-To **zamyka założenie, które kod sam oznaczał jako UNVERIFIED**: `PUT /members/member` **łata**
-członka, nie zastępuje go. Wysyłanie samego `{id, points}` jest poprawne i nie gubi pozostałych
-pól.
+Bez ważnego pass type ID projekt **nie może** być `PROJECT_PUBLISHED` — UI PassKita mówi to
+wprost: przy "go live" trzeba wybrać certyfikat Apple z listy. Na tym koncie jedyny wpis to
+`pass.tpay.karolszmaj • Karol Szmaj`.
 
-Osobno sprawdzone: `PUT /template` (ścieżka synchronizacji brandingu, dotąd testowana wyłącznie
-na podmienionym `fetch`) zwraca 200 i utrzymuje zapisane kolory.
+**Wniosek ogólniejszy (trzeci raz w tym pliku): u PassKita `200` nie jest dowodem, że coś
+zostało zastosowane.** Tak samo zachowuje się nieznana nazwa slotu w `POST /images` (§5)
+i `colors` włożone pod `data` (§7).
 
-### Gdzie łańcuch się urywa
+`createProgram` odczytuje więc program po utworzeniu i **rzuca**, jeśli `status` albo
+`passTypeIdentifier` nie są tym, o co prosił — zamiast zapisać u nas `published`, gdy PassKit
+wydaje kasowane po czasie karty robocze.
 
-Pobrany `.pkpass` testowego członka:
+### Konfiguracja
 
-| Pole | Wartość |
-|---|---|
-| `passTypeIdentifier` | **`pass.io.passkit.dev`** |
-| `teamIdentifier` | `SSUX2R6S8X` (PassKita) |
-| `webServiceURL` | `https://europe-west1-passkit-io.cloudfunctions.net/pfr` |
-| `backFields[]` | zawiera pole **`pktest`** z `legal.label` |
+| Zmienna | Wartość na dziś | Uwaga |
+|---|---|---|
+| `PASSKIT_PASS_TYPE_IDENTIFIER` | `pass.tpay.karolszmaj` | jedyny certyfikat na koncie — **obejście na czas PoC** |
+| `PASSKIT_PROJECT_STATUS` | `PROJECT_PUBLISHED` | konto jest już dopuszczone do produkcji, §4 nieaktualne |
 
-Karty **nie są wydawane pod naszym `pass.pl.loyaltygo.card`**, tylko pod deweloperskim
-identyfikatorem PassKita, z ich zespołem i ich certyfikatem. Wszystkie programy na koncie stoją
-w `PROJECT_DRAFT`, a `passTypeIdentifier` wraca pusty nawet wtedy, gdy go wysyłamy — własny
-identyfikator wymaga wgrania certyfikatu Apple do PassKita, czego konto jeszcze nie ma.
-
-`webServiceURL` **jest obecny**, więc mechanizm aktualizacji istnieje w pliku. Dostarczenie
-powiadomienia idzie jednak przez infrastrukturę testową PassKita i nie jest czymś, na co nasz
-kod ma wpływ.
-
-### Wniosek
-
-To nie jest regresja i nie da się tego naprawić kodem. To punkt 1 z listy otwartych spraw
-(`docs/stan-implementacji.md`): **konto PassKita nie jest dopuszczone do produkcji.**
-Konsekwencje, teraz zmierzone, a nie przewidywane:
-
-- passy są testowe (`pktest`, dev identyfikator),
-- w `PROJECT_DRAFT` kasują się po około dwóch dniach — stąd „działało, a potem przestało",
-- aktualizacje zainstalowanej karty zależą od pushy PassKita w trybie deweloperskim.
-
-Odblokowanie: dopuszczenie konta do produkcji i wgranie certyfikatu Pass Type ID, po czym
-`PASSKIT_PROJECT_STATUS=PROJECT_PUBLISHED`. Dopóki tego nie ma, jedyny wiarygodny sposób
-zobaczenia aktualnego stanu karty to **pobranie passa od nowa**, nie oglądanie zainstalowanego.
+Docelowo: zarejestrować `pass.pl.loyaltygo.card` w Apple Developer, wygenerować CSR
+w PassKicie i wgrać certyfikat — dopóki tego nie ma, karty klientów są sygnowane pass type ID
+należącym do innego produktu.
