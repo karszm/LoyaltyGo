@@ -126,6 +126,14 @@ function blueprintTemplate(id: string): Record<string, unknown> {
             positionSettings: { section: "SECONDARY_FIELDS", priority: 0 },
           },
         },
+        {
+          uniqueName: "members.tier.name",
+          label: "Tier",
+          appleWalletFieldRenderOptions: {
+            textAlignment: "RIGHT",
+            positionSettings: { section: "SECONDARY_FIELDS", priority: 1 },
+          },
+        },
       ],
     },
   };
@@ -273,6 +281,9 @@ Deno.test("live: applyBranding sets STORE_CARD, QR and moves the balance onto th
       // Siblings are left exactly where they were.
       const name = put.data.dataFields.find((f: Record<string, any>) => f.uniqueName === "person.displayName");
       assertEquals(name.appleWalletFieldRenderOptions.positionSettings.section, "SECONDARY_FIELDS");
+      // ...except the tier field, which is gone: one tier per program means it always read
+      // `TIER / default` next to the customer's name.
+      assertEquals(put.data.dataFields.find((f: Record<string, any>) => f.uniqueName === "members.tier.name"), undefined);
     },
   );
 });
