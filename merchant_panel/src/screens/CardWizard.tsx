@@ -252,7 +252,6 @@ export default function CardWizard() {
     description: descriptionInputRef,
   } as const
 
-  const publishButtonRef = useRef<HTMLButtonElement>(null)
   const confirmDialogRef = useRef<HTMLDialogElement>(null)
   const confirmCancelRef = useRef<HTMLButtonElement>(null)
   const keyDialogRef = useRef<HTMLDialogElement>(null)
@@ -1098,7 +1097,6 @@ export default function CardWizard() {
                 )}
                 <button
                   type="button"
-                  ref={publishButtonRef}
                   className="btn btn--amber btn--lg btn--publish"
                   style={{ marginBlockStart: 'var(--space-6)' }}
                   disabled={publishBusy}

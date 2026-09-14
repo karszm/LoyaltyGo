@@ -426,6 +426,31 @@ export async function createProgram(
   }) as { id: string };
   const programId = requireId(program, "createProgram");
 
+  // PassKit accepts a status and a passTypeIdentifier it then does not apply, with a 200 and
+  // no warning. VERIFIED LIVE 2026-08-20: we sent `pass.pl.loyaltygo.card` (not registered on
+  // the account) plus PROJECT_PUBLISHED; GET on the created program answered
+  // `passTypeIdentifier: ""` and `status: [..., "PROJECT_DRAFT"]`. Our side had already
+  // written status='published', so the merchant was told their programme was live while
+  // PassKit was quietly issuing throwaway draft passes. Read the program back and refuse the
+  // publication if PassKit did not take what we asked for -- same reasoning as mintImage's
+  // empty-body check above: a 200 here is not evidence.
+  if (passTypeIdentifier) {
+    const created = await passkitRequest("GET", `/members/program/${programId}`) as {
+      status?: string[];
+      passTypeIdentifier?: string;
+    };
+    const status = created.status ?? [];
+    if (!status.includes(projectStatus) || created.passTypeIdentifier !== passTypeIdentifier) {
+      throw new Error(
+        `passkit createProgram: program ${programId} nie przyjął konfiguracji — ` +
+          `status=${JSON.stringify(status)} (oczekiwano ${projectStatus}), ` +
+          `passTypeIdentifier=${JSON.stringify(created.passTypeIdentifier ?? "")} ` +
+          `(oczekiwano ${passTypeIdentifier}). Sprawdź, czy ten pass type ID jest ` +
+          `zarejestrowany na koncie PassKita i czy konto ma zgodę na produkcję.`,
+      );
+    }
+  }
+
   // POST /members/tier — route confirmed live the same way. PassKit's hierarchy is
   // Program -> Tier -> (Pass Template); a program needs at least one tier
   // (docs.passkit.io/protocols/member/grpc-definitions.md). We create one default tier and

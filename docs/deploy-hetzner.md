@@ -63,7 +63,7 @@ Domeny: `loyaltygo.pl` → landing, `app.loyaltygo.pl` → panel merchanta.
      PASSKIT_API_SECRET=<...> \
      PASSKIT_PASS_TYPE_IDENTIFIER=<...> \
      PASSKIT_TEMPLATE_ID=<...> \
-     PASSKIT_PROJECT_STATUS=PROJECT_DRAFT \
+     PASSKIT_PROJECT_STATUS=PROJECT_PUBLISHED \
      PROGRAM_PAGE_BASE_URL=https://karta.loyaltygo.pl \
      FAL_KEY=<id:secret z fal.ai>
    ```
@@ -75,9 +75,10 @@ Domeny: `loyaltygo.pl` → landing, `app.loyaltygo.pl` → panel merchanta.
    `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` **nie trzeba ustawiać** — Supabase Cloud
    wstrzykuje je automatycznie do każdej Edge Function.
 
-   `PASSKIT_PROJECT_STATUS=PROJECT_DRAFT` zostaje, bo konto PassKita nie jest jeszcze
-   dopuszczone do `PROJECT_PUBLISHED` (`docs/stan-implementacji.md`, punkt 1) — karty są
-   prawdziwe, tylko czasowe. Zmień na `PROJECT_PUBLISHED`, gdy PassKit to odblokuje.
+   `PASSKIT_PROJECT_STATUS=PROJECT_PUBLISHED` działa od 2026-08-20 — konto jest dopuszczone
+   do produkcji. Warunek: `PASSKIT_PASS_TYPE_IDENTIFIER` musi być certyfikatem Apple, który
+   **naprawdę istnieje na koncie PassKita** (dziś `pass.tpay.karolszmaj`). Nieznaną wartość
+   PassKit milcząco kasuje i zostawia projekt jako Draft — `docs/passkit-live-findings.md` §8.
 
 8. Limity dev w `backend/supabase/config.toml` (30 maili/h, `# dev only`) **nie przenoszą się
    automatycznie** — to plik CLI lokalnego dev. Limity produkcyjne dla auth/email ustawiasz w

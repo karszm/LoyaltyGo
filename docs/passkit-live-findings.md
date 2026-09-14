@@ -395,3 +395,45 @@ kolor na karcie klienta jest gorszy niż pole puste.
 **Niezweryfikowane:** że ustawienie `foregroundColor` faktycznie zmienia kolor salda na
 urządzeniu. Wiemy, że PassKit je przyjmuje i że dotąd było puste, co jest spójne z objawem.
 Rozstrzyga oględziny karty na iPhonie po wdrożeniu.
+
+## 8. `passTypeIdentifier` — PassKit MILCZĄCO wyrzuca nieznaną wartość (2026-08-20)
+
+Objaw, który kosztował sesję debugowania: panel publikuje program, PassKit odpowiada `200`,
+a w jego panelu projekt stoi jako **Draft**. Powtórne "go live" z UI PassKita nie przełącza
+projektu, tylko **tworzy jego kopię** — stąd dwa identyczne projekty o tej samej minucie
+utworzenia (`Live` + `Draft`).
+
+Przyczyna: wysyłaliśmy `passTypeIdentifier: pass.pl.loyaltygo.card`, którego **na koncie nie
+ma**. PassKit nie zgłasza błędu — zapisuje puste pole:
+
+```
+POST /members/program   {passTypeIdentifier: "pass.pl.loyaltygo.card",
+                         status: ["PROJECT_PUBLISHED", "PROJECT_ACTIVE_FOR_OBJECT_CREATION"]}
+  -> 200 {"id":"3adSJfXVRizzxQKokgmfZG"}
+GET  /members/program/3adSJfXVRizzxQKokgmfZG
+  -> 200 {"status":["PROJECT_ACTIVE_FOR_OBJECT_CREATION","PROJECT_DRAFT"],
+          "passTypeIdentifier":""}
+```
+
+Bez ważnego pass type ID projekt **nie może** być `PROJECT_PUBLISHED` — UI PassKita mówi to
+wprost: przy "go live" trzeba wybrać certyfikat Apple z listy. Na tym koncie jedyny wpis to
+`pass.tpay.karolszmaj • Karol Szmaj`.
+
+**Wniosek ogólniejszy (trzeci raz w tym pliku): u PassKita `200` nie jest dowodem, że coś
+zostało zastosowane.** Tak samo zachowuje się nieznana nazwa slotu w `POST /images` (§5)
+i `colors` włożone pod `data` (§7).
+
+`createProgram` odczytuje więc program po utworzeniu i **rzuca**, jeśli `status` albo
+`passTypeIdentifier` nie są tym, o co prosił — zamiast zapisać u nas `published`, gdy PassKit
+wydaje kasowane po czasie karty robocze.
+
+### Konfiguracja
+
+| Zmienna | Wartość na dziś | Uwaga |
+|---|---|---|
+| `PASSKIT_PASS_TYPE_IDENTIFIER` | `pass.tpay.karolszmaj` | jedyny certyfikat na koncie — **obejście na czas PoC** |
+| `PASSKIT_PROJECT_STATUS` | `PROJECT_PUBLISHED` | konto jest już dopuszczone do produkcji, §4 nieaktualne |
+
+Docelowo: zarejestrować `pass.pl.loyaltygo.card` w Apple Developer, wygenerować CSR
+w PassKicie i wgrać certyfikat — dopóki tego nie ma, karty klientów są sygnowane pass type ID
+należącym do innego produktu.
