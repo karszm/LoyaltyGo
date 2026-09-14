@@ -62,11 +62,15 @@ Run the smoke suite against it (153 checks across sdk-api/public-api/panel-api):
 ./supabase/tests/smoke.sh panel         # just one section: sdk | public | panel
 ```
 
-Run the two pure-SQL suites directly against Postgres:
+Run the pure-SQL suites directly against Postgres (these files use transactional
+`ASSERT` blocks, not the pgTAP output expected by `supabase test db`):
 
 ```bash
+docker exec -i supabase_db_backend psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f - < supabase/tests/adjust_points.test.sql
+docker exec -i supabase_db_backend psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f - < supabase/tests/card_images.test.sql
 docker exec -i supabase_db_backend psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f - < supabase/tests/register_transaction.test.sql
 docker exec -i supabase_db_backend psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f - < supabase/tests/rls_panel.test.sql
+docker exec -i supabase_db_backend psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f - < supabase/tests/storage_logos.test.sql
 ```
 
 Run the Deno unit tests for the shared layer (auth, errors, PassKit adapter):

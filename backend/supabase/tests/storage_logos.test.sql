@@ -3,9 +3,20 @@
 -- Zakłada, że seed.sql już wgrany (merchant A: auth.users 51000000-...-0001,
 -- merchants.id 52000000-...-0001; merchant B: 61000000-...-0001 / 62000000-...-0001).
 --
--- Nazwy plików mają losowy sufiks (gen_random_uuid()), żeby test nie kolidował
--- z prawdziwymi danymi dev-bazy, gdyby panel już wgrał coś pod stałą nazwą.
+-- Każde uruchomienie ma własny prefiks, żeby asercje obejmowały wyłącznie
+-- obiekty utworzone przez bieżący test, niezależnie od stanu dev-bazy.
 begin;
+
+select set_config(
+  'loyaltygo_test.logo_prefix_a',
+  '52000000-0000-0000-0000-000000000001/logo-test-' || gen_random_uuid() || '-',
+  true
+);
+select set_config(
+  'loyaltygo_test.logo_prefix_b',
+  '62000000-0000-0000-0000-000000000001/logo-test-' || gen_random_uuid() || '-',
+  true
+);
 
 -- jako merchant A (tak PostgREST/Storage API przekazuje JWT)
 set local role authenticated;
@@ -13,8 +24,8 @@ set local request.jwt.claims to '{"sub":"51000000-0000-0000-0000-000000000001","
 
 do $$
 declare
-  key1 text := '52000000-0000-0000-0000-000000000001/logo-' || gen_random_uuid() || '.png';
-  key2 text := '52000000-0000-0000-0000-000000000001/logo-' || gen_random_uuid() || '.png';
+  key1 text := current_setting('loyaltygo_test.logo_prefix_a') || '1.png';
+  key2 text := current_setting('loyaltygo_test.logo_prefix_a') || '2.png';
 begin
   -- a) własny folder — insert ma przejść
   insert into storage.objects (bucket_id, name, owner)
@@ -23,7 +34,7 @@ begin
   -- b) folder cudzego merchanta — insert ma się nie udać
   begin
     insert into storage.objects (bucket_id, name, owner)
-      values ('program-logos', '62000000-0000-0000-0000-000000000001/logo-' || gen_random_uuid() || '.png', auth.uid());
+      values ('program-logos', current_setting('loyaltygo_test.logo_prefix_b') || '1.png', auth.uid());
     raise exception 'insert do folderu B nie powinien się udać';
   exception when insufficient_privilege then null;
   end;
@@ -68,11 +79,11 @@ declare n int;
 begin
   select count(*) into n from storage.objects
     where bucket_id = 'program-logos'
-      and name like '52000000-0000-0000-0000-000000000001/logo-%';
+      and name like current_setting('loyaltygo_test.logo_prefix_a') || '%';
   assert n = 2, format('oczekiwano 2 obiektów A w bazie (bypass RLS), jest %s', n);
   select count(*) into n from storage.objects
     where bucket_id = 'program-logos'
-      and name like '62000000-0000-0000-0000-000000000001/logo-%';
+      and name like current_setting('loyaltygo_test.logo_prefix_b') || '%';
   assert n = 0, format('insert do folderu B miał się nie udać, a fizycznie jest %s wierszy', n);
 end $$;
 

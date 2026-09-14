@@ -2,7 +2,7 @@
 
 | Pole | Wartość |
 | --- | --- |
-| Status | Projekt testów |
+| Status | Wdrożony fundament — testy komponentowe i lokalny smoke OTP gotowe |
 | Data | 2026-09-14 |
 | Zakres | E-mail OTP, magic link, sesja, pierwsze logowanie i onboarding |
 | Warstwy | Vitest unit/component → Playwright E2E |
@@ -26,7 +26,10 @@ kontrakt między przeglądarką, Supabase Auth, wyrenderowanym e-mailem, sesją,
 - `merchant_panel` używa Vitest w środowisku `node`.
 - Istnieją testy czystych funkcji, m.in. walidacji e-maila i OTP, `returnTo` oraz błędów w hashu
   Auth.
-- Nie ma testów komponentów React, `jsdom`, React Testing Library ani Playwrighta.
+- Projekt ma React Testing Library, `user-event`, `jest-dom` i `jsdom` oraz 18 testów
+  komponentowych ekranów `Login` i `Onboarding`.
+- Playwright sprawdza kontrakt sześciocyfrowego pola na desktopie i mobile, a osobny lokalny
+  smoke pobiera prawdziwy OTP z Mailpit i loguje testowego merchanta przez Supabase Auth.
 - `Login.tsx` bezpośrednio wywołuje `supabase.auth.signInWithOtp` i `verifyOtp`.
 - `AuthCallback.tsx` odczytuje sesję i obsługuje błąd linku.
 - `SessionProvider` jest właścicielem sesji, wylogowania i reakcji na 401.
@@ -447,4 +450,3 @@ którejkolwiek usługi brakuje.
 - [Playwright — Parallelism](https://playwright.dev/docs/test-parallel)
 - [Playwright — Trace, screenshot and video](https://playwright.dev/docs/test-use-options)
 - [Supabase — Testing Auth emails locally](https://supabase.com/docs/guides/local-development/cli/testing-and-linting)
-

@@ -1,4 +1,7 @@
 node_modules/
 .DS_Store
+merchant_panel/playwright-report/
+merchant_panel/test-results/
+merchant_panel/playwright/.auth/
 .impeccable/
 .claude/worktrees/

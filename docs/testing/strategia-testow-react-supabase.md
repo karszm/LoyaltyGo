@@ -5,7 +5,7 @@
 | Status | Propozycja architektoniczna |
 | Data | 2026-09-14 |
 | Zakres | `merchant_panel`, Supabase/Postgres/Auth/Storage, Edge Functions, krytyczne E2E |
-| Powiązany plan | `docs/prd/2026-09-14-plan-testow-logowania-rejestracji.md` |
+| Powiązane plany | `docs/prd/2026-09-14-plan-testow-logowania-rejestracji.md`, `docs/testing/plan-testow-pozostale-moduly-panelu.md` |
 
 ## 1. Rekomendacja w skrócie
 
@@ -501,4 +501,3 @@ Test powinien mieszkać blisko kodu, jeśli jest małym unit/component. Test prz
 - [Playwright — Test Isolation](https://playwright.dev/docs/browser-contexts)
 - [Playwright — Authentication state](https://playwright.dev/docs/auth)
 - [Playwright — CI](https://playwright.dev/docs/ci)
-

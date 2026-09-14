@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 
 // Kept separate from vite.config.ts: merging test config in there pulls @vitejs/plugin-react's
 // Plugin type (resolved against this package's own nested vite) against vitest/config's
@@ -7,6 +7,9 @@ import { defineConfig } from 'vitest/config'
 // the files means this config never imports the react plugin, so the mismatch never occurs.
 export default defineConfig({
   test: {
-    environment: 'node', // lib/ tests are pure functions; no DOM needed (no component tests).
+    // Pure lib tests stay fast in Node. Component suites opt into jsdom with a
+    // per-file @vitest-environment directive, so DOM setup is paid only where needed.
+    environment: 'node',
+    exclude: [...configDefaults.exclude, 'e2e/**'],
   },
 })

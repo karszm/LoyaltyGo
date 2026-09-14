@@ -72,6 +72,13 @@ function isPostgrestError(
 
 /** Pure translator. No side effects — this is what the tests assert against. */
 export function normalizeCode(err: unknown): AppError {
+  // api.ts already turns Edge Function failures into PanelError. Some screen-level flows call
+  // normalizeCode again because they also accept raw browser/Storage failures. Preserve an
+  // already-normalized error instead of misclassifying the Error subclass as a network failure
+  // and dropping validation fields returned by panel-api.
+  if (err instanceof PanelError) {
+    return { code: err.code, message: err.message, fields: err.fields }
+  }
   if (isPanelApiError(err)) {
     const body = err.error
     const code = body?.code ?? 'internal_error'
