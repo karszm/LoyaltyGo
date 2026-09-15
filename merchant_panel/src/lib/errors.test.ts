@@ -1,5 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { normalizeCode, setUnauthorizedHandler, toPanelError } from './errors'
+import { normalizeCode, PanelError, setUnauthorizedHandler, toPanelError } from './errors'
+
+describe('normalizeCode — już znormalizowany PanelError', () => {
+  it('zachowuje kod, komunikat i listę pól', () => {
+    const result = normalizeCode(
+      new PanelError({
+        code: 'validation_failed',
+        message: 'Uzupełnij konfigurację.',
+        fields: [{ field: 'logo_url', message: 'logo jest wymagane' }],
+      }),
+    )
+
+    expect(result).toEqual({
+      code: 'validation_failed',
+      message: 'Uzupełnij konfigurację.',
+      fields: [{ field: 'logo_url', message: 'logo jest wymagane' }],
+    })
+  })
+})
 
 describe('normalizeCode — panel-api dialect ({ error: { code, message } })', () => {
   it('passes the contract code and the backend\'s own Polish message through unchanged', () => {
