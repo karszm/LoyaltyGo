@@ -201,8 +201,8 @@ function PublishedMemberDetail({ memberId }: { memberId: string }) {
           Dodaj lub odejmij punkty ręcznie, np. za usługę rozliczaną poza kasą. Zmiana od razu trafia na kartę
           klienta w portfelu.
         </p>
-        <div className="toolbar" style={{ marginBlockStart: 'var(--space-6)', alignItems: 'flex-start' }}>
-          <div>
+        <div className="toolbar" style={{ marginBlockStart: 'var(--space-6)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div className="fieldset" style={{ inlineSize: 180 }}>
             <label className="fieldset__label" htmlFor="adjust-delta">
               Punkty
             </label>
@@ -212,7 +212,6 @@ function PublishedMemberDetail({ memberId }: { memberId: string }) {
               type="number"
               step={1}
               className="field field--compact"
-              style={{ inlineSize: 120 }}
               placeholder="np. 12 lub -30"
               value={deltaInput}
               onChange={(e) => setDeltaInput(e.target.value)}
@@ -225,7 +224,7 @@ function PublishedMemberDetail({ memberId }: { memberId: string }) {
               </p>
             )}
           </div>
-          <div style={{ flex: 1, minInlineSize: 220 }}>
+          <div className="fieldset" style={{ flex: 1, minInlineSize: 220, marginBlockStart: 0 }}>
             <label className="fieldset__label" htmlFor="adjust-description">
               Opis usługi
             </label>
@@ -247,7 +246,7 @@ function PublishedMemberDetail({ memberId }: { memberId: string }) {
               </p>
             )}
           </div>
-          <div style={{ alignSelf: 'flex-end' }}>
+          <div style={{ marginBlockStart: 'calc(19.5px + var(--space-4))' }}>
             <button type="submit" className="btn btn--primary" disabled={saving} aria-busy={saving || undefined}>
               {saving ? 'Zapisywanie…' : 'Zapisz korektę'}
             </button>
