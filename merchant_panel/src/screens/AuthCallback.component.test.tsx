@@ -1,9 +1,8 @@
 // @vitest-environment jsdom
 
-import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AuthCallback from './AuthCallback'
 
 const mocks = vi.hoisted(() => ({
@@ -50,8 +49,6 @@ describe('AuthCallback', () => {
     mocks.getAuthHashError.mockReturnValue(null)
     mocks.getSession.mockResolvedValue({ data: { session: null } })
   })
-
-  afterEach(() => cleanup())
 
   it('przenosi błąd magic linku na ekran logowania', async () => {
     mocks.getAuthHashError.mockReturnValue({ code: 'otp_expired' })

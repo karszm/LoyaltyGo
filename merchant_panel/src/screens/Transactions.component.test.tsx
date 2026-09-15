@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 
-import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { deferred, programFixture, transactionFixture } from '../test/fixtures'
 import Transactions from './Transactions'
 
@@ -15,8 +14,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../lib/program', () => ({ useProgram: mocks.useProgram }))
-vi.mock('../lib/db', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/db')>()),
+vi.mock('../lib/db', () => ({
   listTransactions: mocks.listTransactions,
   countMembers: mocks.countMembers,
 }))
@@ -32,8 +30,6 @@ describe('Transactions', () => {
     mocks.listTransactions.mockResolvedValue({ rows: [transactionFixture()], count: 1 })
     mocks.countMembers.mockResolvedValue(0)
   })
-
-  afterEach(() => cleanup())
 
   it('dla draftu pokazuje bramkę bez pobierania danych', () => {
     mocks.useProgram.mockReturnValue({ program: programFixture({ status: 'draft' }) })

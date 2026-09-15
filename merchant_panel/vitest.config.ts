@@ -10,6 +10,7 @@ export default defineConfig({
     // Pure lib tests stay fast in Node. Component suites opt into jsdom with a
     // per-file @vitest-environment directive, so DOM setup is paid only where needed.
     environment: 'node',
+    setupFiles: ['./src/test/setup.ts'],
     exclude: [...configDefaults.exclude, 'e2e/**'],
   },
 })

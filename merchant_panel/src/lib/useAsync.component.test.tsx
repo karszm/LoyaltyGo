@@ -1,14 +1,9 @@
 // @vitest-environment jsdom
 
-import '@testing-library/jest-dom/vitest'
-import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import { deferred } from '../test/fixtures'
 import { useAsync } from './useAsync'
-
-afterEach(() => {
-  cleanup()
-})
 
 describe('useAsync', () => {
   it('przechodzi ze stanu ładowania do danych', async () => {

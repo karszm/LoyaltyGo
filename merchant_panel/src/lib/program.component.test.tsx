@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 
-import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { merchantFixture, programFixture } from '../test/fixtures'
 import { PanelError } from './errors'
 import { RequireProgram, RootRedirect, useProgram } from './program'
@@ -43,8 +42,6 @@ describe('RequireProgram i RootRedirect', () => {
     vi.resetAllMocks()
     mocks.useSession.mockReturnValue({ logout: vi.fn() })
   })
-
-  afterEach(() => cleanup())
 
   it('pokazuje shell ze szkieletem podczas ładowania', () => {
     mocks.useAsync.mockReturnValue({ data: null, error: null, loading: true, reload: vi.fn() })

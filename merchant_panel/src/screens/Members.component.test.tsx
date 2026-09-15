@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 
-import '@testing-library/jest-dom/vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { deferred, memberFixture, programFixture } from '../test/fixtures'
 import Members from './Members'
 
@@ -14,10 +13,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../lib/program', () => ({ useProgram: mocks.useProgram }))
-vi.mock('../lib/db', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/db')>()),
-  listMembers: mocks.listMembers,
-}))
+vi.mock('../lib/db', () => ({ listMembers: mocks.listMembers }))
 
 function renderMembers() {
   return render(<MemoryRouter><Members /></MemoryRouter>)
@@ -28,11 +24,6 @@ describe('Members', () => {
     vi.resetAllMocks()
     mocks.useProgram.mockReturnValue({ program: programFixture({ status: 'published' }) })
     mocks.listMembers.mockResolvedValue({ rows: [memberFixture()], count: 1 })
-  })
-
-  afterEach(() => {
-    cleanup()
-    vi.useRealTimers()
   })
 
   it('dla programu draft pokazuje bramkę i nie pobiera klientów', () => {
@@ -91,8 +82,6 @@ describe('Members', () => {
     renderMembers()
     const input = screen.getByLabelText(/Szukaj klienta/)
     fireEvent.change(input, { target: { value: 'Nieistniejący' } })
-    await act(async () => new Promise((resolve) => window.setTimeout(resolve, 260)))
-
     expect(await screen.findByText('Brak wyników dla „Nieistniejący”.')).toBeInTheDocument()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Wyczyść wyszukiwanie' }))
 

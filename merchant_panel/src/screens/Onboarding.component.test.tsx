@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 
-import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Onboarding from './Onboarding'
 
 const mocks = vi.hoisted(() => ({
@@ -58,10 +57,6 @@ describe('Onboarding — pierwsze logowanie', () => {
     mocks.loadDraft.mockReturnValue('')
     mocks.createMerchant.mockResolvedValue({ id: 'merchant-1' })
     mocks.createProgram.mockResolvedValue({ id: 'program-1' })
-  })
-
-  afterEach(() => {
-    cleanup()
   })
 
   it('ładuje wersję roboczą powiązaną z kontem', () => {

@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
-import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -15,10 +14,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../lib/program', () => ({ useProgram: mocks.useProgram }))
-vi.mock('../lib/publish', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/publish')>()),
-  copyToClipboard: mocks.copyToClipboard,
-}))
+vi.mock('../lib/publish', () => ({ copyToClipboard: mocks.copyToClipboard }))
 vi.mock('qrcode', () => ({ default: { toDataURL: mocks.toDataURL } }))
 
 function renderInvite() {
@@ -36,7 +32,6 @@ describe('Invite', () => {
   })
 
   afterEach(() => {
-    cleanup()
     vi.restoreAllMocks()
   })
 

@@ -43,8 +43,7 @@ or a real remote project. There is no other environment-specific config: no feat
 per-environment API base URL beyond this one pair, no build-time environment switch.
 
 ```bash
-npm run test:unit         # Vitest — unit + testy komponentowe React/jsdom
-npm run test:e2e          # Playwright — szybki kontrakt UI OTP, Chromium desktop + mobile
+npm test                  # Vitest — unit + testy komponentowe React/jsdom
 npm run test:e2e:local    # Playwright — prawdziwe lokalne Auth/Mailpit/PostgREST/RLS
 npx tsc -b --noEmit       # typecheck alone, no build output (there's no separate "typecheck" script)
 npm run build             # tsc -b && vite build -> dist/
@@ -53,7 +52,7 @@ npm run build             # tsc -b && vite build -> dist/
 `test:e2e:local` wymaga działającego `supabase start` oraz idempotentnego fixture'u z
 `backend/supabase/tests/seed.sql`. Konfiguracja Playwrighta pobiera lokalny publiczny klucz z
 `supabase status`; nie zapisuje go w repo ani artefaktach. Przed pierwszym uruchomieniem Chromium
-można doinstalować poleceniem `npm run test:e2e:install`.
+można doinstalować poleceniem `npx playwright install chromium`.
 
 ## Where the binding documents live
 

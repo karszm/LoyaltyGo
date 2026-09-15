@@ -28,8 +28,8 @@ kontrakt między przeglądarką, Supabase Auth, wyrenderowanym e-mailem, sesją,
   Auth.
 - Projekt ma React Testing Library, `user-event`, `jest-dom` i `jsdom` oraz 18 testów
   komponentowych ekranów `Login` i `Onboarding`.
-- Playwright sprawdza kontrakt sześciocyfrowego pola na desktopie i mobile, a osobny lokalny
-  smoke pobiera prawdziwy OTP z Mailpit i loguje testowego merchanta przez Supabase Auth.
+- Lokalny test Playwright pobiera prawdziwy OTP z Mailpit i loguje testowego merchanta przez
+  Supabase Auth; kontrakt sześciocyfrowego pola pokrywają szybsze testy komponentowe.
 - `Login.tsx` bezpośrednio wywołuje `supabase.auth.signInWithOtp` i `verifyOtp`.
 - `AuthCallback.tsx` odczytuje sesję i obsługuje błąd linku.
 - `SessionProvider` jest właścicielem sesji, wylogowania i reakcji na 401.
@@ -432,12 +432,11 @@ wyłączyć trace, screenshot i video albo używać wyłącznie izolowanego kont
 ## 17. Docelowe polecenia
 
 ```bash
-npm run test:unit --workspace merchant_panel
-npm run test:e2e --workspace merchant_panel
-npm run test:e2e:auth --workspace merchant_panel
+npm test --workspace merchant_panel
+npm run test:e2e:local --workspace merchant_panel
 ```
 
-Dokładne skrypty są częścią implementacji. `test:e2e:auth` powinien sprawdzić gotowość Supabase,
+Dokładne skrypty są częścią implementacji. `test:e2e:local` powinien sprawdzić gotowość Supabase,
 catchera e-mail i Vite przed uruchomieniem testów oraz zakończyć się czytelnym błędem, jeśli
 którejkolwiek usługi brakuje.
 

@@ -10,10 +10,6 @@ interface MailpitSummary {
   To: Array<{ Address: string }>
 }
 
-interface MailpitList {
-  messages: MailpitSummary[]
-}
-
 function resetLocalOtpCooldown() {
   const userId = execFileSync('docker', [
     'exec',
@@ -35,14 +31,7 @@ function resetLocalOtpCooldown() {
 async function listMessages(): Promise<MailpitSummary[]> {
   const response = await fetch(`${mailpitURL}/api/v1/messages`)
   if (!response.ok) throw new Error(`Mailpit list zwrócił HTTP ${response.status}`)
-  return ((await response.json()) as MailpitList).messages
-}
-
-async function messageHTML(id: string): Promise<string> {
-  const response = await fetch(`${mailpitURL}/api/v1/message/${id}`)
-  if (!response.ok) throw new Error(`Mailpit message zwrócił HTTP ${response.status}`)
-  const message = (await response.json()) as { HTML?: string; Text?: string }
-  return `${message.HTML ?? ''}\n${message.Text ?? ''}`
+  return ((await response.json()) as { messages: MailpitSummary[] }).messages
 }
 
 async function newestOtp(existingIds: Set<string>): Promise<string | null> {
@@ -51,7 +40,10 @@ async function newestOtp(existingIds: Set<string>): Promise<string | null> {
   )
   if (!message) return null
 
-  const html = await messageHTML(message.ID)
+  const response = await fetch(`${mailpitURL}/api/v1/message/${message.ID}`)
+  if (!response.ok) throw new Error(`Mailpit message zwrócił HTTP ${response.status}`)
+  const { HTML = '', Text = '' } = (await response.json()) as { HTML?: string; Text?: string }
+  const html = `${HTML}\n${Text}`
   const match = html.match(/class="code"[\s\S]*?>\s*(\d{6})\s*</)
   return match?.[1] ?? null
 }

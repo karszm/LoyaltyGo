@@ -30,8 +30,8 @@ Na 2026-09-14 zaimplementowano:
 - testy cienkich adapterów `db.ts` i `api.ts`, w tym Storage, limity, kolejność i mapowanie
   błędów z Edge Functions;
 - regresję zachowania kodu i pól walidacji w już znormalizowanym `PanelError`;
-- uruchamialny pakiet Playwright: kontrakt UI OTP na desktopie/mobile oraz jawny lokalny smoke
-  wykorzystujący prawdziwe Supabase Auth, Mailpit, PostgREST i RLS;
+- uruchamialny lokalny smoke Playwright wykorzystujący prawdziwe Supabase Auth, Mailpit,
+  PostgREST i RLS;
 - wykonanie pięciu istniejących pakietów SQL oraz 52 testów Deno wspólnej warstwy backendu;
 - izolację `storage_logos.test.sql` od rekordów istniejących wcześniej w lokalnej bazie.
 

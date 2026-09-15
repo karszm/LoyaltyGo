@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
-import '@testing-library/jest-dom/vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { BrowserRouter, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { deferred } from '../test/fixtures'
@@ -63,7 +62,6 @@ describe('SessionProvider i RequireAuth', () => {
   })
 
   afterEach(() => {
-    cleanup()
     window.history.replaceState({}, '', '/')
   })
 

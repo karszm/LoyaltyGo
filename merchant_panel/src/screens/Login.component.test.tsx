@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 
-import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Login from './Login'
 
 const mocks = vi.hoisted(() => ({
@@ -56,10 +55,6 @@ describe('Login', () => {
     })
     mocks.signInWithOtp.mockResolvedValue({ error: null })
     mocks.verifyOtp.mockResolvedValue({ error: null })
-  })
-
-  afterEach(() => {
-    cleanup()
   })
 
   it('wyjaśnia, że pierwszy login może utworzyć konto', () => {

@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 
-import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LogoUploadError } from '../lib/db'
 import { PanelError } from '../lib/errors'
 import { deferred, merchantFixture, programFixture } from '../test/fixtures'
@@ -38,22 +37,14 @@ vi.mock('../lib/db', async (importOriginal) => ({
   uploadLogo: mocks.uploadLogo,
   uploadCardImage: mocks.uploadCardImage,
 }))
-vi.mock('../lib/logoCanvas', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/logoCanvas')>()),
-  prepareLogo: mocks.prepareLogo,
-}))
-vi.mock('../lib/cardCanvas', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/cardCanvas')>()),
-  prepareCardImage: mocks.prepareCardImage,
-}))
-vi.mock('../lib/api', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/api')>()),
+vi.mock('../lib/logoCanvas', () => ({ prepareLogo: mocks.prepareLogo }))
+vi.mock('../lib/cardCanvas', () => ({ prepareCardImage: mocks.prepareCardImage }))
+vi.mock('../lib/api', () => ({
   generateCardImage: mocks.generateCardImage,
   publishProgram: mocks.publishProgram,
   syncBranding: mocks.syncBranding,
 }))
-vi.mock('../lib/formDraft', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/formDraft')>()),
+vi.mock('../lib/formDraft', () => ({
   loadDraft: mocks.loadDraft,
   saveDraft: mocks.saveDraft,
   clearDraft: mocks.clearDraft,
@@ -120,8 +111,6 @@ describe('CardWizard', () => {
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:preview') })
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() })
   })
-
-  afterEach(() => cleanup())
 
   it('prefilluje nowy program nazwą firmy i zapisuje draft użytkownika', async () => {
     renderWizard(programFixture({ display_name: null }), merchantFixture({ company_name: 'Salon Róża' }))

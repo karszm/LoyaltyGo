@@ -1,15 +1,12 @@
 // @vitest-environment jsdom
 
-import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { programFixture } from '../test/fixtures'
 import { AppShell } from './AppShell'
 import { SideNav } from './SideNav'
-
-afterEach(() => cleanup())
 
 describe('AppShell', () => {
   it('ma skip link i przenosi fokus na tytuł ekranu', () => {

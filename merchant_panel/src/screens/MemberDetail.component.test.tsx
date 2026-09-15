@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 
-import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PanelError } from '../lib/errors'
 import { deferred, memberFixture, programFixture, transactionFixture } from '../test/fixtures'
 import MemberDetail from './MemberDetail'
@@ -17,15 +16,11 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../lib/program', () => ({ useProgram: mocks.useProgram }))
-vi.mock('../lib/db', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/db')>()),
+vi.mock('../lib/db', () => ({
   getMemberById: mocks.getMemberById,
   listTransactions: mocks.listTransactions,
 }))
-vi.mock('../lib/api', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../lib/api')>()),
-  adjustPoints: mocks.adjustPoints,
-}))
+vi.mock('../lib/api', () => ({ adjustPoints: mocks.adjustPoints }))
 
 function renderDetail() {
   return render(
@@ -45,8 +40,6 @@ describe('MemberDetail', () => {
     mocks.listTransactions.mockResolvedValue({ rows: [], count: 0 })
     mocks.adjustPoints.mockResolvedValue({ id: 'adjustment-1', points_delta: 12, points_balance: 54 })
   })
-
-  afterEach(() => cleanup())
 
   it('dla draftu pokazuje bramkę bez pobierania klienta', () => {
     mocks.useProgram.mockReturnValue({ program: programFixture({ status: 'draft' }) })

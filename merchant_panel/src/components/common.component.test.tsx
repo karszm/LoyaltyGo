@@ -1,16 +1,13 @@
 // @vitest-environment jsdom
 
-import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { DataTable, SkeletonRows, type DataTableColumn } from './DataTable'
 import { DraftGate } from './DraftGate'
 import { Empty } from './Empty'
 import { ProgramStateChip } from './ProgramStateChip'
-
-afterEach(() => cleanup())
 
 describe('komponenty wspólne panelu', () => {
   it('DraftGate wyjaśnia blokadę i prowadzi do karty programu', () => {
