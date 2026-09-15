@@ -70,6 +70,16 @@ describe('SideNav', () => {
     expect(logout).toHaveBeenCalledTimes(2)
   })
 
+  it('pokazuje wersję buildu pod wylogowaniem', () => {
+    render(
+      <MemoryRouter>
+        <SideNav program={programFixture()} onLogout={vi.fn()} />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText(/^Version 1\.0\(.+\)$/)).toHaveClass('shell__build-version')
+  })
+
   it('w stanie ładowania nie pokazuje nieprawdziwej nazwy ani statusu', () => {
     render(<MemoryRouter><SideNav onLogout={vi.fn()} /></MemoryRouter>)
 

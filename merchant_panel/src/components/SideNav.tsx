@@ -17,6 +17,8 @@ const NAV_ITEMS: ReadonlyArray<{ to: string; label: string }> = [
   { to: '/zaproszenie', label: 'Zaproszenie' },
 ]
 
+const BUILD_VERSION = `Version 1.0(${import.meta.env.VITE_BUILD_COMMIT ?? 'unknown'})`
+
 // NavLink sets aria-current="page" on the active item by itself (panel-shell-design.md §8) --
 // this only adds the visual treatment (--text-1, 590 weight, wash) on top of it.
 function navClassName({ isActive }: { isActive: boolean }): string {
@@ -79,6 +81,7 @@ export function SideNav({ program, merchantEmail, onLogout }: SideNavProps) {
           <button type="button" className="btn--text" onClick={onLogout}>
             Wyloguj
           </button>
+          <p className="shell__build-version">{BUILD_VERSION}</p>
         </div>
       </div>
 
