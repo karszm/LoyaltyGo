@@ -1,0 +1,264 @@
+---
+import { colorControls, numberControls, normalizeRadiance, type RadianceOptions } from "../lib/radiance";
+
+type Props = Partial<RadianceOptions>;
+const options = normalizeRadiance(Astro.props);
+---
+
+<radiance-background data-options={JSON.stringify(options)} style={`--base-a:${options.baseColorA};--base-b:${options.baseColorB};--blob:${options.blobColor};--highlight:${options.highlightColor}`}>
+  <div class="radiance-field" aria-hidden="true">
+    <canvas></canvas>
+  </div>
+  <button class="motion-toggle" type="button" aria-label="Wstrzymaj animację tła" aria-pressed="false" hidden>
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
+      <path class="pause" d="M3 2h3v10H3zm5 0h3v10H8z" />
+      <path class="play" d="M4 2l8 5-8 5z" />
+    </svg>
+  </button>
+  {import.meta.env.DEV && (
+    <form class="shader-controls" aria-label="Parametry shadera" hidden>
+      <header><strong>Radiance · wstęga 3D</strong><button type="reset">Reset</button></header>
+      {colorControls.map(([key, label]) => (
+        <label>{label}<span><input type="color" name={key} value={options[key]} /><output>{options[key]}</output></span></label>
+      ))}
+      {numberControls.map(([key, label, min, max, step]) => (
+        <label>{label}<span><input type="range" name={key} min={min} max={max} step={step} value={options[key]} /><output>{options[key]}</output></span></label>
+      ))}
+    </form>
+  )}
+</radiance-background>
+
+<style>
+  radiance-background {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .radiance-field {
+    position: absolute;
+    inset: calc(-1 * var(--header-height)) calc(50% - 50vw) 0;
+    z-index: -1;
+    overflow: hidden;
+    background: radial-gradient(ellipse at 90% 10%, var(--blob) 0%, transparent 40%),
+      radial-gradient(ellipse at 75% 25%, var(--base-b), transparent 48%);
+    filter: var(--radiance-filter);
+    mask-image: linear-gradient(to bottom, black 80%, transparent);
+  }
+
+  .radiance-field:has(canvas[data-ready]) { background: none; }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+  }
+
+  .motion-toggle {
+    position: absolute;
+    right: 0;
+    bottom: 1rem;
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    background: var(--surface);
+    color: var(--ink-soft);
+    cursor: pointer;
+    pointer-events: auto;
+    z-index: 2;
+  }
+
+  button[hidden], .play, button[aria-pressed="true"] .pause { display: none; }
+  button[aria-pressed="true"] .play { display: block; }
+  radiance-background:has(.shader-controls:not([hidden])) .motion-toggle { right: auto; left: 0; }
+
+  .shader-controls {
+    position: fixed;
+    z-index: 30;
+    top: calc(var(--header-height) + 1rem);
+    right: 1rem;
+    width: min(320px, calc(100vw - 2rem));
+    max-height: calc(100dvh - var(--header-height) - 2rem);
+    overflow: auto;
+    padding: 1.25rem;
+    border: 1px solid #34343b;
+    border-radius: 1rem;
+    background: #111114;
+    color: #efeff5;
+    box-shadow: 0 12px 48px #0005;
+    pointer-events: auto;
+    color-scheme: dark;
+    font-size: 0.85rem;
+  }
+  .shader-controls[hidden] { display: none; }
+  .shader-controls header, .shader-controls label span { display: flex; align-items: center; gap: 0.75rem; }
+  .shader-controls header { justify-content: space-between; margin-bottom: 1rem; }
+  .shader-controls button { cursor: pointer; }
+  .shader-controls label { display: grid; gap: 0.25rem; margin-top: 0.85rem; }
+  .shader-controls input[type="range"] { min-width: 0; flex: 1; accent-color: #f5a623; }
+  .shader-controls input[type="color"] { width: 2.5rem; height: 2rem; border: 0; padding: 0; }
+  .shader-controls output { min-width: 3rem; font-variant-numeric: tabular-nums; }
+</style>
+
+<script>
+  import { colorControls, numberControls, normalizeRadiance, hexToRgb, type RadianceOptions } from "../lib/radiance";
+  import { createRibbonMesh, vertexSource, fragmentSource } from "../lib/ribbon";
+
+  class RadianceBackground extends HTMLElement {
+    cleanup = () => {};
+
+    connectedCallback() {
+      const canvas = this.querySelector("canvas")!;
+      const button = this.querySelector<HTMLButtonElement>(".motion-toggle")!;
+      const initial = normalizeRadiance(JSON.parse(this.dataset.options!));
+      let options = { ...initial };
+      const gl = canvas.getContext("webgl", { alpha: true, antialias: true, depth: true, premultipliedAlpha: true });
+      if (!gl) return; // The CSS gradient also works without JavaScript or WebGL.
+
+      const program = gl.createProgram();
+      if (!program) return;
+      for (const [type, source] of [[gl.VERTEX_SHADER, vertexSource], [gl.FRAGMENT_SHADER, fragmentSource]] as const) {
+        const shader = gl.createShader(type);
+        if (!shader) { gl.deleteProgram(program); return; }
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          gl.deleteShader(shader);
+          gl.deleteProgram(program);
+          return;
+        }
+        gl.attachShader(program, shader);
+        gl.deleteShader(shader);
+      }
+      gl.linkProgram(program);
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) { gl.deleteProgram(program); return; }
+      gl.useProgram(program);
+
+      const buffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      const mesh = createRibbonMesh();
+      gl.bufferData(gl.ARRAY_BUFFER, mesh.vertices, gl.STATIC_DRAW);
+      const indexBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indices, gl.STATIC_DRAW);
+      gl.enable(gl.DEPTH_TEST);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.clearColor(0, 0, 0, 0);
+      const position = gl.getAttribLocation(program, "position");
+      gl.enableVertexAttribArray(position);
+      gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+      const resolution = gl.getUniformLocation(program, "resolution");
+      const time = gl.getUniformLocation(program, "time");
+      const colorUniforms = colorControls.map(([key]) => [key, gl.getUniformLocation(program, key)] as const);
+      const numberUniforms = numberControls.map(([key]) => [key, gl.getUniformLocation(program, key)] as const);
+      const applyOptions = () => {
+        for (const [key, location] of colorUniforms) gl.uniform3fv(location, hexToRgb(options[key]));
+        for (const [key, location] of numberUniforms) gl.uniform1f(location, options[key]);
+        this.style.setProperty("--base-a", options.baseColorA);
+        this.style.setProperty("--base-b", options.baseColorB);
+        this.style.setProperty("--blob", options.blobColor);
+        this.style.setProperty("--highlight", options.highlightColor);
+      };
+      applyOptions();
+      const motion = matchMedia("(prefers-reduced-motion: reduce)");
+      const events = new AbortController();
+      let visible = false;
+      let paused = false;
+      let frame = 0;
+      let previous = 0;
+      let elapsed = 0;
+
+      const draw = () => {
+        gl.uniform2f(resolution, canvas.width, canvas.height);
+        gl.uniform1f(time, elapsed);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.drawElements(gl.TRIANGLES, mesh.indices.length, gl.UNSIGNED_SHORT, 0);
+      };
+      const controls = this.querySelector<HTMLFormElement>(".shader-controls");
+      if (controls && new URLSearchParams(location.search).get("shader") === "edit") {
+        controls.hidden = false;
+        controls.addEventListener("submit", (event) => event.preventDefault(), { signal: events.signal });
+        controls.addEventListener("input", () => {
+          const values: Record<string, string | number> = {};
+          controls.querySelectorAll("input").forEach((input) => {
+            values[input.name] = input.type === "color" ? input.value : input.valueAsNumber;
+            input.parentElement!.querySelector("output")!.value = input.value;
+          });
+          options = normalizeRadiance(values as Partial<RadianceOptions>);
+          applyOptions();
+          draw();
+        }, { signal: events.signal });
+        controls.addEventListener("reset", () => {
+          options = { ...initial };
+          controls.querySelectorAll("input").forEach((input) => {
+            input.parentElement!.querySelector("output")!.value = String(initial[input.name as keyof RadianceOptions]);
+          });
+          applyOptions();
+          draw();
+        }, { signal: events.signal });
+      }
+      const animate = (now: number) => {
+        if (now - previous >= 1000 / 30) {
+          elapsed += Math.min((now - previous) / 1000, 0.1);
+          previous = now;
+          draw();
+        }
+        frame = requestAnimationFrame(animate);
+      };
+      const sync = () => {
+        cancelAnimationFrame(frame);
+        button.hidden = motion.matches;
+        if (visible && !paused && !motion.matches && !document.hidden) {
+          previous = performance.now();
+          frame = requestAnimationFrame(animate);
+        }
+      };
+      const resize = new ResizeObserver(() => {
+        // Cap pixel density and total area while retaining the fine ribbon texture.
+        const scale = Math.min(window.devicePixelRatio, 1.5, Math.sqrt(2000000 / Math.max(1, canvas.clientWidth * canvas.clientHeight)));
+        canvas.width = Math.max(1, Math.round(canvas.clientWidth * scale));
+        canvas.height = Math.max(1, Math.round(canvas.clientHeight * scale));
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        draw();
+        canvas.style.opacity = "1";
+        canvas.dataset.ready = "";
+      });
+      resize.observe(canvas);
+      const intersection = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; sync(); });
+      intersection.observe(this);
+      motion.addEventListener("change", sync, { signal: events.signal });
+      document.addEventListener("visibilitychange", sync, { signal: events.signal });
+      button.addEventListener("click", () => {
+        paused = !paused;
+        button.setAttribute("aria-pressed", String(paused));
+        button.setAttribute("aria-label", paused ? "Wznów animację tła" : "Wstrzymaj animację tła");
+        sync();
+      }, { signal: events.signal });
+      this.cleanup = () => {
+        cancelAnimationFrame(frame);
+        events.abort();
+        resize.disconnect();
+        intersection.disconnect();
+        gl.deleteBuffer(buffer);
+        gl.deleteBuffer(indexBuffer);
+        gl.deleteProgram(program);
+      };
+      canvas.addEventListener("webglcontextlost", () => {
+        this.cleanup();
+        delete canvas.dataset.ready;
+        canvas.hidden = true;
+        canvas.style.display = "none";
+        button.hidden = true;
+      }, { signal: events.signal });
+    }
+
+    disconnectedCallback() { this.cleanup(); }
+  }
+  customElements.define("radiance-background", RadianceBackground);
+</script>
