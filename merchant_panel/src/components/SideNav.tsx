@@ -17,7 +17,7 @@ const NAV_ITEMS: ReadonlyArray<{ to: string; label: string }> = [
   { to: '/zaproszenie', label: 'Zaproszenie' },
 ]
 
-const BUILD_VERSION = `Version 1.0(${import.meta.env.VITE_BUILD_COMMIT ?? 'unknown'})`
+const BUILD_VERSION = `Version ${import.meta.env.VITE_BUILD_VERSION ?? '1.0'}(${import.meta.env.VITE_BUILD_COMMIT ?? 'unknown'})`
 
 // NavLink sets aria-current="page" on the active item by itself (panel-shell-design.md §8) --
 // this only adds the visual treatment (--text-1, 590 weight, wash) on top of it.

@@ -47,6 +47,7 @@ npm test                  # Vitest — unit + testy komponentowe React/jsdom
 npm run test:e2e:local    # Playwright — prawdziwe lokalne Auth/Mailpit/PostgREST/RLS
 npx tsc -b --noEmit       # typecheck alone, no build output (there's no separate "typecheck" script)
 npm run build             # tsc -b && vite build -> dist/
+./build4prod              # czysty build produkcyjny i podniesienie wersji np. 1.0 -> 1.0.1
 ```
 
 `test:e2e:local` wymaga działającego `supabase start` oraz idempotentnego fixture'u z

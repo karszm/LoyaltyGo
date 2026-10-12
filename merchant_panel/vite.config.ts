@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 
 function buildCommit(): string {
   try {
@@ -10,11 +11,16 @@ function buildCommit(): string {
   }
 }
 
+function buildVersion(): string {
+  return process.env.VITE_BUILD_VERSION ?? readFileSync(new URL('./build-version', import.meta.url), 'utf8').trim()
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   define: {
     'import.meta.env.VITE_BUILD_COMMIT': JSON.stringify(buildCommit()),
+    'import.meta.env.VITE_BUILD_VERSION': JSON.stringify(buildVersion()),
   },
   server: {
     port: 3000,
