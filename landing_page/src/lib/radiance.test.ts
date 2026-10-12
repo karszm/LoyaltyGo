@@ -21,7 +21,7 @@ test("radiance accepts the reference preset, custom colors and bounded parameter
   assert.equal(custom.swirlDetail, radianceDefaults.swirlDetail);
   assert.equal(custom.blobDeformation, radianceDefaults.blobDeformation);
   assert.deepEqual(hexToRgb(custom.baseColorA), [0, 1, 128 / 255]);
-  assert.equal(radianceDefaults.waveAngle, 182);
+  assert.equal(radianceDefaults.waveAngle, 174);
 });
 
 test("ribbon mesh has valid triangles, complete UV coverage and 16-bit indices", () => {

@@ -289,6 +289,18 @@ p {
   transform: scale(0.98);
 }
 
+.button--outline {
+  border-color: currentColor;
+  background: transparent;
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.button--outline:hover {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  box-shadow: none;
+}
+
 .button--small {
   min-height: 2.65rem;
   padding-inline: 1.1rem;
@@ -414,18 +426,24 @@ p {
   display: grid;
   min-height: calc(100dvh - var(--header-height));
   grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
-  align-items: center;
+  align-items: end;
   gap: clamp(2.25rem, 5vw, 6.5rem);
   padding-block: clamp(2rem, 5vw, 5.5rem);
 }
 
 .hero-copy {
+  container-type: inline-size;
   padding-bottom: 1rem;
 }
 
 .hero h1 {
   margin-bottom: 1.75rem;
-  font-size: clamp(3.75rem, 6.5vw, 7rem);
+  font-size: min(3.5rem, 7.5cqw);
+}
+
+.hero h1 span {
+  display: block;
+  white-space: nowrap;
 }
 
 .hero-lead {
@@ -440,27 +458,6 @@ p {
   display: flex;
   align-items: center;
   gap: 1.35rem;
-}
-
-.hero-media {
-  position: relative;
-  min-height: 0;
-  width: min(100%, 24rem);
-  aspect-ratio: 4 / 3;
-  align-self: end;
-  justify-self: end;
-  margin: 0 0 2rem;
-  overflow: hidden;
-  border-radius: var(--radius-surface);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow-soft);
-}
-
-.hero-media img {
-  width: 100%;
-  height: 100%;
-  min-height: inherit;
-  object-fit: cover;
 }
 
 .value-rail {
@@ -1538,17 +1535,6 @@ p {
   }
 }
 
-@keyframes media-enter {
-  from {
-    opacity: 0;
-    transform: scale(0.96) translateY(1.5rem);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
 @keyframes skeleton {
   from {
     background-position: 160% 0;
@@ -1581,10 +1567,6 @@ p {
     animation-delay: 200ms;
   }
 
-  [data-hero-media] {
-    opacity: 0;
-    animation: media-enter 1s 120ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1636,9 +1618,6 @@ p {
     gap: 2.5rem;
   }
 
-  .hero h1 {
-    font-size: clamp(3.5rem, 6vw, 5rem);
-  }
 }
 
 @media (max-width: 56rem) {
@@ -1703,7 +1682,6 @@ p {
   }
 
   .hero {
-    min-height: auto;
     padding-block: 4rem 2rem;
   }
 
@@ -1711,14 +1689,6 @@ p {
     max-width: 39rem;
   }
 
-  .hero h1 {
-    font-size: clamp(3.3rem, 10vw, 5.6rem);
-  }
-
-  .hero-media {
-    min-height: 0;
-    width: min(100%, 28rem);
-  }
 
   .value-rail {
     grid-template-columns: 1fr;
@@ -1820,7 +1790,6 @@ p {
 
   .hero h1 {
     margin-bottom: 1.35rem;
-    font-size: clamp(3.1rem, 14vw, 4.6rem);
   }
 
   .hero-lead {
@@ -1830,14 +1799,6 @@ p {
   .hero-actions {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .hero-media {
-    min-height: 0;
-  }
-
-  .hero-media img {
-    object-position: 58% center;
   }
 
   .comparison article {

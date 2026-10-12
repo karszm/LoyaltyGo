@@ -1,0 +1,57 @@
+#!/bin/sh
+set -eu
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+version_file="$script_dir/build-version"
+current=$(tr -d '\r\n' < "$version_file")
+
+if [ ! -f "$script_dir/.env.local" ]; then
+  echo 'Brak merchant_panel/.env.local z produkcyjną konfiguracją Supabase' >&2
+  exit 1
+fi
+
+supabase_url=$(sed -n 's/^VITE_SUPABASE_URL=//p' "$script_dir/.env.local" | head -n 1)
+
+case "$supabase_url" in
+  ''|*127.0.0.1*|*localhost*)
+    echo '.env.local musi wskazywać produkcyjne VITE_SUPABASE_URL' >&2
+    exit 1
+    ;;
+esac
+
+case "$current" in
+  *.*.*)
+    prefix=${current%.*}
+    patch=${current##*.}
+    ;;
+  *.*)
+    prefix=$current
+    patch=0
+    ;;
+  *)
+    echo "Nieprawidłowa wersja w $version_file: $current" >&2
+    exit 1
+    ;;
+esac
+
+major=${prefix%%.*}
+minor=${prefix#*.}
+for part in "$major" "$minor" "$patch"; do
+  case "$part" in
+    ''|*[!0-9]*)
+      echo "Nieprawidłowa wersja w $version_file: $current" >&2
+      exit 1
+      ;;
+  esac
+done
+
+next="$major.$minor.$((patch + 1))"
+
+(
+  cd "$script_dir"
+  npm ci
+  VITE_BUILD_VERSION="$next" npm run build
+)
+
+printf '%s\n' "$next" > "$version_file"
+printf 'Built Version %s\n' "$next"

@@ -18,6 +18,9 @@ const options = normalizeRadiance(Astro.props);
   {import.meta.env.DEV && (
     <form class="shader-controls" aria-label="Parametry shadera" hidden>
       <header><strong>Radiance · wstęga 3D</strong><button type="reset">Reset</button></header>
+      <button type="button" class="export-config">Eksportuj konfigurację</button>
+      <p class="export-status" role="status"></p>
+      <textarea class="export-result" aria-label="Konfiguracja wstęgi JSON" readonly hidden></textarea>
       {colorControls.map(([key, label]) => (
         <label>{label}<span><input type="color" name={key} value={options[key]} /><output>{options[key]}</output></span></label>
       ))}
@@ -99,6 +102,9 @@ const options = normalizeRadiance(Astro.props);
   .shader-controls header, .shader-controls label span { display: flex; align-items: center; gap: 0.75rem; }
   .shader-controls header { justify-content: space-between; margin-bottom: 1rem; }
   .shader-controls button { cursor: pointer; }
+  .export-config { width: 100%; padding: 0.6rem; border: 1px solid #777; border-radius: 0.5rem; }
+  .export-status:empty { display: none; }
+  .export-result { width: 100%; min-height: 12rem; margin-top: 0.5rem; font-family: monospace; }
   .shader-controls label { display: grid; gap: 0.25rem; margin-top: 0.85rem; }
   .shader-controls input[type="range"] { min-width: 0; flex: 1; accent-color: #f5a623; }
   .shader-controls input[type="color"] { width: 2.5rem; height: 2rem; border: 0; padding: 0; }
@@ -183,6 +189,21 @@ const options = normalizeRadiance(Astro.props);
       const controls = this.querySelector<HTMLFormElement>(".shader-controls");
       if (controls && new URLSearchParams(location.search).get("shader") === "edit") {
         controls.hidden = false;
+        controls.querySelector<HTMLButtonElement>(".export-config")!.addEventListener("click", async () => {
+          const json = JSON.stringify(options, null, 2);
+          const result = controls.querySelector<HTMLTextAreaElement>(".export-result")!;
+          const status = controls.querySelector<HTMLElement>(".export-status")!;
+          result.value = json;
+          result.hidden = false;
+          try {
+            await navigator.clipboard.writeText(json);
+            status.textContent = "Skopiowano konfigurację. Wklej ją w rozmowie.";
+          } catch {
+            result.focus();
+            result.select();
+            status.textContent = "Skopiuj zaznaczoną konfigurację i wklej ją w rozmowie.";
+          }
+        }, { signal: events.signal });
         controls.addEventListener("submit", (event) => event.preventDefault(), { signal: events.signal });
         controls.addEventListener("input", () => {
           const values: Record<string, string | number> = {};
