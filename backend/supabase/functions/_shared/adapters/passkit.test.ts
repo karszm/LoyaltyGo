@@ -134,6 +134,12 @@ function blueprintTemplate(id: string): Record<string, unknown> {
             positionSettings: { section: "SECONDARY_FIELDS", priority: 1 },
           },
         },
+        {
+          uniqueName: "universal.info",
+          label: "Information",
+          defaultValue: "Tell your members about their exclusive benefits here.",
+          appleWalletFieldRenderOptions: { positionSettings: { section: "BACK_FIELDS" } },
+        },
       ],
     },
   };
@@ -277,13 +283,19 @@ Deno.test("live: applyBranding sets STORE_CARD, QR and moves the balance onto th
       const points = put.data.dataFields.find((f: Record<string, any>) => f.uniqueName === "members.member.points");
       assertEquals(points.appleWalletFieldRenderOptions.positionSettings.section, "PRIMARY_FIELDS");
       assertEquals(points.appleWalletFieldRenderOptions.textAlignment, "LEFT");
-      assertEquals(points.appleWalletFieldRenderOptions.changeMessage, "You now have %@ points!");
+      assertEquals(points.appleWalletFieldRenderOptions.changeMessage, "Masz teraz %@ pkt.");
       // Siblings are left exactly where they were.
       const name = put.data.dataFields.find((f: Record<string, any>) => f.uniqueName === "person.displayName");
       assertEquals(name.appleWalletFieldRenderOptions.positionSettings.section, "SECONDARY_FIELDS");
       // ...except the tier field, which is gone: one tier per program means it always read
       // `TIER / default` next to the customer's name.
       assertEquals(put.data.dataFields.find((f: Record<string, any>) => f.uniqueName === "members.tier.name"), undefined);
+      // The blueprint's labels are English; the card is Polish.
+      assertEquals(points.label, "Punkty");
+      assertEquals(name.label, "Imię");
+      const info = put.data.dataFields.find((f: Record<string, any>) => f.uniqueName === "universal.info");
+      assertEquals(info.label, "Informacje");
+      assertEquals(info.defaultValue, "Pokaż ten kod przy kasie, żeby zebrać punkty.");
     },
   );
 });
