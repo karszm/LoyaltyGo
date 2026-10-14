@@ -460,6 +460,10 @@ p {
   gap: 1.35rem;
 }
 
+.privacy-hero .hero-actions {
+  margin-top: 2rem;
+}
+
 .value-rail {
   display: grid;
   grid-template-columns: 1.05fr 1fr 0.95fr;
@@ -621,10 +625,14 @@ p {
   max-width: 10ch;
 }
 
-.steps-intro > p:last-child {
+.steps-intro > p:last-of-type {
   max-width: 32rem;
   margin-bottom: 0;
   font-size: 1.1rem;
+}
+
+.steps-intro .button {
+  margin-top: 2rem;
 }
 
 .step-stack {
@@ -853,6 +861,10 @@ p {
   margin-bottom: 1rem;
 }
 
+.calculator .calc-cta {
+  margin: 1rem 0 0;
+}
+
 .form-error {
   margin-bottom: 1rem;
   color: #b84234;
@@ -1046,7 +1058,7 @@ p {
 }
 
 .wallet-pass-balance > span,
-.wallet-pass-offer > span {
+.wallet-pass-member > span {
   color: color-mix(in srgb, var(--dark-ink) 60%, transparent);
   font-size: 0.78rem;
 }
@@ -1063,14 +1075,20 @@ p {
   font-size: 0.88rem;
 }
 
-.wallet-pass-offer {
+.wallet-pass-member {
   display: grid;
   padding-top: 1.4rem;
   border-top: 1px solid rgba(255, 255, 255, 0.18);
   gap: 0.35rem;
 }
 
-.wallet-pass-offer strong {
+.wallet-preview-cta {
+  display: flex;
+  width: fit-content;
+  margin: 1.5rem auto 0;
+}
+
+.wallet-pass-member strong {
   font-size: 1.2rem;
   letter-spacing: -0.025em;
 }

@@ -5,87 +5,92 @@ import { COMPANY } from "../lib/company";
 
 const pageTitle = "Program lojalnościowy w Apple i Google Wallet | LoyaltyGo";
 const pageDescription =
-  "Program lojalnościowy w Apple Wallet i Google Wallet dla małych firm. Klient nie instaluje aplikacji, Ty nie kupujesz sprzętu. Uruchom w kilka minut.";
+  "Program lojalnościowy w Apple Wallet i Google Wallet dla małych firm. Klient nie instaluje aplikacji, a kartę z Twoim logo i kod QR do druku masz w kilka minut.";
 
 const merchantAppUrl = "https://app.loyaltygo.pl";
+const ctaLabel = "Stwórz swoją kartę";
 
 const benefits = [
   {
-    title: "Klient nie potrzebuje aplikacji",
-    text: "Karta trafia do aplikacji portfel (Wallet), obok biletów i kart, których już używa.",
+    title: "Klient niczego nie instaluje",
+    text: "Karta zapisuje się w portfelu, który jego telefon już ma. Wystarczy zeskanować kod aparatem.",
   },
   {
-    title: "Nie potrzebujesz sprzętu",
-    text: "Lojalność zintegrowana jest z aplikacją oraz rozwiązaniem SoftPos od Tpay.",
+    title: "Program tylko Twojej firmy",
+    text: "Karta nosi Twoje logo i kolor. Twoi klienci nie trafiają do wspólnej bazy z innymi firmami.",
   },
   {
-    title: "Uruchamiasz po swojemu, szybciej niż myślisz",
-    text: "Konfiguracja programu w panelu zajmuje około 5 minut.",
+    title: "Gotowe w kilka minut",
+    text: "Kartę ustawiasz sam w panelu. Kod QR na kartce A4 drukujesz na zwykłej drukarce.",
   },
 ];
 
 const steps = [
   {
-    action: "Zaproś",
-    title: "Jeden QR przy kasie",
-    text: "Klient skanuje kod aparatem, podaje imię, nazwisko i e-mail, a karta trafia prosto do jego Wallet.",
-    detail: "Bez pobierania aplikacji",
+    action: "Zaprojektuj",
+    title: "Twoja karta w panelu",
+    text: "Ustawiasz nazwę, logo, kolor i liczbę punktów za każdą złotówkę. Podgląd pokazuje kartę tak, jak zobaczy ją klient.",
+    detail: "Kilka minut w przeglądarce",
     tone: "light",
   },
   {
-    action: "Rozpoznaj",
-    title: "Karta przy płatności",
-    text: "Przy kolejnej wizycie skanujesz kartę w SoftPOS. Transakcja i klient od razu łączą się w jedną historię.",
-    detail: "Bez zmiany procesu na kasie",
+    action: "Wydrukuj",
+    title: "Jeden QR przy kasie",
+    text: "Panel przygotowuje kartkę A4 z nazwą Twojej firmy i kodem QR. Drukujesz ją na zwykłej drukarce i wieszasz przy kasie.",
+    detail: "Kod jest stały, drukujesz go raz",
     tone: "accent",
   },
   {
-    action: "Daj powód",
-    title: "Punkty rosną. Klient wraca.",
-    text: "Saldo aktualizuje się na karcie, a dostępna oferta czeka tam, gdzie klient naprawdę ją znajdzie.",
-    detail: "Twoja marka zostaje w telefonie",
+    action: "Zaproś",
+    title: "Karta w telefonie klienta",
+    text: "Klient skanuje kod aparatem, podaje imię, nazwisko i e-mail, a karta trafia prosto do portfela w jego telefonie.",
+    detail: "Bez pobierania aplikacji",
     tone: "dark",
   },
 ];
 
 const customerBenefits = [
-  ["Bez haseł", "Jeden skan i trzy pola. To cały onboarding."],
-  ["Saldo zawsze pod ręką", "Punkty aktualizują się po każdej zarejestrowanej wizycie."],
-  ["Oferta bez szukania", "Kupon jest widoczny bezpośrednio na karcie w Wallet."],
-  ["Jedna firma, jedna karta", "Dane i punkty pozostają w programie konkretnego miejsca."],
+  ["Bez aplikacji i haseł", "Skan aparatem i krótki formularz. Tyle trwa dołączenie."],
+  ["Zawsze przy sobie", "Karta leży w portfelu telefonu, obok kart płatniczych."],
+  ["Karta wraca po zmianie telefonu", "Wystarczy podać e-mail na stronie zaproszenia."],
+  ["Minimum danych", "Tylko imię, nazwisko i e-mail. Bez numeru telefonu i daty urodzenia."],
 ];
 
 const audiences = [
-  ["Beauty i fryzjerstwo", "Rytm wizyt, który łatwo zamienić w stałą relację."],
-  ["Gabinety", "Regularne przeglądy i zabiegi, o których klient powinien pamiętać."],
-  ["Kawiarnie i gastro", "Częste, małe transakcje, które szybko budują przyzwyczajenie."],
-  ["Usługi lokalne", "Warsztat, groomer czy studio. Powrót klienta oznacza stabilniejszy miesiąc."],
+  ["Beauty i fryzjerstwo", "Klientka wraca co sześć tygodni. Albo idzie do salonu obok."],
+  ["Gabinety", "Pacjent przychodzi raz na pół roku. Przez cały ten czas Twoja karta jest w jego telefonie."],
+  ["Kawiarnie i gastro", "Kawa codziennie, ale niekoniecznie u Ciebie. Karta przechyla szalę na Twoją korzyść."],
+  ["Usługi lokalne", "Warsztat, groomer czy studio: stały klient to przewidywalny kalendarz."],
 ];
 
 const faqs = [
   [
     "Czy klient musi instalować aplikację?",
-    "Nie. Karta działa w Apple Wallet i Google Wallet. Klient dodaje ją po zeskanowaniu kodu QR.",
+    "Nie. Karta zapisuje się w cyfrowym portfelu: na iPhonie w aplikacji Portfel (Apple Wallet), na Androidzie w Portfelu Google. Klient dodaje ją po zeskanowaniu kodu QR.",
   ],
   [
-    "Czy potrzebuję nowego sprzętu?",
-    "Nie. LoyaltyGo integruje się z aplikacją SoftPOS przez SDK. Korzystasz z terminala, który już masz.",
+    "Co dostaję zaraz po rejestracji?",
+    "Kreator karty, w którym ustawiasz nazwę, logo, kolor i liczbę punktów za złotówkę, oraz kod QR na kartce A4 do wydrukowania. Klienci mogą dołączać od razu po wydrukowaniu kodu.",
   ],
   [
     "Co widzi klient na karcie?",
-    "Twoją markę, aktualne saldo punktów i dostępne oferty w programie Twojej firmy.",
-  ],
-  [
-    "Jak naliczane są punkty?",
-    "Ustalasz własny przelicznik. Po rejestracji transakcji saldo klienta aktualizuje się na karcie.",
+    "Twoje logo i nazwę oraz aktualne saldo punktów.",
   ],
   [
     "Jakie dane podaje klient?",
-    "W pierwszej wersji tylko imię, nazwisko i e-mail. Szczegóły prawne programu ustalasz zgodnie z rolą administratora danych.",
+    "Tylko imię, nazwisko i e-mail. Nie łączymy ich z programami innych firm.",
   ],
   [
-    "Czy działa na iPhone i Androidzie?",
-    "Tak. Karty są przygotowane dla Apple Wallet i Google Wallet. Integracja z SoftPOS w pierwszej wersji korzysta z SDK iOS.",
+    "Czy klienci zobaczą inne firmy z LoyaltyGo?",
+    "Nie. Każda firma ma osobny program. Dane i punkty Twoich klientów nie trafiają do innych programów, a klient nie widzi katalogu innych firm.",
+  ],
+  [
+    "Czy działa na iPhonie i Androidzie?",
+    "Tak, klient może mieć dowolny z nich. Kartę ustawiasz w panelu, który działa w przeglądarce.",
+  ],
+  [
+    "Co, jeśli klient zmieni telefon?",
+    "Na stronie zaproszenia wybiera „Odzyskaj kartę” i podaje swój e-mail. Na ten adres przychodzi link do karty z zachowanymi punktami.",
   ],
 ];
 
@@ -118,9 +123,7 @@ const appLd = {
   publisher: { "@id": ORG_ID },
   featureList: [
     "Karta lojalnościowa w Apple Wallet i Google Wallet",
-    "Onboarding klienta przez statyczny kod QR",
-    "Naliczanie punktów z aplikacji SoftPOS przez SDK",
-    "Kupony i oferty widoczne na karcie",
+    "Dołączanie klienta przez kod QR przy kasie",
     "Panel merchanta z własnym brandingiem karty",
   ],
   // offers: dodać razem ze stroną /cennik.
@@ -159,12 +162,11 @@ const faqLd = {
 
       <nav id="main-nav" class="main-nav" aria-label="Główna nawigacja">
         <a href="#jak-dziala">Jak działa</a>
-        <a href="#korzysci">Korzyści</a>
         <a href="#kalkulator">Kalkulator</a>
-        <a href="#faq">FAQ</a>
+        <a href="#faq">Pytania</a>
       </nav>
 
-      <a class="button button--small header-cta" href={merchantAppUrl}>Uruchom program</a>
+      <a class="button button--small header-cta" href={merchantAppUrl}>{ctaLabel}</a>
     </div>
   </header>
 
@@ -172,14 +174,14 @@ const faqLd = {
     <section id="top" class="hero section-shell">
       <RadianceBackground />
       <div class="hero-copy">
-        <h1 data-hero-item><span>Zamieniaj jednorazowych</span> <span>klientów w stałych klientów</span></h1>
+        <h1 data-hero-item><span>Karta lojalnościowa</span> <span>w telefonie klienta.</span> <span>Gotowa w kilka minut.</span></h1>
         <p class="hero-lead" data-hero-item>
-          Program lojalnościowy w Apple Wallet i Google Wallet dla salonów, gabinetów i kawiarni.
-          Zamień każdą płatność w początek relacji, która nie wymaga dodatkowego wysiłku.
+          Klient skanuje kod przy kasie i Twoja karta trafia do jego cyfrowego portfela Apple lub Google,
+          bez instalowania aplikacji. W panelu widzisz każdego klienta, który dołączył.
         </p>
         <div class="hero-actions" data-hero-item>
-          <a class="button" href={merchantAppUrl}>Uruchom program</a>
-          <a class="button button--outline" href="#jak-dziala">Zobacz jak działa</a>
+          <a class="button" href={merchantAppUrl}>{ctaLabel}</a>
+          <a class="button button--outline" href="#jak-dziala">Zobacz, jak to działa</a>
         </div>
       </div>
 
@@ -199,10 +201,10 @@ const faqLd = {
         <p class="kicker">Codzienność małego biznesu</p>
         <h2>Klient płaci. Wychodzi.<br />I znika.</h2>
         <p class="large-copy">
-          Kasia zna twarze swoich klientek, ale nie widzi, kto był pierwszy raz i kto nie wrócił od miesięcy.
+          W małej firmie stałych klientów zna się z twarzy. Tych, którzy przestali przychodzić, nikt nie zauważa…
         </p>
         <p>
-          Papierowa karta milczy, a kolejna aplikacja zostaje zapomniana. Bez prostego sposobu na rozpoznanie klienta każda wizyta zaczyna się od zera.
+          Papierowa karta z pieczątkami nie powie, kto nie był od trzech miesięcy, a aplikacji małej firmy nikt nie zainstaluje. Klient odchodzi po cichu, a firma widzi to dopiero w niższym obrocie.
         </p>
       </div>
 
@@ -223,27 +225,27 @@ const faqLd = {
     <section id="korzysci" class="shift-section section-space" data-reveal-section>
       <div class="section-shell">
         <div class="shift-heading reveal">
-          <h2>Lojalność nie musi mieszkać w kolejnej aplikacji.</h2>
+          <h2>Twoi klienci mają już aplikację lojalnościową i jest nią cyfrowy portfel.</h2>
           <p>
-            Jeden kod QR zmienia anonimową transakcję w relację, którą możesz rozwijać przy każdej wizycie.
+            Jeden kod QR przy kasie i klient, który właśnie zapłacił, ma Twoją kartę w telefonie.
           </p>
         </div>
 
         <div class="comparison reveal reveal--late">
           <article class="comparison-old">
-            <h3>Kolejna aplikacja</h3>
+            <h3>Papierowa karta z pieczątkami</h3>
             <ul>
-              <li>Najpierw instalacja</li>
-              <li>Potem konto i hasło</li>
-              <li>Na końcu ikona, o której łatwo zapomnieć</li>
+              <li>Zostaje w domu albo ginie</li>
+              <li>Nic nie mówi Ci o kliencie</li>
+              <li>Po zgubieniu przepada razem z pieczątkami</li>
             </ul>
           </article>
           <article class="comparison-new">
-            <h3>LoyaltyGo w Wallet</h3>
+            <h3>Twoja karta w cyfrowym portfelu</h3>
             <ul>
-              <li>Skan aparatem</li>
-              <li>Karta od razu w telefonie</li>
-              <li>Punkty i oferty zawsze w jednym miejscu</li>
+              <li>Jest w telefonie, który klient ma zawsze przy sobie</li>
+              <li>W panelu widzisz imię każdego klienta</li>
+              <li>Po zmianie telefonu klient odzyskuje ją e-mailem</li>
             </ul>
           </article>
         </div>
@@ -253,10 +255,11 @@ const faqLd = {
     <section id="jak-dziala" class="steps-section section-shell section-space" data-reveal-section>
       <div class="steps-intro reveal">
         <p class="eyebrow">Jak to działa</p>
-        <h2>Trzy naturalne momenty. Żadnej nowej rutyny.</h2>
+        <h2>Trzy kroki do pierwszej karty</h2>
         <p>
-          LoyaltyGo dokłada lojalność do procesu płatności, zamiast budować obok niego osobny świat.
+          Wszystko ustawiasz sam w panelu. Pierwszy klient może dołączyć, gdy tylko wydrukujesz kod.
         </p>
+        <a class="button" href={merchantAppUrl}>{ctaLabel}</a>
       </div>
 
       <div class="step-stack">
@@ -275,9 +278,9 @@ const faqLd = {
       <div class="section-shell calculator-grid">
         <div class="calculator-copy reveal">
           <p class="eyebrow">Policz na swoich danych</p>
-          <h2>Jedna dodatkowa wizyta ma konkretną wartość.</h2>
+          <h2>Jedna wizyta więcej w roku. Policz, ile to złotych.</h2>
           <p>
-            Zobacz przykładowy dodatkowy obrót, jeśli część klientów wróci w roku o jeden raz więcej.
+            Wpisz swoje liczby i zobacz, ile obrotu dają nowi klienci, którzy wrócą do Ciebie jeszcze raz.
           </p>
         </div>
 
@@ -292,28 +295,30 @@ const faqLd = {
           </div>
 
           <div class="field-row">
-            <label for="monthly-clients">Klientów miesięcznie</label>
-            <input id="monthly-clients" name="monthlyClients" type="number" min="1" step="1" value="120" inputmode="numeric" required />
-            <small>Użyj średniej z kilku ostatnich miesięcy.</small>
+            <label for="monthly-clients">Nowych klientów miesięcznie</label>
+            <input id="monthly-clients" name="monthlyClients" type="number" min="1" step="1" value="40" inputmode="numeric" required />
+            <small>Osoby, które były u Ciebie pierwszy raz.</small>
           </div>
 
           <div class="field-row field-row--range">
             <div class="range-label">
-              <label for="return-rate">Klienci, którzy wrócą dodatkowy raz</label>
+              <label for="return-rate">Jaka część z nich wróci jeszcze raz (Twoje założenie)</label>
               <output for="return-rate" data-rate-output>10%</output>
             </div>
             <input id="return-rate" name="returnRate" type="range" min="5" max="30" step="1" value="10" />
           </div>
 
-          <button class="button button--dark" type="submit">Policz potencjał</button>
+          <button class="button button--dark" type="submit">Policz dodatkowy obrót</button>
           <p class="form-error" data-form-error role="alert" hidden>Uzupełnij obie wartości liczbami większymi od zera.</p>
 
           <div class="calc-result" aria-live="polite" aria-atomic="true">
             <span class="calc-result-label">Przykładowy dodatkowy obrót rocznie</span>
-            <strong data-result-value>21 600 zł</strong>
+            <strong data-result-value>7200&nbsp;zł</strong>
             <span class="calc-skeleton" aria-hidden="true"></span>
-            <small>Wyliczenie jest scenariuszem, nie gwarancją wyniku.</small>
+            <small>To przykład, nie gwarancja wyniku.</small>
           </div>
+
+          <a class="button calc-cta" href={merchantAppUrl}>{ctaLabel}</a>
         </form>
       </div>
     </section>
@@ -326,14 +331,14 @@ const faqLd = {
           sizes="(max-width: 56rem) calc(100vw - 2rem), 50vw"
           width="1448"
           height="1086"
-          alt="Karta lojalnościowa Jeżycki Look Hair Studio w Apple Wallet na pomarańczowym iPhonie przy terminalu w salonie"
+          alt="Karta lojalnościowa Jeżycki Look Hair Studio w cyfrowym portfelu na pomarańczowym iPhonie, przy terminalu w salonie"
           loading="lazy"
           decoding="async"
         />
       </figure>
 
       <div class="customer-copy reveal reveal--late">
-        <h2>Klient lubi to, czego nie musi się uczyć.</h2>
+        <h2>Łatwiej dołączyć, niż odmówić.</h2>
         <div class="customer-benefits">
           {customerBenefits.map(([title, text]) => (
             <article>
@@ -348,9 +353,9 @@ const faqLd = {
     <section class="brand-section section-space" data-reveal-section>
       <div class="section-shell brand-grid">
         <div class="brand-copy reveal">
-          <h2>To Twoja karta. Klient ma widzieć Twoją markę.</h2>
+          <h2>Twoja marka jest zawsze w portfelu klienta.</h2>
           <p>
-            W panelu ustawiasz nazwę, logo, kolor i zasady punktów. LoyaltyGo pozostaje w tle.
+            Logo, nazwę i kolor ustawiasz sam w panelu. Klient widzi je za każdym razem, gdy otwiera cyfrowy portfel, także między wizytami.
           </p>
 
           <div class="field-row brand-field">
@@ -364,7 +369,7 @@ const faqLd = {
           <p class="preview-label">Podgląd karty</p>
           <article class="wallet-pass" aria-label="Interaktywny podgląd karty lojalnościowej">
             <div class="wallet-pass-topline">
-              <span class="wallet-pass-mark" aria-hidden="true">L</span>
+              <span class="wallet-pass-mark" aria-hidden="true" data-brand-mark>S</span>
               <span data-brand-output>Studio Forma</span>
             </div>
             <div class="wallet-pass-balance">
@@ -372,11 +377,12 @@ const faqLd = {
               <strong>840</strong>
               <small>punktów</small>
             </div>
-            <div class="wallet-pass-offer">
-              <span>Oferta na karcie</span>
-              <strong>20% na kolejną wizytę</strong>
+            <div class="wallet-pass-member">
+              <span>Klient</span>
+              <strong>Anna Nowak</strong>
             </div>
           </article>
+          <a class="button wallet-preview-cta" href={merchantAppUrl}>{ctaLabel}</a>
         </div>
       </div>
     </section>
@@ -397,8 +403,7 @@ const faqLd = {
 
     <section id="faq" class="faq-section section-shell section-space" data-reveal-section>
       <div class="faq-heading reveal">
-        <h2>Krótko i konkretnie.</h2>
-        <p>Najważniejsze odpowiedzi przed uruchomieniem programu.</p>
+        <h2>Zanim założysz program</h2>
       </div>
 
       <div class="faq-list reveal reveal--late">
@@ -413,9 +418,9 @@ const faqLd = {
 
     <section id="start" class="final-cta section-space" data-reveal-section>
       <div class="section-shell final-cta-inner reveal">
-        <h2>Następny stały klient zapłaci u Ciebie dziś.</h2>
-        <p>Daj mu prosty powód, żeby wrócił.</p>
-        <a class="button button--dark" href={merchantAppUrl}>Uruchom program</a>
+        <h2>Twój następny stały klient zapłaci u Ciebie jeszcze dziś.</h2>
+        <p>Niech wyjdzie z Twoją kartą w telefonie.</p>
+        <a class="button button--dark" href={merchantAppUrl}>{ctaLabel}</a>
       </div>
     </section>
   </main>
@@ -426,13 +431,13 @@ const faqLd = {
         <a class="wordmark" href="#top" aria-label="LoyaltyGo, wróć na górę">
           <img class="wordmark-logo" src="/images/logo-dark.png" alt="" width="610" height="160" />
         </a>
-        <p>Lojalność w Wallet. Prostszy powrót klienta.</p>
+        <p>Karta stałego klienta w cyfrowym portfelu Apple i Google.</p>
       </div>
       <nav aria-label="Linki w stopce">
         <a href="#jak-dziala">Jak działa</a>
         <a href="/polityka-prywatnosci">Prywatność</a>
         <a href="mailto:kontakt@loyaltygo.pl">Kontakt</a>
-        <a href={merchantAppUrl}>Panel merchanta</a>
+        <a href={merchantAppUrl}>Zaloguj się</a>
       </nav>
       <p class="copyright">© {new Date().getFullYear()} LoyaltyGo</p>
     </div>
@@ -518,10 +523,12 @@ const faqLd = {
 
     const brandInput = document.querySelector<HTMLInputElement>("[data-brand-input]");
     const brandOutput = document.querySelector<HTMLElement>("[data-brand-output]");
+    const brandMark = document.querySelector<HTMLElement>("[data-brand-mark]");
 
     brandInput?.addEventListener("input", () => {
-      if (!brandOutput) return;
-      brandOutput.textContent = brandInput.value.trim() || "Twoja firma";
+      const name = brandInput.value.trim() || "Twoja firma";
+      if (brandOutput) brandOutput.textContent = name;
+      if (brandMark) brandMark.textContent = name.charAt(0).toLocaleUpperCase("pl");
     });
   </script>
 </BaseLayout>
