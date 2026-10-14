@@ -118,6 +118,15 @@ const POINTS_FIELD = "members.member.points";
 // that word. Removed from the clone; tiers are not a feature we expose.
 const TIER_FIELD = "members.tier.name";
 
+// The blueprint's texts are English ("Points", "Name", "You now have %@ points!") and Wallet
+// draws them as-is on a Polish card. VERIFIED LIVE 2026-10-14: a PUT label lands in the pass's
+// pl.lproj/pass.strings. "pkt" sidesteps Polish plurals — %@ can be 1, 2 or 5.
+const POLISH: Record<string, { label: string; defaultValue?: string; changeMessage?: string }> = {
+  [POINTS_FIELD]: { label: "Punkty", changeMessage: "Masz teraz %@ pkt." },
+  "person.displayName": { label: "Imię" },
+  "universal.info": { label: "Informacje", defaultValue: "Pokaż ten kod przy kasie, żeby zebrać punkty." },
+};
+
 export type Branding = {
   displayName: string;
   logoUrl?: string;
@@ -334,6 +343,15 @@ async function applyBranding(tpl: Record<string, any>, branding: Branding): Prom
   // the clone entirely rather than hidden per platform: one filter covers both wallets.
   const fields = tpl.data?.dataFields as Record<string, any>[] | undefined;
   if (fields) tpl.data.dataFields = fields.filter((f) => f.uniqueName !== TIER_FIELD);
+  for (const f of tpl.data?.dataFields ?? []) {
+    const pl = POLISH[f.uniqueName];
+    if (!pl) continue;
+    f.label = pl.label;
+    if (pl.defaultValue) f.defaultValue = pl.defaultValue;
+    if (pl.changeMessage && f.appleWalletFieldRenderOptions) {
+      f.appleWalletFieldRenderOptions.changeMessage = pl.changeMessage;
+    }
+  }
 
   // The primary field is the ONLY one Apple draws on top of the strip, and the blueprint keeps
   // the balance in HEADER_FIELDS — where the graphic would sit behind nothing at all. Wallet
